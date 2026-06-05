@@ -17,18 +17,31 @@ async function cargarDashboard() {
     const excedentesConfig = json.excedentes || [];
     const homenajes = json.homenajes || [];
 
-    METAS_EXCEDENTES = {};
+METAS_EXCEDENTES = {};
 
-    excedentesConfig.forEach(fila => {
+excedentesConfig.forEach((fila,index) => {
 
-        if (fila[0] === "META_EXCEDENTE") {
+    if(index === 0) return;
 
-            METAS_EXCEDENTES[fila[1].toUpperCase()] =
-                Number(fila[2]) || 0;
+    const nombre =
+    String(fila[0] || "")
+    .trim()
+    .toUpperCase();
 
-        }
+    const meta =
+    Number(fila[1]) || 0;
 
-    });
+    if(nombre){
+
+        METAS_EXCEDENTES[nombre] = meta;
+
+    }
+
+});
+    console.log("METAS_EXCEDENTES",METAS_EXCEDENTES);
+    git add .
+git commit -m "fix excedentes"
+git push
 
     parametros.forEach(fila => {
 
