@@ -225,71 +225,15 @@ function crearGraficoCumplimiento(
 
 }
 
-function crearTablaCumplimiento(
-    ventaRed,
-    ventaParticular,
-    ventaExcedentes
-) {
-
-    const tbody =
-    document.querySelector(
-        "#tablaCumplimiento tbody"
-    );
-
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    const datos = [
-
-        {
-            nombre: "RED",
-            meta: META_RED,
-            real: ventaRed
-        },
-
-        {
-            nombre: "PARTICULAR",
-            meta: META_PARTICULAR,
-            real: ventaParticular
-        },
-
-        {
-            nombre: "EXCEDENTES",
-            meta: META_EXCEDENTES,
-            real: ventaExcedentes
-        }
-
-    ];
-
-    datos.forEach(item => {
-
-        const porcentaje =
-        item.meta > 0
-        ? ((item.real / item.meta) * 100).toFixed(1)
-        : 0;
-
-        tbody.innerHTML += `
-        <tr>
-            <td>${item.nombre}</td>
-            <td>$${item.meta.toLocaleString("es-CO")}</td>
-            <td>$${item.real.toLocaleString("es-CO")}</td>
-            <td>${porcentaje}%</td>
-        </tr>
-        `;
-
-    });
-
-}
-
 function crearTablaExcedentes(homenajes) {
 
     const tbody =
-    document.querySelector(
-        "#tablaExcedentes tbody"
-    );
+    document.querySelector("#tablaExcedentes tbody");
 
-    if (!tbody) return;
+    if (!tbody) {
+        console.log("No existe tablaExcedentes");
+        return;
+    }
 
     tbody.innerHTML = "";
 
@@ -303,7 +247,7 @@ function crearTablaExcedentes(homenajes) {
         .trim();
 
         if (
-            !excedente ||
+            excedente === "" ||
             excedente === "SOAT" ||
             excedente === "PENSIONADO"
         ) {
@@ -318,21 +262,23 @@ function crearTablaExcedentes(homenajes) {
 
     });
 
-    Object.keys(METAS_EXCEDENTES)
-    .forEach(nombre => {
+    console.log("METAS_EXCEDENTES:", METAS_EXCEDENTES);
+    console.log("REALES:", reales);
+
+    for (const nombre in METAS_EXCEDENTES) {
 
         const meta =
-        Number(METAS_EXCEDENTES[nombre] || 0);
+        Number(METAS_EXCEDENTES[nombre]) || 0;
 
         const real =
-        Number(reales[nombre] || 0);
+        Number(reales[nombre]) || 0;
 
         const porcentaje =
         meta > 0
         ? ((real / meta) * 100).toFixed(1)
-        : 0;
+        : "0.0";
 
-        tbody.innerHTML += `
+        const fila = `
         <tr>
             <td>${nombre}</td>
             <td>$${meta.toLocaleString("es-CO")}</td>
@@ -341,74 +287,8 @@ function crearTablaExcedentes(homenajes) {
         </tr>
         `;
 
-    });
-
-}
-function llenarParticulares(homenajes){
-
-const tbody =
-document.querySelector("#tablaParticulares tbody");
-
-if(!tbody) return;
-
-tbody.innerHTML = "";
-
-let soat = 0;
-let pensionado = 0;
-let planes = 0;
-
-homenajes.forEach(item=>{
-
-const tipo =
-String(item.Tipo_Homenaje || "")
-.toUpperCase()
-.trim();
-
-const excedente =
-String(item.Tipo_Excedente || "")
-.toUpperCase()
-.trim();
-
-const cantidad =
-Number(item.Cantidad || 1);
-
-if(tipo === "PLAN"){
-planes += cantidad;
-}
-
-if(excedente === "SOAT"){
-soat += cantidad;
-}
-
-if(excedente === "PENSIONADO"){
-pensionado += cantidad;
-}
-
-});
-
-const total =
-soat + pensionado + planes;
-
-[
-["SOAT", soat],
-["PENSIONADO", pensionado],
-["PLANES", planes]
-].forEach(item=>{
-
-const porcentaje =
-total > 0
-? ((item[1]/total)*100).toFixed(1)
-: 0;
-
-tbody.innerHTML += `
-<tr>
-<td>${item[0]}</td>
-<td>${item[1]}</td>
-<td>${porcentaje}%</td>
-</tr>
-`;
-
-});
+        tbody.innerHTML += fila;
+    }
 
 }
 cargarDashboard();
