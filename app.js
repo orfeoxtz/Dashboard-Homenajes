@@ -77,7 +77,11 @@ parametros.forEach(fila => {
         ventaParticular,
         ventaExcedentes
     );
-
+crearTablaCumplimiento(
+    ventaRed,
+    ventaParticular,
+    ventaExcedentes
+);
 }
 
 function actualizarKPIs(
@@ -185,3 +189,55 @@ function crearGraficoCumplimiento(
 }
 
 cargarDashboard();
+function crearTablaCumplimiento(
+    ventaRed,
+    ventaParticular,
+    ventaExcedentes
+){
+
+const tbody =
+document.querySelector("#tablaCumplimiento tbody");
+
+if(!tbody) return;
+
+tbody.innerHTML="";
+
+const datos=[
+
+{
+nombre:"RED",
+meta:META_RED,
+real:ventaRed
+},
+
+{
+nombre:"PARTICULAR",
+meta:META_PARTICULAR,
+real:ventaParticular
+},
+
+{
+nombre:"EXCEDENTES",
+meta:META_EXCEDENTES,
+real:ventaExcedentes
+}
+
+];
+
+datos.forEach(item=>{
+
+const porcentaje =
+((item.real/item.meta)*100).toFixed(1);
+
+tbody.innerHTML += `
+<tr>
+<td>${item.nombre}</td>
+<td>$${item.meta.toLocaleString("es-CO")}</td>
+<td>$${item.real.toLocaleString("es-CO")}</td>
+<td>${porcentaje}%</td>
+</tr>
+`;
+
+});
+
+}
