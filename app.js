@@ -86,13 +86,7 @@ parametros.forEach(fila => {
         ventaParticular,
         ventaExcedentes
     );
-crearTablaCumplimiento(
-    ventaRed,
-    ventaParticular,
-    ventaExcedentes
-);
-llenarDetalleExcedentes(homenajes);
-llenarParticulares(homenajes);
+cargarDashboard();
 }
 
 function actualizarKPIs(
