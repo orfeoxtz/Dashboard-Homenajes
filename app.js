@@ -1,15 +1,36 @@
 const API_URL =
 "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
-let META_GRUPAL = 219133881;
-let META_RED = 127371072;
-let META_PARTICULAR = 69090369;
-let META_EXCEDENTES = 22672440;
+let META_GRUPAL = 0;
+let META_RED = 0;
+let META_PARTICULAR = 0;
+let META_EXCEDENTES = 0;
 
 async function cargarDashboard() {
 
     const response = await fetch(API_URL);
     const json = await response.json();
+    const parametros = json.parametros || [];
+
+parametros.forEach(fila => {
+
+    if (fila[0] === "SEDE") {
+        META_GRUPAL = Number(fila[2]) || 0;
+    }
+
+    if (fila[0] === "META_CATEGORIA" && fila[1] === "RED") {
+        META_RED = Number(fila[2]) || 0;
+    }
+
+    if (fila[0] === "META_CATEGORIA" && fila[1] === "PARTICULAR") {
+        META_PARTICULAR = Number(fila[2]) || 0;
+    }
+
+    if (fila[0] === "META_CATEGORIA" && fila[1] === "EXCEDENTES") {
+        META_EXCEDENTES = Number(fila[2]) || 0;
+    }
+
+});
 
     const homenajes = json.homenajes || [];
 
