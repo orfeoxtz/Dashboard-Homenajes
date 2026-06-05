@@ -5,13 +5,22 @@ let META_GRUPAL = 0;
 let META_RED = 0;
 let META_PARTICULAR = 0;
 let META_EXCEDENTES = 0;
-
+let METAS_EXCEDENTES = {};
 async function cargarDashboard() {
 
     const response = await fetch(API_URL);
     const json = await response.json();
     const parametros = json.parametros || [];
+const excedentesConfig = json.excedentes || [];
+excedentesConfig.forEach(fila => {
 
+    if (fila[0] === "META_EXCEDENTE") {
+
+        METAS_EXCEDENTES[fila[1]] = Number(fila[2]);
+
+    }
+
+});
 parametros.forEach(fila => {
 
     if (fila[0] === "SEDE") {
@@ -193,7 +202,70 @@ function crearTablaCumplimiento(
     ventaRed,
     ventaParticular,
     ventaExcedentes
+);
+function crearTablaExcedentes(homenajes){
+
+const tbody =
+document.querySelector("#tablaExcedentes tbody");
+
+if(!tbody) return;
+
+tbody.innerHTML = "";
+
+let reales = {};
+
+homenajes.forEach(item=>{
+
+const excedente =
+String(item.Tipo_Excedente || "")
+.toUpperCase()
+.trim();
+
+if(
+!excedente ||
+excedente==="SOAT" ||
+excedente==="PENSIONADO"
 ){
+return;
+}
+
+const valor =
+Number(item.Valor || 0);
+
+reales[excedente] =
+(reales[excedente] || 0) + valor;
+
+});
+
+Object.keys(METAS_EXCEDENTES).forEach(nombre=>{
+
+const meta =
+Number(METAS_EXCEDENTES[nombre] || 0);
+
+const real =
+Number(reales[nombre] || 0);
+
+const porcentaje =
+meta > 0
+? ((real/meta)*100).toFixed(1)
+: 0;
+
+tbody.innerHTML += `
+<tr>
+<td>${nombre}</td>
+<td>$${meta.toLocaleString("es-CO")}</td>
+<td>$${real.toLocaleString("es-CO")}</td>
+<td>${porcentaje}%</td>
+</tr>
+`;
+
+});
+
+}
+crearTablaExcedentes(
+    homenajes
+);
+{
 
 const tbody =
 document.querySelector("#tablaCumplimiento tbody");
