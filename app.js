@@ -32,27 +32,6 @@ excedentesConfig.forEach((fila,index) => {
     Number(fila[1]) || 0;
 
     if(nombre){
-
-        METAS_EXCEDENTES[nombre] = meta;
-
-    }
-
-});
-    console.log("METAS_EXCEDENTES = {};
-
-excedentesConfig.forEach((fila,index) => {
-
-    if(index === 0) return;
-
-    const nombre =
-    String(fila[0] || "")
-    .trim()
-    .toUpperCase();
-
-    const meta =
-    Number(fila[1]) || 0;
-
-    if(nombre){
         METAS_EXCEDENTES[nombre] = meta;
     }
 
@@ -60,32 +39,34 @@ excedentesConfig.forEach((fila,index) => {
 
 console.log("METAS_EXCEDENTES:", METAS_EXCEDENTES);
 
-        if (fila[0] === "SEDE") {
-            META_GRUPAL = Number(fila[2]) || 0;
-        }
+parametros.forEach(fila => {
 
-        if (
-            fila[0] === "META_CATEGORIA" &&
-            fila[1].toUpperCase() === "RED"
-        ) {
-            META_RED = Number(fila[2]) || 0;
-        }
+    if (fila[0] === "SEDE") {
+        META_GRUPAL = Number(fila[2]) || 0;
+    }
 
-        if (
-            fila[0] === "META_CATEGORIA" &&
-            fila[1].toUpperCase() === "PARTICULAR"
-        ) {
-            META_PARTICULAR = Number(fila[2]) || 0;
-        }
+    if (
+        fila[0] === "META_CATEGORIA" &&
+        String(fila[1]).toUpperCase() === "RED"
+    ) {
+        META_RED = Number(fila[2]) || 0;
+    }
 
-        if (
-            fila[0] === "META_CATEGORIA" &&
-            fila[1].toUpperCase() === "EXCEDENTES"
-        ) {
-            META_EXCEDENTES = Number(fila[2]) || 0;
-        }
+    if (
+        fila[0] === "META_CATEGORIA" &&
+        String(fila[1]).toUpperCase() === "PARTICULAR"
+    ) {
+        META_PARTICULAR = Number(fila[2]) || 0;
+    }
 
-    });
+    if (
+        fila[0] === "META_CATEGORIA" &&
+        String(fila[1]).toUpperCase() === "EXCEDENTES"
+    ) {
+        META_EXCEDENTES = Number(fila[2]) || 0;
+    }
+
+});
 
     let ventaTotal = 0;
     let ventaRed = 0;
