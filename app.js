@@ -5,43 +5,59 @@ let META_GRUPAL = 0;
 let META_RED = 0;
 let META_PARTICULAR = 0;
 let META_EXCEDENTES = 0;
+
 let METAS_EXCEDENTES = {};
+
 async function cargarDashboard() {
 
     const response = await fetch(API_URL);
     const json = await response.json();
+
     const parametros = json.parametros || [];
-const excedentesConfig = json.excedentes || [];
-excedentesConfig.forEach(fila => {
-
-    if (fila[0] === "META_EXCEDENTE") {
-
-        METAS_EXCEDENTES[fila[1]] = Number(fila[2]);
-
-    }
-
-});
-parametros.forEach(fila => {
-
-    if (fila[0] === "SEDE") {
-        META_GRUPAL = Number(fila[2]) || 0;
-    }
-
-    if (fila[0] === "META_CATEGORIA" && fila[1] === "RED") {
-        META_RED = Number(fila[2]) || 0;
-    }
-
-    if (fila[0] === "META_CATEGORIA" && fila[1] === "PARTICULAR") {
-        META_PARTICULAR = Number(fila[2]) || 0;
-    }
-
-    if (fila[0] === "META_CATEGORIA" && fila[1] === "EXCEDENTES") {
-        META_EXCEDENTES = Number(fila[2]) || 0;
-    }
-
-});
-
+    const excedentesConfig = json.excedentes || [];
     const homenajes = json.homenajes || [];
+
+    METAS_EXCEDENTES = {};
+
+    excedentesConfig.forEach(fila => {
+
+        if (fila[0] === "META_EXCEDENTE") {
+
+            METAS_EXCEDENTES[fila[1].toUpperCase()] =
+                Number(fila[2]) || 0;
+
+        }
+
+    });
+
+    parametros.forEach(fila => {
+
+        if (fila[0] === "SEDE") {
+            META_GRUPAL = Number(fila[2]) || 0;
+        }
+
+        if (
+            fila[0] === "META_CATEGORIA" &&
+            fila[1].toUpperCase() === "RED"
+        ) {
+            META_RED = Number(fila[2]) || 0;
+        }
+
+        if (
+            fila[0] === "META_CATEGORIA" &&
+            fila[1].toUpperCase() === "PARTICULAR"
+        ) {
+            META_PARTICULAR = Number(fila[2]) || 0;
+        }
+
+        if (
+            fila[0] === "META_CATEGORIA" &&
+            fila[1].toUpperCase() === "EXCEDENTES"
+        ) {
+            META_EXCEDENTES = Number(fila[2]) || 0;
+        }
+
+    });
 
     let ventaTotal = 0;
     let ventaRed = 0;
@@ -54,7 +70,13 @@ parametros.forEach(fila => {
 
         ventaTotal += valor;
 
-        const tipo = String(item.Tipo_Homenaje || "")
+        const tipo =
+            String(item.Tipo_Homenaje || "")
+            .toUpperCase()
+            .trim();
+
+        const excedente =
+            String(item.Tipo_Excedente || "")
             .toUpperCase()
             .trim();
 
@@ -66,14 +88,10 @@ parametros.forEach(fila => {
             ventaParticular += valor;
         }
 
-        const excedente = String(item.Tipo_Excedente || "")
-            .toUpperCase()
-            .trim();
-
         if (
             excedente &&
-            excedente !== "PENSIONADO" &&
-            excedente !== "SOAT"
+            excedente !== "SOAT" &&
+            excedente !== "PENSIONADO"
         ) {
             ventaExcedentes += valor;
         }
@@ -86,7 +104,17 @@ parametros.forEach(fila => {
         ventaParticular,
         ventaExcedentes
     );
-cargarDashboard();
+
+    crearTablaCumplimiento(
+        ventaRed,
+        ventaParticular,
+        ventaExcedentes
+    );
+
+    crearTablaExcedentes(
+        homenajes
+    );
+
 }
 
 function actualizarKPIs(
@@ -97,7 +125,9 @@ function actualizarKPIs(
 ) {
 
     const cumplimientoGeneral =
-        ((ventaTotal / META_GRUPAL) * 100).toFixed(1);
+        META_GRUPAL > 0
+        ? ((ventaTotal / META_GRUPAL) * 100).toFixed(1)
+        : 0;
 
     const faltante =
         META_GRUPAL - ventaTotal;
@@ -152,7 +182,6 @@ function crearGraficoCumplimiento(
 
                 {
                     label: "Meta",
-
                     data: [
                         META_RED,
                         META_PARTICULAR,
@@ -162,7 +191,6 @@ function crearGraficoCumplimiento(
 
                 {
                     label: "Real",
-
                     data: [
                         ventaRed,
                         ventaParticular,
@@ -193,117 +221,123 @@ function crearGraficoCumplimiento(
 
 }
 
-cargarDashboard();
 function crearTablaCumplimiento(
     ventaRed,
     ventaParticular,
     ventaExcedentes
-){
+) {
 
-const tbody =
-document.querySelector("#tablaCumplimiento tbody");
+    const tbody =
+    document.querySelector(
+        "#tablaCumplimiento tbody"
+    );
 
-if(!tbody) return;
+    if (!tbody) return;
 
-tbody.innerHTML="";
+    tbody.innerHTML = "";
 
-const datos=[
+    const datos = [
 
-{
-nombre:"RED",
-meta:META_RED,
-real:ventaRed
-},
+        {
+            nombre: "RED",
+            meta: META_RED,
+            real: ventaRed
+        },
 
-{
-nombre:"PARTICULAR",
-meta:META_PARTICULAR,
-real:ventaParticular
-},
+        {
+            nombre: "PARTICULAR",
+            meta: META_PARTICULAR,
+            real: ventaParticular
+        },
 
-{
-nombre:"EXCEDENTES",
-meta:META_EXCEDENTES,
-real:ventaExcedentes
+        {
+            nombre: "EXCEDENTES",
+            meta: META_EXCEDENTES,
+            real: ventaExcedentes
+        }
+
+    ];
+
+    datos.forEach(item => {
+
+        const porcentaje =
+        item.meta > 0
+        ? ((item.real / item.meta) * 100).toFixed(1)
+        : 0;
+
+        tbody.innerHTML += `
+        <tr>
+            <td>${item.nombre}</td>
+            <td>$${item.meta.toLocaleString("es-CO")}</td>
+            <td>$${item.real.toLocaleString("es-CO")}</td>
+            <td>${porcentaje}%</td>
+        </tr>
+        `;
+
+    });
+
 }
 
-];
+function crearTablaExcedentes(homenajes) {
 
-datos.forEach(item=>{
+    const tbody =
+    document.querySelector(
+        "#tablaExcedentes tbody"
+    );
 
-const porcentaje =
-((item.real/item.meta)*100).toFixed(1);
+    if (!tbody) return;
 
-tbody.innerHTML += `
-<tr>
-<td>${item.nombre}</td>
-<td>$${item.meta.toLocaleString("es-CO")}</td>
-<td>$${item.real.toLocaleString("es-CO")}</td>
-<td>${porcentaje}%</td>
-</tr>
-`;
+    tbody.innerHTML = "";
 
-});
+    let reales = {};
 
-}
+    homenajes.forEach(item => {
 
-function crearTablaExcedentes(homenajes){
+        const excedente =
+        String(item.Tipo_Excedente || "")
+        .toUpperCase()
+        .trim();
 
-const tbody =
-document.querySelector("#tablaExcedentes tbody");
+        if (
+            !excedente ||
+            excedente === "SOAT" ||
+            excedente === "PENSIONADO"
+        ) {
+            return;
+        }
 
-if(!tbody) return;
+        const valor =
+        Number(item.Valor || 0);
 
-tbody.innerHTML = "";
+        reales[excedente] =
+        (reales[excedente] || 0) + valor;
 
-let reales = {};
+    });
 
-homenajes.forEach(item=>{
+    Object.keys(METAS_EXCEDENTES)
+    .forEach(nombre => {
 
-const excedente =
-String(item.Tipo_Excedente || "")
-.toUpperCase()
-.trim();
+        const meta =
+        Number(METAS_EXCEDENTES[nombre] || 0);
 
-if(
-!excedente ||
-excedente==="SOAT" ||
-excedente==="PENSIONADO"
-){
-return;
-}
+        const real =
+        Number(reales[nombre] || 0);
 
-const valor =
-Number(item.Valor || 0);
+        const porcentaje =
+        meta > 0
+        ? ((real / meta) * 100).toFixed(1)
+        : 0;
 
-reales[excedente] =
-(reales[excedente] || 0) + valor;
+        tbody.innerHTML += `
+        <tr>
+            <td>${nombre}</td>
+            <td>$${meta.toLocaleString("es-CO")}</td>
+            <td>$${real.toLocaleString("es-CO")}</td>
+            <td>${porcentaje}%</td>
+        </tr>
+        `;
 
-});
-
-Object.keys(METAS_EXCEDENTES).forEach(nombre=>{
-
-const meta =
-Number(METAS_EXCEDENTES[nombre] || 0);
-
-const real =
-Number(reales[nombre] || 0);
-
-const porcentaje =
-meta > 0
-? ((real/meta)*100).toFixed(1)
-: 0;
-
-tbody.innerHTML += `
-<tr>
-<td>${nombre}</td>
-<td>$${meta.toLocaleString("es-CO")}</td>
-<td>$${real.toLocaleString("es-CO")}</td>
-<td>${porcentaje}%</td>
-</tr>
-`;
-
-});
+    });
 
 }
 
