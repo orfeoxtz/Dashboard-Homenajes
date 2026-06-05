@@ -91,6 +91,8 @@ crearTablaCumplimiento(
     ventaParticular,
     ventaExcedentes
 );
+llenarDetalleExcedentes(homenajes);
+llenarParticulares(homenajes);
 }
 
 function actualizarKPIs(
