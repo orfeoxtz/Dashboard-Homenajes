@@ -111,9 +111,13 @@ async function cargarDashboard() {
         ventaExcedentes
     );
 
-    crearTablaExcedentes(
-        homenajes
-    );
+   crearTablaExcedentes(
+    homenajes
+);
+
+llenarParticulares(
+    homenajes
+);
 
 }
 
@@ -340,5 +344,71 @@ function crearTablaExcedentes(homenajes) {
     });
 
 }
+function llenarParticulares(homenajes){
 
+const tbody =
+document.querySelector("#tablaParticulares tbody");
+
+if(!tbody) return;
+
+tbody.innerHTML = "";
+
+let soat = 0;
+let pensionado = 0;
+let planes = 0;
+
+homenajes.forEach(item=>{
+
+const tipo =
+String(item.Tipo_Homenaje || "")
+.toUpperCase()
+.trim();
+
+const excedente =
+String(item.Tipo_Excedente || "")
+.toUpperCase()
+.trim();
+
+const cantidad =
+Number(item.Cantidad || 1);
+
+if(tipo === "PLAN"){
+planes += cantidad;
+}
+
+if(excedente === "SOAT"){
+soat += cantidad;
+}
+
+if(excedente === "PENSIONADO"){
+pensionado += cantidad;
+}
+
+});
+
+const total =
+soat + pensionado + planes;
+
+[
+["SOAT", soat],
+["PENSIONADO", pensionado],
+["PLANES", planes]
+].forEach(item=>{
+
+const porcentaje =
+total > 0
+? ((item[1]/total)*100).toFixed(1)
+: 0;
+
+tbody.innerHTML += `
+<tr>
+<td>${item[0]}</td>
+<td>${item[1]}</td>
+<td>${porcentaje}%</td>
+</tr>
+`;
+
+});
+
+}
 cargarDashboard();
