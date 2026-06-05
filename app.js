@@ -38,12 +38,27 @@ excedentesConfig.forEach((fila,index) => {
     }
 
 });
-    console.log("METAS_EXCEDENTES",METAS_EXCEDENTES);
-    git add .
-git commit -m "fix excedentes"
-git push
+    console.log("METAS_EXCEDENTES = {};
 
-    parametros.forEach(fila => {
+excedentesConfig.forEach((fila,index) => {
+
+    if(index === 0) return;
+
+    const nombre =
+    String(fila[0] || "")
+    .trim()
+    .toUpperCase();
+
+    const meta =
+    Number(fila[1]) || 0;
+
+    if(nombre){
+        METAS_EXCEDENTES[nombre] = meta;
+    }
+
+});
+
+console.log("METAS_EXCEDENTES:", METAS_EXCEDENTES);
 
         if (fila[0] === "SEDE") {
             META_GRUPAL = Number(fila[2]) || 0;
