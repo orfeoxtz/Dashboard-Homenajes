@@ -16,6 +16,28 @@ async function cargarDashboard() {
     const parametros = json.parametros || [];
     const excedentesConfig = json.excedentes || [];
     const homenajes = json.homenajes || [];
+    let homenajesFiltrados = [...homenajes];
+
+const fechaInicio =
+document.getElementById("fechaInicio")?.value;
+
+const fechaFin =
+document.getElementById("fechaFin")?.value;
+
+if(fechaInicio && fechaFin){
+
+    homenajesFiltrados =
+    homenajes.filter(item=>{
+
+        const fecha =
+        new Date(item.Fecha);
+
+        return fecha >= new Date(fechaInicio)
+        && fecha <= new Date(fechaFin);
+
+    });
+
+}
 
 METAS_EXCEDENTES = {};
 
