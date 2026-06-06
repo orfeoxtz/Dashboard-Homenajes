@@ -476,6 +476,6 @@ text:"Composición de Ingresos"
 
 });
 
-}
+
 }
 cargarDashboard();
