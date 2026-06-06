@@ -127,7 +127,12 @@ parametros.forEach(fila => {
 llenarParticulares(
     homenajes
 );
-
+crearGraficoIngresos(
+    ventaRed,
+    ventaParticular,
+    ventaExcedentes
+);
+    
 }
 
 function actualizarKPIs(
@@ -420,6 +425,56 @@ tbody.innerHTML += `
 `;
 
 });
+function crearGraficoIngresos(
+    ventaRed,
+    ventaParticular,
+    ventaExcedentes
+){
 
+const canvas =
+document.getElementById("composicionIngresos");
+
+if(!canvas) return;
+
+new Chart(canvas,{
+
+type:"pie",
+
+data:{
+
+labels:[
+"RED",
+"PARTICULAR",
+"EXCEDENTES"
+],
+
+datasets:[{
+
+data:[
+ventaRed,
+ventaParticular,
+ventaExcedentes
+]
+
+}]
+
+},
+
+options:{
+
+responsive:true,
+
+plugins:{
+title:{
+display:true,
+text:"Composición de Ingresos"
+}
+}
+
+}
+
+});
+
+}
 }
 cargarDashboard();
