@@ -153,7 +153,8 @@ header p{
 
 .card h2{
     color:#00A651;
-    font-size:32px;
+    font-size:24px;
+    font-weight:700;
 }
 
 /* GRAFICOS */
