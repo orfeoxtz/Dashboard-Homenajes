@@ -153,7 +153,7 @@ header p{
 
 .card h2{
     color:#00A651;
-    font-size:24px;
+    font-size:18px;
     font-weight:700;
 }
 
@@ -161,13 +161,13 @@ header p{
 
 .graficos{
     display:grid;
-    grid-template-columns:1fr 1fr;
+    grid-template-columns:55% 45%;
     gap:20px;
-    margin-top:25px;
+    margin-top:20px;
 }
 
 .grafico-card{
-    min-height:420px;
+    min-height:350px;
 }
 
 .grafico-card h3{
@@ -177,7 +177,7 @@ header p{
 
 .grafico-card canvas{
     width:100% !important;
-    height:320px !important;
+    height:260px !important;
 }
 
 /* TABLA CUMPLIMIENTO */
@@ -216,9 +216,9 @@ header p{
 
 .tablas-inferiores{
     display:grid;
-    grid-template-columns:1fr 2fr;
+    grid-template-columns:30% 70%;
     gap:20px;
-    margin-top:25px;
+    margin-top:20px;
 }
 
 .tabla-detalle{
