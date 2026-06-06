@@ -239,3 +239,26 @@ canvas{
 }
 
 }
+.tablas-inferiores{
+    display:grid;
+    grid-template-columns:1fr 2fr;
+    gap:20px;
+    margin-top:20px;
+}
+
+.grafico-card{
+    min-height:500px;
+}
+
+.grafico-card canvas{
+    width:100% !important;
+    height:420px !important;
+}
+
+@media(max-width:1200px){
+
+.tablas-inferiores{
+    grid-template-columns:1fr;
+}
+
+}
