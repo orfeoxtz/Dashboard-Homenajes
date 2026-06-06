@@ -425,7 +425,7 @@ tbody.innerHTML += `
 `;
 
 });
-    }
+   
 function crearGraficoIngresos(
     ventaRed,
     ventaParticular,
