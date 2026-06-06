@@ -167,10 +167,7 @@ header p{
 }
 
 .grafico-card{
-    background:white;
-    padding:25px;
-    border-radius:15px;
-    box-shadow:0 2px 10px rgba(0,0,0,.08);
+    min-height:420px;
 }
 
 .grafico-card h3{
