@@ -425,7 +425,10 @@ tbody.innerHTML += `
 `;
 
 });
-}
+
+} // ← termina llenarParticulares
+
+
 function crearGraficoIngresos(
     ventaRed,
     ventaParticular,
@@ -450,32 +453,28 @@ labels:[
 ],
 
 datasets:[{
-
 data:[
 ventaRed,
 ventaParticular,
 ventaExcedentes
 ]
-
 }]
 
 },
 
 options:{
-
 responsive:true,
-
 plugins:{
 title:{
 display:true,
 text:"Composición de Ingresos"
 }
 }
-
 }
 
 });
 
+} // ← termina crearGraficoIngresos
 
-}
+
 cargarDashboard();
