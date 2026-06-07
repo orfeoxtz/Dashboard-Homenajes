@@ -583,26 +583,27 @@ document.getElementById("ventasMensuales");
 
 if(!canvas) return;
 
+if(window.graficoMensual){
+window.graficoMensual.destroy();
+}
+
 let ventasMes = {};
 
 homenajes.forEach(item=>{
 
 const fechaTexto =
-String(item.Fecha || "");
+String(item.Fecha || "").trim();
 
-if(!fechaTexto.includes("/")) return;
+if(!fechaTexto) return;
 
-const partes =
-fechaTexto.split("/");
+const partes = fechaTexto.split("/");
 
-const mes =
-partes[1];
+if(partes.length !== 3) return;
 
-const año =
-partes[2];
+const mes = partes[1];
+const anio = partes[2];
 
-const llave =
-mes + "/" + año;
+const llave = mes + "/" + anio;
 
 if(!ventasMes[llave]){
 ventasMes[llave] = 0;
@@ -613,12 +614,15 @@ Number(item.Valor || 0);
 
 });
 
+console.log("VENTAS MES:", ventasMes);
+
 const etiquetas =
 Object.keys(ventasMes);
 
 const valores =
 Object.values(ventasMes);
 
+window.graficoMensual =
 new Chart(canvas,{
 
 type:"line",
@@ -635,6 +639,7 @@ fill:false
 
 options:{
 responsive:true,
+maintainAspectRatio:false,
 plugins:{
 title:{
 display:true,
