@@ -4,12 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>General Report Jkfh</title>
+<title>General Report Jkfh | 4K Premium</title>
 
 <link rel="stylesheet" href="style.css">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -47,15 +49,32 @@
 </div>
 
 <div class="main">
-    <header>
+    <header class="topbar">
         <div>
             <h1>General Report Jkfh</h1>
-            <p>General Report Jkfh</p>
+            <p>Dashboard gerencial premium 4K</p>
         </div>
 
-        <div class="ultima-act">
-            Última actualización:
-            <span id="ultimaActualizacion"></span>
+        <div class="header-right">
+            <div class="ultima-act">
+                Última actualización:
+                <span id="ultimaActualizacion"></span>
+            </div>
+
+            <div class="header-actions">
+                <button id="btnSidebar" class="icon-btn" title="Colapsar menú">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <button id="btnTema" class="icon-btn" title="Modo oscuro">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button id="btnPdf" class="action-btn">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </button>
+                <button id="btnExcel" class="action-btn">
+                    <i class="fas fa-file-excel"></i> Excel
+                </button>
+            </div>
         </div>
     </header>
 
