@@ -526,200 +526,192 @@ text:"Composición de Ingresos"
 
 } // ← termina crearGraficoIngresos
 
-    function crearTopServicios(homenajes){
+function crearTopServicios(homenajes){
 
-const tbody =
-document.querySelector("#tablaTopServicios tbody");
+    const tbody =
+    document.querySelector("#tablaTopServicios tbody");
 
-if(!tbody) return;
+    if(!tbody) return;
 
-tbody.innerHTML = "";
+    tbody.innerHTML = "";
 
-let servicios = {};
+    const servicios = {};
 
-homenajes.forEach(item=>{
+    homenajes.forEach(item=>{
 
-const servicio =
-String(item.Tipo_Excedente || "")
-.trim()
-.toUpperCase();
+        const servicio =
+        String(item.Tipo_Excedente || "")
+        .trim()
+        .toUpperCase();
 
-if(
-servicio === "" ||
-servicio === "SOAT" ||
-servicio === "PENSIONADO"
-){
-return;
-}
+        if(
+            servicio === "" ||
+            servicio === "SOAT" ||
+            servicio === "PENSIONADO"
+        ){
+            return;
+        }
 
-if(!servicios[servicio]){
+        if(!servicios[servicio]){
+            servicios[servicio] = {
+                cantidad: 0,
+                valor: 0
+            };
+        }
 
-servicios[servicio] = {
-cantidad:0,
-valor:0
-};
+        servicios[servicio].cantidad += 1;
+        servicios[servicio].valor += Number(item.Valor || 0);
 
-}
+    });
 
-servicios[servicio].cantidad += 1;
+    Object.entries(servicios)
+        .sort((a,b) => b[1].valor - a[1].valor)
+        .slice(0,10)
+        .forEach(([nombre, data]) => {
 
-servicios[servicio].valor +=
-Number(item.Valor || 0);
+            tbody.innerHTML += `
+                <tr>
+                    <td>${nombre}</td>
+                    <td>${data.cantidad}</td>
+                    <td>$${data.valor.toLocaleString("es-CO")}</td>
+                </tr>
+            `;
 
-});
-
-const ranking =
-Object.entries(servicios)
-.sort(
-(a,b)=>b[1].valor-a[1].valor
-)
-.slice(0,10);
-
-ranking.forEach(item=>{
-
-tbody.innerHTML += `
-<tr>
-<td>${item[0]}</td>
-<td>${item[1].cantidad}</td>
-<td>$${item[1].valor.toLocaleString("es-CO")}</td>
-</tr>
-`;
-
-});
+        });
 
 }
+
 function crearGraficoMensual(homenajes){
 
-const canvas =
-document.getElementById("ventasMensuales");
+    const canvas =
+    document.getElementById("ventasMensuales");
 
-if(!canvas) return;
+    if(!canvas) return;
 
-if(window.graficoMensual){
-window.graficoMensual.destroy();
+    if(window.graficoMensual){
+        window.graficoMensual.destroy();
+    }
+
+    const ventasMes = {};
+
+    homenajes.forEach(item=>{
+
+        const fecha = new Date(item.Fecha);
+
+        if(isNaN(fecha.getTime())) return;
+
+        const mes =
+        String(fecha.getMonth() + 1).padStart(2,"0");
+
+        const anio =
+        fecha.getFullYear();
+
+        const llave =
+        `${mes}/${anio}`;
+
+        if(!ventasMes[llave]){
+            ventasMes[llave] = 0;
+        }
+
+        ventasMes[llave] += Number(item.Valor || 0);
+
+    });
+
+    console.log("VENTAS MES:", ventasMes);
+
+    const etiquetas =
+    Object.keys(ventasMes).sort((a,b)=>{
+        const [ma, ya] = a.split("/").map(Number);
+        const [mb, yb] = b.split("/").map(Number);
+        return ya - yb || ma - mb;
+    });
+
+    const valores =
+    etiquetas.map(clave => ventasMes[clave]);
+
+    window.graficoMensual =
+    new Chart(canvas,{
+
+        type:"bar",
+
+        data:{
+            labels:etiquetas,
+            datasets:[{
+                label:"Ventas Mensuales",
+                data:valores,
+                backgroundColor:"#00a651"
+            }]
+        },
+
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{
+                title:{
+                    display:true,
+                    text:"Tendencia de Ventas Mensuales"
+                }
+            },
+            scales:{
+                y:{
+                    beginAtZero:true
+                }
+            }
+        }
+
+    });
+
 }
 
-let ventasMes = {};
-
-homenajes.forEach(item=>{
-
-const fecha = new Date(item.Fecha);
-
-if(isNaN(fecha)) return;
-
-const mes =
-String(fecha.getMonth() + 1)
-.padStart(2,"0");
-
-const anio =
-fecha.getFullYear();
-
-const llave =
-mes + "/" + anio;
-
-if(!ventasMes[llave]){
-ventasMes[llave] = 0;
-}
-
-ventasMes[llave] +=
-Number(item.Valor || 0);
-
-});
-
-console.log("VENTAS MES:", ventasMes);
-
-const etiquetas =
-Object.keys(ventasMes);
-
-const valores =
-Object.values(ventasMes);
-
-window.graficoMensual =
-new Chart(canvas,{
-
-type:"bar",
-
-data:{
-labels:etiquetas,
-datasets:[{
-label:"Ventas Mensuales",
-data:valores,
-backgroundColor:"#00a651"
-}]
-},
-
-options:{
-responsive:true,
-maintainAspectRatio:false,
-plugins:{
-title:{
-display:true,
-text:"Tendencia de Ventas Mensuales"
-}
-},
-scales:{
-y:{
-beginAtZero:true
-}
-}
-}
-
-});
-
-}
 function crearRankingGestores(homenajes){
 
-const tbody =
-document.querySelector("#tablaGestores tbody");
+    const tbody =
+    document.querySelector("#tablaGestores tbody");
 
-if(!tbody) return;
+    if(!tbody) return;
 
-tbody.innerHTML = "";
+    tbody.innerHTML = "";
 
-let gestores = {};
+    const gestores = {};
 
-homenajes.forEach(item=>{
+    homenajes.forEach(item=>{
 
-const gestor =
-String(item.Gestor || "")
-.trim()
-.toUpperCase();
+        const gestor =
+        String(item.Gestor || "")
+        .trim();
 
-if(gestor === "") return;
+        if(!gestor) return;
 
-if(!gestores[gestor]){
+        const llave =
+        gestor.toUpperCase();
 
-gestores[gestor] = {
-cantidad:0,
-valor:0
-};
+        if(!gestores[llave]){
+            gestores[llave] = {
+                nombre: gestor,
+                cantidad: 0,
+                valor: 0
+            };
+        }
 
-}
+        gestores[llave].cantidad += 1;
+        gestores[llave].valor += Number(item.Valor || 0);
 
-gestores[gestor].cantidad += 1;
+    });
 
-gestores[gestor].valor +=
-Number(item.Valor || 0);
+    Object.values(gestores)
+        .sort((a,b)=>b.valor-a.valor)
+        .slice(0,10)
+        .forEach(item=>{
 
-});
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.nombre}</td>
+                    <td>${item.cantidad}</td>
+                    <td>$${item.valor.toLocaleString("es-CO")}</td>
+                </tr>
+            `;
 
-const ranking =
-Object.entries(gestores)
-.sort(
-(a,b)=>b[1].valor-a[1].valor
-);
-
-ranking.forEach(item=>{
-
-tbody.innerHTML += `
-<tr>
-<td>${item[0]}</td>
-<td>${item[1].cantidad}</td>
-<td>$${item[1].valor.toLocaleString("es-CO")}</td>
-</tr>
-`;
-
-});
+        });
 
 }
 
