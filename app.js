@@ -1149,6 +1149,12 @@ function cambiarVista(seccion) {
     const vista = document.getElementById(seccion);
     if (vista) vista.classList.add("active-view");
 
+    const buscador = document.getElementById("buscadorGlobal");
+    if (buscador) {
+        buscador.value = "";
+        buscador.dispatchEvent(new Event("input"));
+    }
+
     setTimeout(() => {
         [
             chartCumplimiento,
@@ -1218,6 +1224,52 @@ function exportarPDF() {
     html2pdf().set(opciones).from(elemento).save();
 }
 
+function exportarPDFVista() {
+    const vistaActiva = document.querySelector(".vista.active-view") || document.querySelector("#dashboard");
+    if (!vistaActiva || typeof html2pdf === "undefined") return;
+
+    const titulo = vistaActiva.id || "vista";
+    html2pdf()
+        .set({
+            margin: 0.2,
+            filename: `${titulo}_dashboard.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: "in", format: "a4", orientation: "landscape" }
+        })
+        .from(vistaActiva)
+        .save();
+}
+
+function exportarExcelVista() {
+    if (typeof XLSX === "undefined") return;
+
+    const vistaActiva = document.querySelector(".vista.active-view") || document.querySelector("#dashboard");
+    const filas = [];
+
+    vistaActiva.querySelectorAll("table").forEach((tabla, indice) => {
+        const encabezados = [...tabla.querySelectorAll("thead th")].map(th => th.innerText.trim());
+        const cuerpo = [...tabla.querySelectorAll("tbody tr")];
+
+        filas.push([`TABLA ${indice + 1}`]);
+        filas.push(encabezados);
+
+        cuerpo.forEach(tr => {
+            const celdas = [...tr.querySelectorAll("td")].map(td => td.innerText.trim());
+            filas.push(celdas);
+        });
+
+        filas.push([]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(filas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Vista");
+
+    const nombre = (vistaActiva.id || "vista").toLowerCase();
+    XLSX.writeFile(wb, `${nombre}_dashboard.xlsx`);
+}
+
 function alternarTema() {
     document.body.classList.toggle("dark-mode");
     localStorage.setItem("dashboardTema", document.body.classList.contains("dark-mode") ? "dark" : "light");
@@ -1230,12 +1282,43 @@ function alternarSidebar() {
     setTimeout(() => window.dispatchEvent(new Event("resize")), 200);
 }
 
+function activarPresentacion() {
+    document.body.classList.toggle("presentacion");
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 150);
+}
+
+function buscadorGlobal() {
+    const input = document.getElementById("buscadorGlobal");
+    if (!input) return;
+
+    input.addEventListener("input", () => {
+        const texto = input.value.trim().toLowerCase();
+        const filas = document.querySelectorAll("table tbody tr");
+        const cards = document.querySelectorAll(".card, .card-big, .admin-card, .semaforo-card, .alerta-item");
+
+        filas.forEach(fila => {
+            const visible = fila.innerText.toLowerCase().includes(texto);
+            fila.style.display = visible ? "" : "none";
+            fila.classList.toggle("highlight-row", visible && texto.length > 0);
+        });
+
+        cards.forEach(card => {
+            const visible = card.innerText.toLowerCase().includes(texto);
+            card.style.display = texto === "" || visible ? "" : "none";
+        });
+    });
+}
+
 function aplicarPreferencias() {
     const tema = localStorage.getItem("dashboardTema");
     const sidebar = localStorage.getItem("dashboardSidebar");
 
     if (tema === "dark") document.body.classList.add("dark-mode");
     if (sidebar === "collapsed") document.body.classList.add("sidebar-collapsed");
+}
+
+function autoActualizarDashboard() {
+    cargarDashboard();
 }
 
 document.querySelectorAll(".menu-item").forEach(item => {
@@ -1247,8 +1330,14 @@ document.querySelectorAll(".menu-item").forEach(item => {
 document.getElementById("btnFiltrar")?.addEventListener("click", cargarDashboard);
 document.getElementById("btnPdf")?.addEventListener("click", exportarPDF);
 document.getElementById("btnExcel")?.addEventListener("click", exportarExcel);
+document.getElementById("btnVistaPdf")?.addEventListener("click", exportarPDFVista);
+document.getElementById("btnVistaExcel")?.addEventListener("click", exportarExcelVista);
 document.getElementById("btnTema")?.addEventListener("click", alternarTema);
 document.getElementById("btnSidebar")?.addEventListener("click", alternarSidebar);
+document.getElementById("btnPresentacion")?.addEventListener("click", activarPresentacion);
 
 aplicarPreferencias();
+buscadorGlobal();
 cargarDashboard();
+
+setInterval(autoActualizarDashboard, 5 * 60 * 1000);
