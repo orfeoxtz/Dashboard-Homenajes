@@ -267,6 +267,21 @@ header p{
     color:#0f172a;
 }
 
+/* KPI ACCENTS */
+
+.kpis .card:nth-child(1){ border-top:5px solid var(--green); }
+.kpis .card:nth-child(2){ border-top:5px solid var(--blue); }
+.kpis .card:nth-child(3){ border-top:5px solid var(--violet); }
+.kpis .card:nth-child(4){ border-top:5px solid var(--red); }
+.kpis .card:nth-child(5){ border-top:5px solid var(--amber); }
+
+.kpis-secundarios .card:nth-child(1){ border-top:5px solid #8b5cf6; }
+.kpis-secundarios .card:nth-child(2){ border-top:5px solid #06b6d4; }
+.kpis-secundarios .card:nth-child(3){ border-top:5px solid #ec4899; }
+.kpis-secundarios .card:nth-child(4){ border-top:5px solid #f97316; }
+.kpis-secundarios .card:nth-child(5){ border-top:5px solid #22c55e; }
+.kpis-secundarios .card:nth-child(6){ border-top:5px solid #3b82f6; }
+
 /* GRAFICOS */
 
 .graficos{
