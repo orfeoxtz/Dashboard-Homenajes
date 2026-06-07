@@ -15,7 +15,6 @@
     --green:#00a651;
     --green-dark:#007f3f;
     --blue:#2563eb;
-    --cyan:#06b6d4;
     --violet:#7c3aed;
     --amber:#f59e0b;
     --red:#ef4444;
@@ -216,11 +215,19 @@ header p{
 
 /* KPI CARDS */
 
-.kpis{
+.kpis,
+.kpis-secundarios{
     display:grid;
-    grid-template-columns:repeat(5,minmax(0,1fr));
     gap:14px;
     margin-top:18px;
+}
+
+.kpis{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+}
+
+.kpis-secundarios{
+    grid-template-columns:repeat(6,minmax(0,1fr));
 }
 
 .card{
@@ -297,6 +304,11 @@ header p{
     max-width:100%;
 }
 
+#graficoGestores{
+    width:100% !important;
+    height:330px !important;
+}
+
 /* TABLES */
 
 .tabla-cumplimiento{
@@ -344,14 +356,6 @@ header p{
     font-size:13px;
     word-break:break-word;
     color:#111827;
-}
-
-#tablaCumplimiento tr:hover,
-#tablaTopServicios tr:hover,
-#tablaGestores tr:hover,
-#tablaParticulares tr:hover,
-#tablaExcedentes tr:hover{
-    background:#f4fbf7;
 }
 
 .tablas-inferiores{
@@ -403,11 +407,12 @@ header p{
     word-break:break-word;
 }
 
-/* EXTRA: DOUGHNUT/LINE/GERENTES */
-
-#graficoGestores{
-    width:100% !important;
-    height:330px !important;
+#tablaCumplimiento tr:hover,
+#tablaTopServicios tr:hover,
+#tablaGestores tr:hover,
+#tablaParticulares tr:hover,
+#tablaExcedentes tr:hover{
+    background:#f4fbf7;
 }
 
 /* RESPONSIVE */
@@ -415,6 +420,10 @@ header p{
 @media(max-width:1400px){
 
     .kpis{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
+    .kpis-secundarios{
         grid-template-columns:repeat(3,minmax(0,1fr));
     }
 
@@ -427,6 +436,10 @@ header p{
 @media(max-width:1200px){
 
     .kpis{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .kpis-secundarios{
         grid-template-columns:repeat(2,minmax(0,1fr));
     }
 
@@ -468,7 +481,8 @@ header p{
         font-size:23px;
     }
 
-    .kpis{
+    .kpis,
+    .kpis-secundarios{
         grid-template-columns:1fr;
     }
 
