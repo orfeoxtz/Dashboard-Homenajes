@@ -480,7 +480,11 @@ const canvas =
 document.getElementById("composicionIngresos");
 
 if(!canvas) return;
+    if(window.graficoIngresos){
+    window.graficoIngresos.destroy();
+}
 
+window.graficoIngresos =
 new Chart(canvas,{
 
 type:"pie",
