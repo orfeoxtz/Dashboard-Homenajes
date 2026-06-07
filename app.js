@@ -162,7 +162,6 @@ crearGraficoIngresos(
     ventaExcedentes
 );
     
-}
 
 function actualizarKPIs(
     ventaTotal,
