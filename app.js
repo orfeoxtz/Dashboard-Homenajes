@@ -221,8 +221,11 @@ function crearGraficoCumplimiento(
         document.getElementById("ventasCategoria");
 
     if (!canvas) return;
-
-    new Chart(canvas, {
+if(window.graficoCategorias){
+    window.graficoCategorias.destroy();
+}
+  window.graficoCategorias =
+new Chart(canvas,{
 
         type: "bar",
 
