@@ -164,9 +164,14 @@ crearTopServicios(
     homenajesFiltrados
 );
 
+crearRankingGestores(
+    homenajesFiltrados
+);
+
 crearGraficoMensual(
     homenajesFiltrados
 );
+    
 console.log(homenajesFiltrados);
     
 } // ← aquí termina cargarDashboard()
