@@ -47,11 +47,12 @@ function formatMoney(valor) {
     return "$" + Math.round(toNumber(valor)).toLocaleString("es-CO");
 }
 
-function parseFecha(valor) {
-    if (valor instanceof Date && !isNaN(valor.getTime())) {
-        return valor;
-    }
+function normalizarTexto(valor) {
+    return String(valor ?? "").trim().toUpperCase();
+}
 
+function parseFecha(valor) {
+    if (valor instanceof Date && !isNaN(valor.getTime())) return valor;
     if (valor == null) return null;
 
     const texto = String(valor).trim();
@@ -65,15 +66,7 @@ function parseFecha(valor) {
     }
 
     const fechaIso = new Date(texto);
-    if (!isNaN(fechaIso.getTime())) {
-        return fechaIso;
-    }
-
-    return null;
-}
-
-function normalizarTexto(valor) {
-    return String(valor ?? "").trim().toUpperCase();
+    return isNaN(fechaIso.getTime()) ? null : fechaIso;
 }
 
 function mesKey(fecha) {
@@ -98,9 +91,7 @@ function obtenerRangoFechas() {
 function filtrarDataset(homenajes) {
     const { fechaInicio, fechaFin } = obtenerRangoFechas();
 
-    if (!fechaInicio && !fechaFin) {
-        return [...homenajes];
-    }
+    if (!fechaInicio && !fechaFin) return [...homenajes];
 
     const inicio = fechaInicio ? new Date(`${fechaInicio}T00:00:00`) : new Date("1900-01-01T00:00:00");
     const fin = fechaFin ? new Date(`${fechaFin}T23:59:59.999`) : new Date("2999-12-31T23:59:59.999");
@@ -134,9 +125,7 @@ function calcularResumen(homenajes) {
 
 async function cargarDashboard() {
     const alertasBox = document.getElementById("alertasGerenciales");
-    if (alertasBox) {
-        alertasBox.innerHTML = "<p>Cargando información...</p>";
-    }
+    if (alertasBox) alertasBox.innerHTML = "<p>Cargando información...</p>";
 
     try {
         const response = await fetch(API_URL, { cache: "no-store" });
@@ -164,24 +153,14 @@ async function cargarDashboard() {
             const clave = normalizarTexto(fila[0]);
             const valor = normalizarTexto(fila[1]);
 
-            if (clave === "SEDE") {
-                META_GRUPAL = toNumber(fila[2]);
-            }
-
-            if (clave === "META_CATEGORIA" && valor === "RED") {
-                META_RED = toNumber(fila[2]);
-            }
-
-            if (clave === "META_CATEGORIA" && valor === "PARTICULAR") {
-                META_PARTICULAR = toNumber(fila[2]);
-            }
-
-            if (clave === "META_CATEGORIA" && valor === "EXCEDENTES") {
-                META_EXCEDENTES = toNumber(fila[2]);
-            }
+            if (clave === "SEDE") META_GRUPAL = toNumber(fila[2]);
+            if (clave === "META_CATEGORIA" && valor === "RED") META_RED = toNumber(fila[2]);
+            if (clave === "META_CATEGORIA" && valor === "PARTICULAR") META_PARTICULAR = toNumber(fila[2]);
+            if (clave === "META_CATEGORIA" && valor === "EXCEDENTES") META_EXCEDENTES = toNumber(fila[2]);
         });
 
         const resumen = calcularResumen(DATASET_FILTRADO);
+
         actualizarKPIs(resumen.total);
         crearTablaCumplimiento(resumen.red, resumen.particular, resumen.excedentes);
         crearTablaExcedentes(DATASET_FILTRADO);
@@ -201,7 +180,6 @@ async function cargarDashboard() {
 
     } catch (error) {
         console.error("Error al cargar dashboard:", error);
-
         const alertasBox = document.getElementById("alertasGerenciales");
         if (alertasBox) {
             alertasBox.innerHTML = `
@@ -230,10 +208,7 @@ function actualizarKPIs(ventaTotal) {
     if (cumplimientoEl) cumplimientoEl.innerHTML = `${cumplimientoGeneral.toFixed(1)}%`;
     if (faltanteEl) faltanteEl.innerHTML = formatMoney(faltante);
     if (proyeccionEl) proyeccionEl.innerHTML = `${cumplimientoGeneral.toFixed(1)}%`;
-
-    if (ultimaActualizacionEl) {
-        ultimaActualizacionEl.innerHTML = new Date().toLocaleString("es-CO");
-    }
+    if (ultimaActualizacionEl) ultimaActualizacionEl.innerHTML = new Date().toLocaleString("es-CO");
 
     if (cumplimientoEl) {
         if (cumplimientoGeneral >= 100) {
@@ -315,13 +290,8 @@ function crearGraficoCumplimiento(ventaRed, ventaParticular, ventaExcedentes) {
                 legend: { position: "top" }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: "rgba(148,163,184,.2)" }
-                },
-                x: {
-                    grid: { display: false }
-                }
+                y: { beginAtZero: true, grid: { color: "rgba(148,163,184,.2)" } },
+                x: { grid: { display: false } }
             }
         }
     });
@@ -567,13 +537,8 @@ function crearGraficoMensual(homenajes) {
                 legend: { display: true }
             },
             scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: { color: "rgba(148,163,184,.2)" }
-                },
-                x: {
-                    grid: { display: false }
-                }
+                y: { beginAtZero: true, grid: { color: "rgba(148,163,184,.2)" } },
+                x: { grid: { display: false } }
             }
         }
     });
@@ -667,13 +632,8 @@ function crearGraficoGestores(homenajes) {
                 legend: { display: false }
             },
             scales: {
-                x: {
-                    beginAtZero: true,
-                    grid: { color: "rgba(148,163,184,.2)" }
-                },
-                y: {
-                    grid: { display: false }
-                }
+                x: { beginAtZero: true, grid: { color: "rgba(148,163,184,.2)" } },
+                y: { grid: { display: false } }
             }
         }
     });
@@ -896,11 +856,9 @@ function crearGraficoVentasVista(homenajes) {
     if (chartVentasVista) chartVentasVista.destroy();
 
     const ventasMes = {};
-
     homenajes.forEach(item => {
         const fecha = parseFecha(item.Fecha);
         if (!fecha) return;
-
         const llave = mesKey(fecha);
         ventasMes[llave] = (ventasMes[llave] || 0) + toNumber(item.Valor);
     });
@@ -1027,7 +985,6 @@ function crearGraficoRankingCompletoGestores(homenajes) {
     homenajes.forEach(item => {
         const nombre = String(item.Gestor || "").trim();
         if (!nombre) return;
-
         gestores[nombre] = (gestores[nombre] || 0) + toNumber(item.Valor);
     });
 
@@ -1072,7 +1029,6 @@ function crearGraficoExcedentes(homenajes) {
     homenajes.forEach(item => {
         const ex = normalizarTexto(item.Tipo_Excedente);
         if (!ex || ex === "SOAT" || ex === "PENSIONADO") return;
-
         excedentes[ex] = (excedentes[ex] || 0) + toNumber(item.Valor);
     });
 
@@ -1243,7 +1199,7 @@ function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen");
     XLSX.utils.book_append_sheet(wb, wsDatos, "Datos");
 
-    XLSX.writeFile(wb, "dashboard_gerencial.xlsx");
+    XLSX.writeFile(wb, "dashboard_gerencial_4k.xlsx");
 }
 
 function exportarPDF() {
@@ -1252,7 +1208,7 @@ function exportarPDF() {
 
     const opciones = {
         margin: 0.2,
-        filename: "dashboard_gerencial.pdf",
+        filename: "dashboard_gerencial_4k.pdf",
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "in", format: "a4", orientation: "landscape" },
@@ -1265,6 +1221,7 @@ function exportarPDF() {
 function alternarTema() {
     document.body.classList.toggle("dark-mode");
     localStorage.setItem("dashboardTema", document.body.classList.contains("dark-mode") ? "dark" : "light");
+    setTimeout(() => window.dispatchEvent(new Event("resize")), 100);
 }
 
 function alternarSidebar() {
@@ -1277,13 +1234,8 @@ function aplicarPreferencias() {
     const tema = localStorage.getItem("dashboardTema");
     const sidebar = localStorage.getItem("dashboardSidebar");
 
-    if (tema === "dark") {
-        document.body.classList.add("dark-mode");
-    }
-
-    if (sidebar === "collapsed") {
-        document.body.classList.add("sidebar-collapsed");
-    }
+    if (tema === "dark") document.body.classList.add("dark-mode");
+    if (sidebar === "collapsed") document.body.classList.add("sidebar-collapsed");
 }
 
 document.querySelectorAll(".menu-item").forEach(item => {
