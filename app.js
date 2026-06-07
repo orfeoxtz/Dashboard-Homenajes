@@ -167,7 +167,8 @@ crearTopServicios(
 crearGraficoMensual(
     homenajesFiltrados
 );
-
+console.log(homenajesFiltrados);
+    
 } // ← aquí termina cargarDashboard()
 
 
