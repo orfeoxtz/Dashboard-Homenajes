@@ -36,8 +36,6 @@ body{
     color:var(--text);
 }
 
-/* SIDEBAR */
-
 .sidebar{
     width:230px;
     min-height:100vh;
@@ -108,16 +106,12 @@ body{
     font-size:14px;
 }
 
-/* MAIN */
-
 .main{
     margin-left:230px;
     width:calc(100% - 230px);
     padding:18px;
     min-width:0;
 }
-
-/* HEADER */
 
 header{
     background:linear-gradient(135deg, #ffffff 0%, #f8fbff 100%);
@@ -150,8 +144,6 @@ header p{
     color:var(--text);
     font-size:14px;
 }
-
-/* FILTERS */
 
 .filtros{
     display:flex;
@@ -213,8 +205,6 @@ header p{
     box-shadow:0 14px 26px rgba(0,166,81,.28);
 }
 
-/* KPI CARDS */
-
 .kpis,
 .kpis-secundarios{
     display:grid;
@@ -267,8 +257,6 @@ header p{
     color:#0f172a;
 }
 
-/* KPI ACCENTS */
-
 .kpis .card:nth-child(1){ border-top:5px solid var(--green); }
 .kpis .card:nth-child(2){ border-top:5px solid var(--blue); }
 .kpis .card:nth-child(3){ border-top:5px solid var(--violet); }
@@ -281,8 +269,7 @@ header p{
 .kpis-secundarios .card:nth-child(4){ border-top:5px solid #f97316; }
 .kpis-secundarios .card:nth-child(5){ border-top:5px solid #22c55e; }
 .kpis-secundarios .card:nth-child(6){ border-top:5px solid #3b82f6; }
-
-/* GRAFICOS */
+.kpis-secundarios .card:nth-child(7){ border-top:5px solid #ef4444; }
 
 .graficos{
     display:grid;
@@ -292,7 +279,7 @@ header p{
     align-items:stretch;
 }
 
-.graficos > .grafico-card:last-child{
+.grafico-ancho{
     grid-column:1 / -1;
 }
 
@@ -319,12 +306,11 @@ header p{
     max-width:100%;
 }
 
-#graficoGestores{
+#graficoGestores,
+#velocimetroCumplimiento{
     width:100% !important;
     height:330px !important;
 }
-
-/* TABLES */
 
 .tabla-cumplimiento{
     margin-top:18px;
@@ -430,10 +416,7 @@ header p{
     background:#f4fbf7;
 }
 
-/* RESPONSIVE */
-
 @media(max-width:1400px){
-
     .kpis{
         grid-template-columns:repeat(3,minmax(0,1fr));
     }
@@ -445,11 +428,9 @@ header p{
     .graficos{
         grid-template-columns:1fr 1fr;
     }
-
 }
 
 @media(max-width:1200px){
-
     .kpis{
         grid-template-columns:repeat(2,minmax(0,1fr));
     }
@@ -462,18 +443,16 @@ header p{
         grid-template-columns:1fr;
     }
 
-    .graficos > .grafico-card:last-child{
+    .graficos > .grafico-ancho{
         grid-column:auto;
     }
 
     .tablas-inferiores{
         grid-template-columns:1fr;
     }
-
 }
 
 @media(max-width:768px){
-
     .sidebar{
         width:100%;
         position:relative;
@@ -518,7 +497,6 @@ header p{
     .grafico-card canvas{
         height:240px !important;
     }
-
 }
 
 canvas{
