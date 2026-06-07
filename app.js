@@ -598,8 +598,7 @@ let ventasMes = {};
 
 homenajes.forEach(item=>{
 
-const fecha =
-new Date(item.Fecha);
+const fecha = new Date(item.Fecha);
 
 if(isNaN(fecha)) return;
 
@@ -622,6 +621,8 @@ Number(item.Valor || 0);
 
 });
 
+console.log("VENTAS MES:", ventasMes);
+
 const etiquetas =
 Object.keys(ventasMes);
 
@@ -636,8 +637,9 @@ type:"bar",
 data:{
 labels:etiquetas,
 datasets:[{
-label:"Ventas",
-data:valores
+label:"Ventas Mensuales",
+data:valores,
+backgroundColor:"#00a651"
 }]
 },
 
@@ -648,6 +650,11 @@ plugins:{
 title:{
 display:true,
 text:"Tendencia de Ventas Mensuales"
+}
+},
+scales:{
+y:{
+beginAtZero:true
 }
 }
 }
