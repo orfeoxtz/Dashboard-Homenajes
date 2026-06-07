@@ -159,11 +159,12 @@ crearGraficoIngresos(
     ventaParticular,
     ventaExcedentes
 );
-    crearTopServicios(
-    homenajesFiltrados
-}   
 
+crearTopServicios(
+    homenajesFiltrados
 );
+
+}
 
 function actualizarKPIs(
     ventaTotal,
@@ -568,15 +569,6 @@ tbody.innerHTML += `
 });
 
 }
-
-document
-.getElementById("btnFiltrar")
-?.addEventListener(
-    "click",
-    cargarDashboard
-);
-
-cargarDashboard();
 
 document
 .getElementById("btnFiltrar")
