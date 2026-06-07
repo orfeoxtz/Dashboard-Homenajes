@@ -10,7 +10,6 @@
     --bg-card:#ffffff;
     --text:#0f172a;
     --muted:#64748b;
-    --border:#dbe3ef;
 
     --green:#00a651;
     --green-dark:#007f3f;
@@ -18,12 +17,9 @@
     --violet:#7c3aed;
     --amber:#f59e0b;
     --red:#ef4444;
-    --pink:#ec4899;
-    --orange:#f97316;
 
     --shadow:0 12px 30px rgba(15, 23, 42, .10);
     --shadow-soft:0 8px 18px rgba(15, 23, 42, .08);
-    --radius:18px;
 }
 
 body{
@@ -60,7 +56,6 @@ body{
 .logo h2{
     font-size:19px;
     font-weight:800;
-    letter-spacing:.2px;
     line-height:1.05;
 }
 
@@ -416,6 +411,88 @@ header p{
     background:#f4fbf7;
 }
 
+.semaforo-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:16px;
+}
+
+.semaforo-card{
+    background:linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border:1px solid rgba(148,163,184,.14);
+    border-radius:22px;
+    padding:18px;
+    box-shadow:var(--shadow-soft);
+    text-align:center;
+}
+
+.semaforo-card h3{
+    font-size:16px;
+    font-weight:800;
+    margin-bottom:12px;
+    color:#0f172a;
+}
+
+.semaforo-estado{
+    width:92px;
+    height:92px;
+    border-radius:999px;
+    margin:0 auto 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    font-weight:900;
+    color:#fff;
+    box-shadow:0 10px 22px rgba(0,0,0,.12);
+}
+
+.semaforo-ok{
+    background:linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.semaforo-warning{
+    background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.semaforo-danger{
+    background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.semaforo-card p{
+    margin-top:8px;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+}
+
+.alertas-box{
+    background:linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    border:1px solid rgba(148,163,184,.14);
+    border-radius:22px;
+    padding:18px;
+    box-shadow:var(--shadow-soft);
+}
+
+.alerta-item{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:12px 0;
+    border-bottom:1px solid #e5ecf5;
+    font-size:14px;
+    color:#111827;
+}
+
+.alerta-item:last-child{
+    border-bottom:none;
+}
+
+.alerta-item i{
+    margin-top:3px;
+    color:#ef4444;
+}
+
 @media(max-width:1400px){
     .kpis{
         grid-template-columns:repeat(3,minmax(0,1fr));
@@ -448,6 +525,10 @@ header p{
     }
 
     .tablas-inferiores{
+        grid-template-columns:1fr;
+    }
+
+    .semaforo-grid{
         grid-template-columns:1fr;
     }
 }
