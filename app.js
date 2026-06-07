@@ -591,19 +591,20 @@ let ventasMes = {};
 
 homenajes.forEach(item=>{
 
-const fechaTexto =
-String(item.Fecha || "").trim();
+const fecha =
+new Date(item.Fecha);
 
-if(!fechaTexto) return;
+if(isNaN(fecha)) return;
 
-const partes = fechaTexto.split("/");
+const mes =
+String(fecha.getMonth() + 1)
+.padStart(2,"0");
 
-if(partes.length !== 3) return;
+const anio =
+fecha.getFullYear();
 
-const mes = partes[1];
-const anio = partes[2];
-
-const llave = mes + "/" + anio;
+const llave =
+mes + "/" + anio;
 
 if(!ventasMes[llave]){
 ventasMes[llave] = 0;
@@ -614,8 +615,6 @@ Number(item.Valor || 0);
 
 });
 
-console.log("VENTAS MES:", ventasMes);
-
 const etiquetas =
 Object.keys(ventasMes);
 
@@ -625,15 +624,13 @@ Object.values(ventasMes);
 window.graficoMensual =
 new Chart(canvas,{
 
-type:"line",
+type:"bar",
 
 data:{
 labels:etiquetas,
 datasets:[{
 label:"Ventas",
-data:valores,
-tension:0.3,
-fill:false
+data:valores
 }]
 },
 
