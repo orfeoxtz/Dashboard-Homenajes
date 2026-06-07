@@ -506,6 +506,77 @@ text:"Composición de Ingresos"
 
 } // ← termina crearGraficoIngresos
 
+    function crearTopServicios(homenajes){
+
+const tbody =
+document.querySelector("#tablaTopServicios tbody");
+
+if(!tbody) return;
+
+tbody.innerHTML = "";
+
+let servicios = {};
+
+homenajes.forEach(item=>{
+
+const servicio =
+String(item.Tipo_Excedente || "")
+.trim()
+.toUpperCase();
+
+if(
+servicio === "" ||
+servicio === "SOAT" ||
+servicio === "PENSIONADO"
+){
+return;
+}
+
+if(!servicios[servicio]){
+
+servicios[servicio] = {
+cantidad:0,
+valor:0
+};
+
+}
+
+servicios[servicio].cantidad += 1;
+
+servicios[servicio].valor +=
+Number(item.Valor || 0);
+
+});
+
+const ranking =
+Object.entries(servicios)
+.sort(
+(a,b)=>b[1].valor-a[1].valor
+)
+.slice(0,10);
+
+ranking.forEach(item=>{
+
+tbody.innerHTML += `
+<tr>
+<td>${item[0]}</td>
+<td>${item[1].cantidad}</td>
+<td>$${item[1].valor.toLocaleString("es-CO")}</td>
+</tr>
+`;
+
+});
+
+}
+
+document
+.getElementById("btnFiltrar")
+?.addEventListener(
+    "click",
+    cargarDashboard
+);
+
+cargarDashboard();
 
 document
 .getElementById("btnFiltrar")
