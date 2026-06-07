@@ -214,6 +214,18 @@ function actualizarKPIs(
         ultimaActualizacionEl.innerHTML = new Date().toLocaleString("es-CO");
     }
 
+    const cumplimientoNumerico = Number(cumplimientoGeneral);
+
+    if (cumplimientoEl) {
+        if (cumplimientoNumerico >= 100) {
+            cumplimientoEl.style.color = "#16a34a";
+        } else if (cumplimientoNumerico >= 80) {
+            cumplimientoEl.style.color = "#f59e0b";
+        } else {
+            cumplimientoEl.style.color = "#dc2626";
+        }
+    }
+
     crearGraficoCumplimiento(
         ventaRed,
         ventaParticular,
@@ -268,16 +280,40 @@ function crearGraficoCumplimiento(
                 },
                 annotation: {
                     annotations: {
-                        metaGrupal: {
+                        metaRed: {
                             type: "line",
-                            yMin: META_GRUPAL,
-                            yMax: META_GRUPAL,
+                            yMin: META_RED,
+                            yMax: META_RED,
                             borderColor: "#ff2d55",
-                            borderWidth: 4,
+                            borderWidth: 3,
                             borderDash: [10, 6],
                             label: {
                                 display: true,
-                                content: "Meta Grupal"
+                                content: "Meta RED"
+                            }
+                        },
+                        metaParticular: {
+                            type: "line",
+                            yMin: META_PARTICULAR,
+                            yMax: META_PARTICULAR,
+                            borderColor: "#8b5cf6",
+                            borderWidth: 3,
+                            borderDash: [10, 6],
+                            label: {
+                                display: true,
+                                content: "Meta PARTICULAR"
+                            }
+                        },
+                        metaExcedentes: {
+                            type: "line",
+                            yMin: META_EXCEDENTES,
+                            yMax: META_EXCEDENTES,
+                            borderColor: "#f59e0b",
+                            borderWidth: 3,
+                            borderDash: [10, 6],
+                            label: {
+                                display: true,
+                                content: "Meta EXCEDENTES"
                             }
                         }
                     }
@@ -533,7 +569,7 @@ function crearGraficoMensual(homenajes) {
                 {
                     label: "Ventas Mensuales",
                     data: valores,
-                    backgroundColor: "rgba(0, 166, 81, 0.90)"
+                    backgroundColor: "rgba(16, 185, 129, 0.90)"
                 }
             ]
         },
@@ -663,16 +699,16 @@ function crearGraficoGestores(homenajes) {
                 },
                 annotation: {
                     annotations: {
-                        metaGeneral: {
+                        metaReferencia: {
                             type: "line",
-                            xMin: META_GRUPAL,
-                            xMax: META_GRUPAL,
+                            xMin: META_GRUPAL / 10,
+                            xMax: META_GRUPAL / 10,
                             borderColor: "#ff2d55",
                             borderWidth: 4,
                             borderDash: [10, 6],
                             label: {
                                 display: true,
-                                content: "Meta Grupal"
+                                content: "Referencia"
                             }
                         }
                     }
