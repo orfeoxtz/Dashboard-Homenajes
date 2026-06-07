@@ -493,11 +493,7 @@ body.presentacion .topbar{
 #cumplimientoAnual,
 #rankingCompletoGestores,
 #graficoExcedentes,
-#graficoHistorico,
-#comparativoVentas,
-#cumplimientoCategorias,
-#graficoGestoresCategoria,
-#comparativoHistorico{
+#graficoHistorico{
     width:100% !important;
     height:420px !important;
 }
@@ -574,16 +570,14 @@ body.presentacion .topbar{
 }
 
 #tablaParticulares,
-#tablaExcedentes,
-#tablaExcedentesDetallada{
+#tablaExcedentes{
     width:100%;
     border-collapse:collapse;
     table-layout:fixed;
 }
 
 #tablaParticulares th,
-#tablaExcedentes th,
-#tablaExcedentesDetallada th{
+#tablaExcedentes th{
     background:linear-gradient(135deg, var(--green) 0%, #16b15f 100%);
     color:white;
     padding:11px 8px;
@@ -592,8 +586,7 @@ body.presentacion .topbar{
 }
 
 #tablaParticulares td,
-#tablaExcedentes td,
-#tablaExcedentesDetallada td{
+#tablaExcedentes td{
     padding:9px 8px;
     border-bottom:1px solid #e5ecf5;
     text-align:center;
@@ -605,8 +598,7 @@ body.presentacion .topbar{
 #tablaTopServicios tr:hover,
 #tablaGestores tr:hover,
 #tablaParticulares tr:hover,
-#tablaExcedentes tr:hover,
-#tablaExcedentesDetallada tr:hover{
+#tablaExcedentes tr:hover{
     background:#f4fbf7;
 }
 
@@ -782,11 +774,7 @@ body.dark-mode .highlight-row{
     #cumplimientoAnual,
     #rankingCompletoGestores,
     #graficoExcedentes,
-    #graficoHistorico,
-    #comparativoVentas,
-    #cumplimientoCategorias,
-    #graficoGestoresCategoria,
-    #comparativoHistorico{
+    #graficoHistorico{
         height:520px !important;
     }
 }
@@ -893,11 +881,7 @@ body.dark-mode .highlight-row{
     #cumplimientoAnual,
     #rankingCompletoGestores,
     #graficoExcedentes,
-    #graficoHistorico,
-    #comparativoVentas,
-    #cumplimientoCategorias,
-    #graficoGestoresCategoria,
-    #comparativoHistorico{
+    #graficoHistorico{
         height:260px !important;
     }
 }
