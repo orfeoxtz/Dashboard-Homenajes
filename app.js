@@ -12,6 +12,7 @@ let chartCumplimiento = null;
 let chartIngresos = null;
 let chartMensual = null;
 let chartGestores = null;
+let chartCumplimientoVisual = null;
 
 if (typeof Chart !== "undefined" && typeof ChartAnnotation !== "undefined") {
     Chart.register(ChartAnnotation);
@@ -193,6 +194,8 @@ async function cargarDashboard() {
     crearIndicadoresEjecutivos(
         homenajesFiltrados
     );
+
+    crearVelocimetroCumplimiento(ventaTotal);
 }
 
 function actualizarKPIs(
@@ -810,6 +813,95 @@ function crearIndicadoresEjecutivos(homenajes) {
     if (proyeccionMesEl) {
         proyeccionMesEl.innerHTML = "$" + Math.round(proyeccionMes).toLocaleString("es-CO");
     }
+}
+
+function crearVelocimetroCumplimiento(ventaTotal) {
+    const canvas = document.getElementById("velocimetroCumplimiento");
+    if (!canvas) return;
+
+    const porcentaje = META_GRUPAL > 0
+        ? Math.min((ventaTotal / META_GRUPAL) * 100, 100)
+        : 0;
+
+    const restante = Math.max(100 - porcentaje, 0);
+
+    const etiqueta =
+        porcentaje >= 100
+            ? "META CUMPLIDA"
+            : porcentaje >= 80
+                ? "EN RIESGO"
+                : "BAJO META";
+
+    const color =
+        porcentaje >= 100
+            ? "#16a34a"
+            : porcentaje >= 80
+                ? "#f59e0b"
+                : "#dc2626";
+
+    const texto = document.getElementById("cumplimientoVisual");
+    if (texto) {
+        texto.innerHTML = `${porcentaje.toFixed(1)}% - ${etiqueta}`;
+        texto.style.color = color;
+    }
+
+    if (chartCumplimientoVisual) {
+        chartCumplimientoVisual.destroy();
+    }
+
+    const centerTextPlugin = {
+        id: "centerTextPlugin",
+        afterDraw(chart) {
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+
+            const x = (chartArea.left + chartArea.right) / 2;
+            const y = (chartArea.top + chartArea.bottom) / 2;
+
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            ctx.fillStyle = color;
+            ctx.font = "700 26px Segoe UI";
+            ctx.fillText(`${porcentaje.toFixed(1)}%`, x, y - 10);
+
+            ctx.fillStyle = "#334155";
+            ctx.font = "600 13px Segoe UI";
+            ctx.fillText(etiqueta, x, y + 18);
+
+            ctx.restore();
+        }
+    };
+
+    chartCumplimientoVisual = new Chart(canvas, {
+        type: "doughnut",
+        data: {
+            labels: ["Avance", "Restante"],
+            datasets: [
+                {
+                    data: [porcentaje, restante],
+                    backgroundColor: [color, "#e5e7eb"],
+                    borderWidth: 0,
+                    cutout: "78%"
+                }
+            ]
+        },
+        plugins: [centerTextPlugin],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                title: {
+                    display: true,
+                    text: "Cumplimiento Grupal"
+                }
+            }
+        }
+    });
 }
 
 document
