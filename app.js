@@ -643,7 +643,76 @@ tbody.innerHTML += `
 });
 
 }
+function crearGraficoMensual(homenajes){
 
+const canvas =
+document.getElementById("ventasMensuales");
+
+if(!canvas) return;
+
+let ventasMes = {};
+
+homenajes.forEach(item=>{
+
+const fechaTexto =
+String(item.Fecha || "");
+
+if(!fechaTexto.includes("/")) return;
+
+const partes =
+fechaTexto.split("/");
+
+const mes =
+partes[1];
+
+const año =
+partes[2];
+
+const llave =
+mes + "/" + año;
+
+if(!ventasMes[llave]){
+ventasMes[llave] = 0;
+}
+
+ventasMes[llave] +=
+Number(item.Valor || 0);
+
+});
+
+const etiquetas =
+Object.keys(ventasMes);
+
+const valores =
+Object.values(ventasMes);
+
+new Chart(canvas,{
+
+type:"line",
+
+data:{
+labels:etiquetas,
+datasets:[{
+label:"Ventas",
+data:valores,
+tension:0.3,
+fill:false
+}]
+},
+
+options:{
+responsive:true,
+plugins:{
+title:{
+display:true,
+text:"Tendencia de Ventas Mensuales"
+}
+}
+}
+
+});
+
+}
 document
 .getElementById("btnFiltrar")
 ?.addEventListener(
