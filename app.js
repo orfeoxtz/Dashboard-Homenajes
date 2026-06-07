@@ -26,16 +26,23 @@ document.getElementById("fechaFin")?.value;
 
 if(fechaInicio && fechaFin){
 
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+
+    fin.setHours(23,59,59,999);
+
     homenajesFiltrados =
     homenajes.filter(item=>{
 
         const fecha =
         new Date(item.Fecha);
 
-        return fecha >= new Date(fechaInicio)
-        && fecha <= new Date(fechaFin);
+        return fecha >= inicio &&
+               fecha <= fin;
 
     });
+
+}
 
 }
 
@@ -95,7 +102,7 @@ parametros.forEach(fila => {
     let ventaParticular = 0;
     let ventaExcedentes = 0;
 
-    homenajes.forEach(item => {
+    homenajesFiltrados.forEach(item => {
 
         const valor = Number(item.Valor || 0);
 
@@ -142,12 +149,12 @@ parametros.forEach(fila => {
         ventaExcedentes
     );
 
-   crearTablaExcedentes(
-    homenajes
+  crearTablaExcedentes(
+    homenajesFiltrados
 );
 
 llenarParticulares(
-    homenajes
+    homenajesFiltrados
 );
 crearGraficoIngresos(
     ventaRed,
@@ -498,5 +505,12 @@ text:"Composición de Ingresos"
 
 } // ← termina crearGraficoIngresos
 
+
+document
+.getElementById("btnFiltrar")
+?.addEventListener(
+    "click",
+    cargarDashboard
+);
 
 cargarDashboard();
