@@ -13,6 +13,10 @@ let chartIngresos = null;
 let chartMensual = null;
 let chartGestores = null;
 
+if (typeof Chart !== "undefined" && typeof ChartAnnotation !== "undefined") {
+    Chart.register(ChartAnnotation);
+}
+
 function toNumber(valor) {
     if (typeof valor === "number") {
         return Number.isFinite(valor) ? valor : 0;
@@ -185,6 +189,10 @@ async function cargarDashboard() {
     crearGraficoGestores(
         homenajesFiltrados
     );
+
+    crearIndicadoresEjecutivos(
+        homenajesFiltrados
+    );
 }
 
 function actualizarKPIs(
@@ -248,7 +256,7 @@ function crearGraficoCumplimiento(
     chartCumplimiento = new Chart(canvas, {
         type: "bar",
         data: {
-            labels: ["RED", "PARTICULAR", "EXCEDENTES"],
+            labels: ["🔴 RED", "🔵 PARTICULAR", "🟠 EXCEDENTES"],
             datasets: [
                 {
                     label: "Meta",
@@ -562,14 +570,23 @@ function crearGraficoMensual(homenajes) {
     const valores = etiquetas.map(clave => ventasMes[clave]);
 
     chartMensual = new Chart(canvas, {
-        type: "bar",
+        type: "line",
         data: {
             labels: etiquetas,
             datasets: [
                 {
                     label: "Ventas Mensuales",
                     data: valores,
-                    backgroundColor: "rgba(16, 185, 129, 0.90)"
+                    backgroundColor: "rgba(0, 166, 81, 0.18)",
+                    borderColor: "#00a651",
+                    borderWidth: 4,
+                    pointBackgroundColor: "#00a651",
+                    pointBorderColor: "#ffffff",
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 8,
+                    fill: true,
+                    tension: 0.35
                 }
             ]
         },
@@ -724,6 +741,75 @@ function crearGraficoGestores(homenajes) {
             }
         }
     });
+}
+
+function crearIndicadoresEjecutivos(homenajes) {
+    let gestores = {};
+    let servicios = {};
+    let ventaTotal = 0;
+
+    homenajes.forEach(item => {
+        const valor = toNumber(item.Valor);
+        ventaTotal += valor;
+
+        const gestor = String(item.Gestor || "").trim();
+        if (gestor) {
+            if (!gestores[gestor]) {
+                gestores[gestor] = 0;
+            }
+            gestores[gestor] += valor;
+        }
+
+        const servicio = String(item.Tipo_Excedente || "").trim();
+        if (servicio) {
+            if (!servicios[servicio]) {
+                servicios[servicio] = 0;
+            }
+            servicios[servicio]++;
+        }
+    });
+
+    const mejorGestor = Object.entries(gestores).sort((a, b) => b[1] - a[1])[0];
+
+    if (mejorGestor) {
+        const mejorGestorEl = document.getElementById("mejorGestor");
+        const ventaMejorGestorEl = document.getElementById("ventaMejorGestor");
+
+        if (mejorGestorEl) mejorGestorEl.innerHTML = mejorGestor[0];
+        if (ventaMejorGestorEl) {
+            ventaMejorGestorEl.innerHTML = "$" + mejorGestor[1].toLocaleString("es-CO");
+        }
+    }
+
+    const servicioTop = Object.entries(servicios).sort((a, b) => b[1] - a[1])[0];
+
+    if (servicioTop) {
+        const servicioTopEl = document.getElementById("servicioTop");
+        const cantidadServicioTopEl = document.getElementById("cantidadServicioTop");
+
+        if (servicioTopEl) servicioTopEl.innerHTML = servicioTop[0];
+        if (cantidadServicioTopEl) cantidadServicioTopEl.innerHTML = servicioTop[1];
+    }
+
+    const hoy = new Date();
+    const diasMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+    const diaActual = hoy.getDate();
+    const diasRestantes = diasMes - diaActual;
+
+    const faltante = META_GRUPAL - ventaTotal;
+    const metaDiaria = diasRestantes > 0 ? faltante / diasRestantes : 0;
+    const proyeccionMes = diaActual > 0 ? (ventaTotal / diaActual) * diasMes : ventaTotal;
+
+    const metaDiariaEl = document.getElementById("metaDiaria");
+    const proyeccionMesEl = document.getElementById("proyeccionMes");
+
+    if (metaDiariaEl) {
+        metaDiariaEl.innerHTML = "$" + Math.round(metaDiaria).toLocaleString("es-CO");
+    }
+
+    if (proyeccionMesEl) {
+        proyeccionMesEl.innerHTML = "$" + Math.round(proyeccionMes).toLocaleString("es-CO");
+    }
 }
 
 document
