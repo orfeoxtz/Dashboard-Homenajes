@@ -1,11 +1,9 @@
-const API_URL =
-"https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
 let META_GRUPAL = 0;
 let META_RED = 0;
 let META_PARTICULAR = 0;
 let META_EXCEDENTES = 0;
-
 let METAS_EXCEDENTES = {};
 
 let chartCumplimiento = null;
@@ -36,6 +34,15 @@ function toNumber(valor) {
     return Number.isFinite(numero) ? numero : 0;
 }
 
+function formatMoney(valor) {
+    return "$" + Math.round(toNumber(valor)).toLocaleString("es-CO");
+}
+
+function formatPercent(valor, decimales = 1) {
+    const n = Number.isFinite(valor) ? valor : 0;
+    return `${n.toFixed(decimales)}%`;
+}
+
 function parseFecha(valor) {
     if (valor instanceof Date && !isNaN(valor.getTime())) {
         return valor;
@@ -61,196 +68,172 @@ function parseFecha(valor) {
     return null;
 }
 
-async function cargarDashboard() {
-    const response = await fetch(API_URL);
-    const json = await response.json();
+function normalizarTexto(valor) {
+    return String(valor ?? "").trim().toUpperCase();
+}
 
-    const parametros = Array.isArray(json.parametros) ? json.parametros : [];
-    const excedentesConfig = Array.isArray(json.excedentes) ? json.excedentes : [];
-    const homenajes = Array.isArray(json.homenajes) ? json.homenajes : [];
-
-    let homenajesFiltrados = [...homenajes];
-
+function obtenerHomenajesFiltrados(homenajes) {
     const fechaInicio = document.getElementById("fechaInicio")?.value;
     const fechaFin = document.getElementById("fechaFin")?.value;
 
-    if (fechaInicio && fechaFin) {
-        const inicio = new Date(`${fechaInicio}T00:00:00`);
-        const fin = new Date(`${fechaFin}T23:59:59.999`);
-
-        homenajesFiltrados = homenajes.filter(item => {
-            const fecha = parseFecha(item.Fecha);
-            return fecha && fecha >= inicio && fecha <= fin;
-        });
+    if (!fechaInicio && !fechaFin) {
+        return [...homenajes];
     }
 
-    METAS_EXCEDENTES = {};
+    const inicio = fechaInicio ? new Date(`${fechaInicio}T00:00:00`) : new Date("1900-01-01T00:00:00");
+    const fin = fechaFin ? new Date(`${fechaFin}T23:59:59.999`) : new Date("2999-12-31T23:59:59.999");
 
-    excedentesConfig.forEach((fila, index) => {
-        if (index === 0) return;
-
-        const nombre = String(fila[0] || "").trim().toUpperCase();
-        const meta = toNumber(fila[1]);
-
-        if (nombre) {
-            METAS_EXCEDENTES[nombre] = meta;
-        }
+    return homenajes.filter(item => {
+        const fecha = parseFecha(item.Fecha);
+        return fecha && fecha >= inicio && fecha <= fin;
     });
-
-    parametros.forEach(fila => {
-        const clave = String(fila[0] || "").trim().toUpperCase();
-        const valor = String(fila[1] || "").trim().toUpperCase();
-
-        if (clave === "SEDE") {
-            META_GRUPAL = toNumber(fila[2]);
-        }
-
-        if (clave === "META_CATEGORIA" && valor === "RED") {
-            META_RED = toNumber(fila[2]);
-        }
-
-        if (clave === "META_CATEGORIA" && valor === "PARTICULAR") {
-            META_PARTICULAR = toNumber(fila[2]);
-        }
-
-        if (clave === "META_CATEGORIA" && valor === "EXCEDENTES") {
-            META_EXCEDENTES = toNumber(fila[2]);
-        }
-    });
-
-    let ventaTotal = 0;
-    let ventaRed = 0;
-    let ventaParticular = 0;
-    let ventaExcedentes = 0;
-
-    homenajesFiltrados.forEach(item => {
-        const valor = toNumber(item.Valor);
-
-        ventaTotal += valor;
-
-        const tipo = String(item.Tipo_Homenaje || "").toUpperCase().trim();
-        const excedente = String(item.Tipo_Excedente || "").toUpperCase().trim();
-
-        if (tipo === "RED") {
-            ventaRed += valor;
-        }
-
-        if (tipo === "PARTICULAR") {
-            ventaParticular += valor;
-        }
-
-        if (
-            excedente &&
-            excedente !== "SOAT" &&
-            excedente !== "PENSIONADO"
-        ) {
-            ventaExcedentes += valor;
-        }
-    });
-
-    actualizarKPIs(
-        ventaTotal,
-        ventaRed,
-        ventaParticular,
-        ventaExcedentes
-    );
-
-    crearTablaCumplimiento(
-        ventaRed,
-        ventaParticular,
-        ventaExcedentes
-    );
-
-    crearTablaExcedentes(
-        homenajesFiltrados
-    );
-
-    llenarParticulares(
-        homenajesFiltrados
-    );
-
-    crearGraficoIngresos(
-        ventaRed,
-        ventaParticular,
-        ventaExcedentes
-    );
-
-    crearTopServicios(
-        homenajesFiltrados
-    );
-
-    crearRankingGestores(
-        homenajesFiltrados
-    );
-
-    crearGraficoMensual(
-        homenajesFiltrados
-    );
-
-    crearGraficoGestores(
-        homenajesFiltrados
-    );
-
-    crearIndicadoresEjecutivos(
-        homenajesFiltrados
-    );
-
-    crearVelocimetroCumplimiento(ventaTotal);
-    crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes);
-    crearAlertasGerenciales(homenajesFiltrados);
 }
 
-function actualizarKPIs(
-    ventaTotal,
-    ventaRed,
-    ventaParticular,
-    ventaExcedentes
-) {
-    const cumplimientoGeneral =
-        META_GRUPAL > 0
-            ? ((ventaTotal / META_GRUPAL) * 100).toFixed(1)
-            : "0.0";
+async function cargarDashboard() {
+    const alertasBox = document.getElementById("alertasGerenciales");
+    if (alertasBox) {
+        alertasBox.innerHTML = "<p>Cargando información...</p>";
+    }
+
+    try {
+        const response = await fetch(API_URL, { cache: "no-store" });
+
+        if (!response.ok) {
+            throw new Error(`Error HTTP ${response.status}`);
+        }
+
+        const json = await response.json();
+
+        const parametros = Array.isArray(json.parametros) ? json.parametros : [];
+        const excedentesConfig = Array.isArray(json.excedentes) ? json.excedentes : [];
+        const homenajes = Array.isArray(json.homenajes) ? json.homenajes : [];
+
+        let homenajesFiltrados = obtenerHomenajesFiltrados(homenajes);
+
+        METAS_EXCEDENTES = {};
+
+        excedentesConfig.forEach((fila, index) => {
+            if (index === 0) return;
+
+            const nombre = normalizarTexto(fila[0]);
+            const meta = toNumber(fila[1]);
+
+            if (nombre) {
+                METAS_EXCEDENTES[nombre] = meta;
+            }
+        });
+
+        parametros.forEach(fila => {
+            const clave = normalizarTexto(fila[0]);
+            const valor = normalizarTexto(fila[1]);
+
+            if (clave === "SEDE") {
+                META_GRUPAL = toNumber(fila[2]);
+            }
+
+            if (clave === "META_CATEGORIA" && valor === "RED") {
+                META_RED = toNumber(fila[2]);
+            }
+
+            if (clave === "META_CATEGORIA" && valor === "PARTICULAR") {
+                META_PARTICULAR = toNumber(fila[2]);
+            }
+
+            if (clave === "META_CATEGORIA" && valor === "EXCEDENTES") {
+                META_EXCEDENTES = toNumber(fila[2]);
+            }
+        });
+
+        let ventaTotal = 0;
+        let ventaRed = 0;
+        let ventaParticular = 0;
+        let ventaExcedentes = 0;
+
+        homenajesFiltrados.forEach(item => {
+            const valor = toNumber(item.Valor);
+            ventaTotal += valor;
+
+            const tipo = normalizarTexto(item.Tipo_Homenaje);
+            const excedente = normalizarTexto(item.Tipo_Excedente);
+
+            if (tipo === "RED") {
+                ventaRed += valor;
+            }
+
+            if (tipo === "PARTICULAR") {
+                ventaParticular += valor;
+            }
+
+            if (excedente && excedente !== "SOAT" && excedente !== "PENSIONADO") {
+                ventaExcedentes += valor;
+            }
+        });
+
+        actualizarKPIs(ventaTotal);
+        crearTablaCumplimiento(ventaRed, ventaParticular, ventaExcedentes);
+        crearTablaExcedentes(homenajesFiltrados);
+        llenarParticulares(homenajesFiltrados);
+        crearGraficoIngresos(ventaRed, ventaParticular, ventaExcedentes);
+        crearTopServicios(homenajesFiltrados);
+        crearRankingGestores(homenajesFiltrados);
+        crearGraficoMensual(homenajesFiltrados);
+        crearGraficoGestores(homenajesFiltrados);
+        crearIndicadoresEjecutivos(homenajesFiltrados);
+        crearVelocimetroCumplimiento(ventaTotal);
+        crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes);
+        crearAlertasGerenciales(homenajesFiltrados);
+
+    } catch (error) {
+        console.error("Error al cargar dashboard:", error);
+
+        const alertasBox = document.getElementById("alertasGerenciales");
+        if (alertasBox) {
+            alertasBox.innerHTML = `
+                <div class="alerta-item">
+                    <i class="fas fa-triangle-exclamation"></i>
+                    <span>No fue posible cargar la información del dashboard.</span>
+                </div>
+            `;
+        }
+    }
+}
+
+function actualizarKPIs(ventaTotal) {
+    const cumplimientoGeneral = META_GRUPAL > 0
+        ? ((ventaTotal / META_GRUPAL) * 100)
+        : 0;
 
     const faltante = META_GRUPAL - ventaTotal;
 
     const ventasEl = document.getElementById("ventas");
+    const metaGrupalEl = document.getElementById("metaGrupal");
     const cumplimientoEl = document.getElementById("cumplimiento");
     const faltanteEl = document.getElementById("faltante");
     const proyeccionEl = document.getElementById("proyeccion");
     const ultimaActualizacionEl = document.getElementById("ultimaActualizacion");
 
-    if (ventasEl) ventasEl.innerHTML = "$" + ventaTotal.toLocaleString("es-CO");
-    if (cumplimientoEl) cumplimientoEl.innerHTML = cumplimientoGeneral + "%";
-    if (faltanteEl) faltanteEl.innerHTML = "$" + faltante.toLocaleString("es-CO");
-    if (proyeccionEl) proyeccionEl.innerHTML = cumplimientoGeneral + "%";
+    if (metaGrupalEl) metaGrupalEl.innerHTML = formatMoney(META_GRUPAL);
+    if (ventasEl) ventasEl.innerHTML = formatMoney(ventaTotal);
+    if (cumplimientoEl) cumplimientoEl.innerHTML = formatPercent(cumplimientoGeneral);
+    if (faltanteEl) faltanteEl.innerHTML = formatMoney(faltante);
+    if (proyeccionEl) proyeccionEl.innerHTML = formatPercent(cumplimientoGeneral);
+
     if (ultimaActualizacionEl) {
         ultimaActualizacionEl.innerHTML = new Date().toLocaleString("es-CO");
     }
 
-    const cumplimientoNumerico = Number(cumplimientoGeneral);
-
     if (cumplimientoEl) {
-        if (cumplimientoNumerico >= 100) {
+        if (cumplimientoGeneral >= 100) {
             cumplimientoEl.style.color = "#16a34a";
-        } else if (cumplimientoNumerico >= 80) {
+        } else if (cumplimientoGeneral >= 80) {
             cumplimientoEl.style.color = "#f59e0b";
         } else {
             cumplimientoEl.style.color = "#dc2626";
         }
     }
-
-    crearGraficoCumplimiento(
-        ventaRed,
-        ventaParticular,
-        ventaExcedentes
-    );
 }
 
-function crearGraficoCumplimiento(
-    ventaRed,
-    ventaParticular,
-    ventaExcedentes
-) {
+function crearGraficoCumplimiento(ventaRed, ventaParticular, ventaExcedentes) {
     const canvas = document.getElementById("ventasCategoria");
     if (!canvas) return;
 
@@ -261,16 +244,17 @@ function crearGraficoCumplimiento(
     chartCumplimiento = new Chart(canvas, {
         type: "bar",
         data: {
-            labels: ["🔴 RED", "🔵 PARTICULAR", "🟠 EXCEDENTES"],
+            labels: ["RED", "PARTICULAR", "EXCEDENTES"],
             datasets: [
                 {
                     label: "Meta",
                     data: [META_RED, META_PARTICULAR, META_EXCEDENTES],
                     backgroundColor: [
-                        "rgba(255, 99, 132, 0.70)",
-                        "rgba(54, 162, 235, 0.70)",
-                        "rgba(255, 159, 64, 0.70)"
-                    ]
+                        "rgba(255, 99, 132, 0.72)",
+                        "rgba(54, 162, 235, 0.72)",
+                        "rgba(255, 159, 64, 0.72)"
+                    ],
+                    borderRadius: 10
                 },
                 {
                     label: "Real",
@@ -279,7 +263,8 @@ function crearGraficoCumplimiento(
                         "rgba(16, 185, 129, 0.95)",
                         "rgba(37, 99, 235, 0.95)",
                         "rgba(245, 158, 11, 0.95)"
-                    ]
+                    ],
+                    borderRadius: 10
                 }
             ]
         },
@@ -330,11 +315,22 @@ function crearGraficoCumplimiento(
                             }
                         }
                     }
+                },
+                legend: {
+                    position: "top"
                 }
             },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    grid: {
+                        color: "rgba(148,163,184,.2)"
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
                 }
             }
         }
@@ -350,22 +346,28 @@ function crearTablaExcedentes(homenajes) {
     const reales = {};
 
     homenajes.forEach(item => {
-        const excedente = String(item.Tipo_Excedente || "").toUpperCase().trim();
+        const excedente = normalizarTexto(item.Tipo_Excedente);
 
-        if (
-            excedente === "" ||
-            excedente === "SOAT" ||
-            excedente === "PENSIONADO"
-        ) {
+        if (!excedente || excedente === "SOAT" || excedente === "PENSIONADO") {
             return;
         }
 
         const valor = toNumber(item.Valor);
-
         reales[excedente] = (reales[excedente] || 0) + valor;
     });
 
-    Object.keys(METAS_EXCEDENTES).forEach(nombre => {
+    const filas = Object.keys(METAS_EXCEDENTES);
+
+    if (filas.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="4">Sin configuración de excedentes</td>
+            </tr>
+        `;
+        return;
+    }
+
+    filas.forEach(nombre => {
         const meta = toNumber(METAS_EXCEDENTES[nombre]);
         const real = toNumber(reales[nombre]);
         const porcentaje = meta > 0 ? ((real / meta) * 100).toFixed(1) : "0.0";
@@ -373,19 +375,15 @@ function crearTablaExcedentes(homenajes) {
         tbody.innerHTML += `
             <tr>
                 <td>${nombre}</td>
-                <td>$${meta.toLocaleString("es-CO")}</td>
-                <td>$${real.toLocaleString("es-CO")}</td>
+                <td>${formatMoney(meta)}</td>
+                <td>${formatMoney(real)}</td>
                 <td>${porcentaje}%</td>
             </tr>
         `;
     });
 }
 
-function crearTablaCumplimiento(
-    ventaRed,
-    ventaParticular,
-    ventaExcedentes
-) {
+function crearTablaCumplimiento(ventaRed, ventaParticular, ventaExcedentes) {
     const tbody = document.querySelector("#tablaCumplimiento tbody");
     if (!tbody) return;
 
@@ -403,8 +401,8 @@ function crearTablaCumplimiento(
         tbody.innerHTML += `
             <tr>
                 <td>${item.nombre}</td>
-                <td>$${item.meta.toLocaleString("es-CO")}</td>
-                <td>$${item.real.toLocaleString("es-CO")}</td>
+                <td>${formatMoney(item.meta)}</td>
+                <td>${formatMoney(item.real)}</td>
                 <td>${porcentaje}%</td>
             </tr>
         `;
@@ -422,8 +420,8 @@ function llenarParticulares(homenajes) {
     let planes = 0;
 
     homenajes.forEach(item => {
-        const tipo = String(item.Tipo_Homenaje || "").toUpperCase().trim();
-        const excedente = String(item.Tipo_Excedente || "").toUpperCase().trim();
+        const tipo = normalizarTexto(item.Tipo_Homenaje);
+        const excedente = normalizarTexto(item.Tipo_Excedente);
         const cantidad = toNumber(item.Cantidad || 1);
 
         if (tipo === "PLAN") {
@@ -441,11 +439,22 @@ function llenarParticulares(homenajes) {
 
     const total = soat + pensionado + planes;
 
-    [
+    const datos = [
         ["SOAT", soat],
         ["PENSIONADO", pensionado],
         ["PLANES", planes]
-    ].forEach(item => {
+    ];
+
+    if (total === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3">Sin registros</td>
+            </tr>
+        `;
+        return;
+    }
+
+    datos.forEach(item => {
         const porcentaje = total > 0 ? ((item[1] / total) * 100).toFixed(1) : "0.0";
 
         tbody.innerHTML += `
@@ -458,11 +467,7 @@ function llenarParticulares(homenajes) {
     });
 }
 
-function crearGraficoIngresos(
-    ventaRed,
-    ventaParticular,
-    ventaExcedentes
-) {
+function crearGraficoIngresos(ventaRed, ventaParticular, ventaExcedentes) {
     const canvas = document.getElementById("composicionIngresos");
     if (!canvas) return;
 
@@ -478,9 +483,9 @@ function crearGraficoIngresos(
                 {
                     data: [ventaRed, ventaParticular, ventaExcedentes],
                     backgroundColor: [
-                        "rgba(255, 99, 132, 0.90)",
-                        "rgba(54, 162, 235, 0.90)",
-                        "rgba(255, 159, 64, 0.90)"
+                        "rgba(255, 99, 132, 0.95)",
+                        "rgba(54, 162, 235, 0.95)",
+                        "rgba(255, 159, 64, 0.95)"
                     ],
                     borderColor: "#ffffff",
                     borderWidth: 2
@@ -494,6 +499,9 @@ function crearGraficoIngresos(
                 title: {
                     display: true,
                     text: "Composición de Ingresos"
+                },
+                legend: {
+                    position: "top"
                 }
             }
         }
@@ -509,13 +517,9 @@ function crearTopServicios(homenajes) {
     const servicios = {};
 
     homenajes.forEach(item => {
-        const servicio = String(item.Tipo_Excedente || "").trim().toUpperCase();
+        const servicio = normalizarTexto(item.Tipo_Excedente);
 
-        if (
-            servicio === "" ||
-            servicio === "SOAT" ||
-            servicio === "PENSIONADO"
-        ) {
+        if (!servicio || servicio === "SOAT" || servicio === "PENSIONADO") {
             return;
         }
 
@@ -527,18 +531,28 @@ function crearTopServicios(homenajes) {
         servicios[servicio].valor += toNumber(item.Valor);
     });
 
-    Object.entries(servicios)
+    const ranking = Object.entries(servicios)
         .sort((a, b) => b[1].valor - a[1].valor)
-        .slice(0, 10)
-        .forEach(([nombre, data]) => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${nombre}</td>
-                    <td>${data.cantidad}</td>
-                    <td>$${data.valor.toLocaleString("es-CO")}</td>
-                </tr>
-            `;
-        });
+        .slice(0, 10);
+
+    if (ranking.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3">Sin registros</td>
+            </tr>
+        `;
+        return;
+    }
+
+    ranking.forEach(([nombre, data]) => {
+        tbody.innerHTML += `
+            <tr>
+                <td>${nombre}</td>
+                <td>${data.cantidad}</td>
+                <td>${formatMoney(data.valor)}</td>
+            </tr>
+        `;
+    });
 }
 
 function crearGraficoMensual(homenajes) {
@@ -618,11 +632,22 @@ function crearGraficoMensual(homenajes) {
                             }
                         }
                     }
+                },
+                legend: {
+                    display: true
                 }
             },
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    grid: {
+                        color: "rgba(148,163,184,.2)"
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
                 }
             }
         }
@@ -657,12 +682,21 @@ function crearRankingGestores(homenajes) {
 
     const ranking = Object.values(gestores).sort((a, b) => b.valor - a.valor);
 
+    if (ranking.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="3">Sin registros</td>
+            </tr>
+        `;
+        return;
+    }
+
     ranking.forEach(item => {
         tbody.innerHTML += `
             <tr>
                 <td>${item.nombre}</td>
                 <td>${item.cantidad}</td>
-                <td>$${item.valor.toLocaleString("es-CO")}</td>
+                <td>${formatMoney(item.valor)}</td>
             </tr>
         `;
     });
@@ -706,7 +740,8 @@ function crearGraficoGestores(homenajes) {
                 {
                     label: "Ventas",
                     data: ranking.map(item => item.valor),
-                    backgroundColor: "rgba(37, 99, 235, 0.92)"
+                    backgroundColor: "rgba(37, 99, 235, 0.95)",
+                    borderRadius: 10
                 }
             ]
         },
@@ -741,7 +776,15 @@ function crearGraficoGestores(homenajes) {
             },
             scales: {
                 x: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    grid: {
+                        color: "rgba(148,163,184,.2)"
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    }
                 }
             }
         }
@@ -749,8 +792,8 @@ function crearGraficoGestores(homenajes) {
 }
 
 function crearIndicadoresEjecutivos(homenajes) {
-    let gestores = {};
-    let servicios = {};
+    const gestores = {};
+    const servicios = {};
     let ventaTotal = 0;
 
     homenajes.forEach(item => {
@@ -775,31 +818,33 @@ function crearIndicadoresEjecutivos(homenajes) {
     });
 
     const mejorGestor = Object.entries(gestores).sort((a, b) => b[1] - a[1])[0];
-
-    if (mejorGestor) {
-        const mejorGestorEl = document.getElementById("mejorGestor");
-        const ventaMejorGestorEl = document.getElementById("ventaMejorGestor");
-
-        if (mejorGestorEl) mejorGestorEl.innerHTML = mejorGestor[0];
-        if (ventaMejorGestorEl) {
-            ventaMejorGestorEl.innerHTML = "$" + mejorGestor[1].toLocaleString("es-CO");
-        }
-    }
-
     const servicioTop = Object.entries(servicios).sort((a, b) => b[1] - a[1])[0];
 
-    if (servicioTop) {
-        const servicioTopEl = document.getElementById("servicioTop");
-        const cantidadServicioTopEl = document.getElementById("cantidadServicioTop");
+    const mejorGestorEl = document.getElementById("mejorGestor");
+    const ventaMejorGestorEl = document.getElementById("ventaMejorGestor");
+    const servicioTopEl = document.getElementById("servicioTop");
+    const cantidadServicioTopEl = document.getElementById("cantidadServicioTop");
 
-        if (servicioTopEl) servicioTopEl.innerHTML = servicioTop[0];
-        if (cantidadServicioTopEl) cantidadServicioTopEl.innerHTML = servicioTop[1];
+    if (mejorGestorEl) {
+        mejorGestorEl.innerHTML = mejorGestor ? mejorGestor[0] : "-";
+    }
+
+    if (ventaMejorGestorEl) {
+        ventaMejorGestorEl.innerHTML = mejorGestor ? formatMoney(mejorGestor[1]) : formatMoney(0);
+    }
+
+    if (servicioTopEl) {
+        servicioTopEl.innerHTML = servicioTop ? servicioTop[0] : "-";
+    }
+
+    if (cantidadServicioTopEl) {
+        cantidadServicioTopEl.innerHTML = servicioTop ? servicioTop[1] : "0";
     }
 
     const hoy = new Date();
     const diasMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
     const diaActual = hoy.getDate();
-    const diasRestantes = diasMes - diaActual;
+    const diasRestantes = Math.max(diasMes - diaActual, 0);
 
     const faltante = META_GRUPAL - ventaTotal;
     const metaDiaria = diasRestantes > 0 ? faltante / diasRestantes : 0;
@@ -809,11 +854,11 @@ function crearIndicadoresEjecutivos(homenajes) {
     const proyeccionMesEl = document.getElementById("proyeccionMes");
 
     if (metaDiariaEl) {
-        metaDiariaEl.innerHTML = "$" + Math.round(metaDiaria).toLocaleString("es-CO");
+        metaDiariaEl.innerHTML = formatMoney(metaDiaria);
     }
 
     if (proyeccionMesEl) {
-        proyeccionMesEl.innerHTML = "$" + Math.round(proyeccionMes).toLocaleString("es-CO");
+        proyeccionMesEl.innerHTML = formatMoney(proyeccionMes);
     }
 }
 
@@ -906,21 +951,21 @@ function crearVelocimetroCumplimiento(ventaTotal) {
     });
 }
 
-function actualizarSemaforo(idEstado, idTexto, porcentaje, nombre){
+function actualizarSemaforo(idEstado, idTexto, porcentaje, nombre) {
     const estado = document.getElementById(idEstado);
     const texto = document.getElementById(idTexto);
 
-    if(!estado || !texto) return;
+    if (!estado || !texto) return;
 
     let clase = "semaforo-danger";
     let simbolo = "●";
     let mensaje = "Bajo meta";
 
-    if(porcentaje >= 100){
+    if (porcentaje >= 100) {
         clase = "semaforo-ok";
         simbolo = "✓";
         mensaje = "Cumplido";
-    } else if(porcentaje >= 80){
+    } else if (porcentaje >= 80) {
         clase = "semaforo-warning";
         simbolo = "!";
         mensaje = "En riesgo";
@@ -931,7 +976,7 @@ function actualizarSemaforo(idEstado, idTexto, porcentaje, nombre){
     texto.innerHTML = `${nombre}: ${porcentaje.toFixed(1)}% - ${mensaje}`;
 }
 
-function crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes){
+function crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes) {
     const porcRed = META_RED > 0 ? (ventaRed / META_RED) * 100 : 0;
     const porcParticular = META_PARTICULAR > 0 ? (ventaParticular / META_PARTICULAR) * 100 : 0;
     const porcExcedentes = META_EXCEDENTES > 0 ? (ventaExcedentes / META_EXCEDENTES) * 100 : 0;
@@ -941,47 +986,47 @@ function crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes){
     actualizarSemaforo("semaforoExcedentes", "semaforoExcedentesTexto", porcExcedentes, "EXCEDENTES");
 }
 
-function crearAlertasGerenciales(homenajes){
+function crearAlertasGerenciales(homenajes) {
     const contenedor = document.getElementById("alertasGerenciales");
-    if(!contenedor) return;
+    if (!contenedor) return;
 
     const alertas = [];
 
     const total = homenajes.reduce((acc, item) => acc + toNumber(item.Valor), 0);
     const porcGrupo = META_GRUPAL > 0 ? (total / META_GRUPAL) * 100 : 0;
 
-    if(porcGrupo < 80){
+    if (porcGrupo < 80) {
         alertas.push(`El cumplimiento grupal está en ${porcGrupo.toFixed(1)}%, por debajo del nivel esperado.`);
     }
 
     const gestores = {};
     homenajes.forEach(item => {
         const gestor = String(item.Gestor || "").trim();
-        if(!gestor) return;
+        if (!gestor) return;
         gestores[gestor] = (gestores[gestor] || 0) + toNumber(item.Valor);
     });
 
-    const mejorGestor = Object.entries(gestores).sort((a,b) => b[1] - a[1])[0];
-    if(mejorGestor && mejorGestor[1] > META_GRUPAL * 0.35){
+    const mejorGestor = Object.entries(gestores).sort((a, b) => b[1] - a[1])[0];
+    if (mejorGestor && mejorGestor[1] > META_GRUPAL * 0.35) {
         alertas.push(`El gestor ${mejorGestor[0]} concentra una participación alta de ventas.`);
     }
 
     const excedentes = {};
     homenajes.forEach(item => {
-        const ex = String(item.Tipo_Excedente || "").trim().toUpperCase();
-        if(!ex || ex === "SOAT" || ex === "PENSIONADO") return;
+        const ex = normalizarTexto(item.Tipo_Excedente);
+        if (!ex || ex === "SOAT" || ex === "PENSIONADO") return;
         excedentes[ex] = (excedentes[ex] || 0) + toNumber(item.Valor);
     });
 
-    const topExcedente = Object.entries(excedentes).sort((a,b) => b[1] - a[1])[0];
-    if(topExcedente && METAS_EXCEDENTES[topExcedente[0]]){
+    const topExcedente = Object.entries(excedentes).sort((a, b) => b[1] - a[1])[0];
+    if (topExcedente && METAS_EXCEDENTES[topExcedente[0]]) {
         const porcEx = (topExcedente[1] / METAS_EXCEDENTES[topExcedente[0]]) * 100;
-        if(porcEx < 80){
+        if (porcEx < 80) {
             alertas.push(`El excedente ${topExcedente[0]} está por debajo de meta.`);
         }
     }
 
-    if(alertas.length === 0){
+    if (alertas.length === 0) {
         contenedor.innerHTML = `<p>Sin alertas por el momento.</p>`;
         return;
     }
@@ -994,11 +1039,6 @@ function crearAlertasGerenciales(homenajes){
     `).join("");
 }
 
-document
-.getElementById("btnFiltrar")
-?.addEventListener(
-    "click",
-    cargarDashboard
-);
+document.getElementById("btnFiltrar")?.addEventListener("click", cargarDashboard);
 
 cargarDashboard();
