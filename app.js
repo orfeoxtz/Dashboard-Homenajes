@@ -134,21 +134,57 @@ async function cargarDashboard() {
             ventaParticular += valor;
         }
 
-        if (excedente && excedente !== "SOAT" && excedente !== "PENSIONADO") {
+        if (
+            excedente &&
+            excedente !== "SOAT" &&
+            excedente !== "PENSIONADO"
+        ) {
             ventaExcedentes += valor;
         }
     });
 
-    actualizarKPIs(ventaTotal, ventaRed, ventaParticular, ventaExcedentes);
+    actualizarKPIs(
+        ventaTotal,
+        ventaRed,
+        ventaParticular,
+        ventaExcedentes
+    );
 
-    crearTablaCumplimiento(ventaRed, ventaParticular, ventaExcedentes);
-    crearTablaExcedentes(homenajesFiltrados);
-    llenarParticulares(homenajesFiltrados);
-    crearGraficoIngresos(ventaRed, ventaParticular, ventaExcedentes);
-    crearTopServicios(homenajesFiltrados);
-    crearRankingGestores(homenajesFiltrados);
-    crearGraficoMensual(homenajesFiltrados);
-    crearGraficoGestores(homenajesFiltrados);
+    crearTablaCumplimiento(
+        ventaRed,
+        ventaParticular,
+        ventaExcedentes
+    );
+
+    crearTablaExcedentes(
+        homenajesFiltrados
+    );
+
+    llenarParticulares(
+        homenajesFiltrados
+    );
+
+    crearGraficoIngresos(
+        ventaRed,
+        ventaParticular,
+        ventaExcedentes
+    );
+
+    crearTopServicios(
+        homenajesFiltrados
+    );
+
+    crearRankingGestores(
+        homenajesFiltrados
+    );
+
+    crearGraficoMensual(
+        homenajesFiltrados
+    );
+
+    crearGraficoGestores(
+        homenajesFiltrados
+    );
 }
 
 function actualizarKPIs(
@@ -178,7 +214,11 @@ function actualizarKPIs(
         ultimaActualizacionEl.innerHTML = new Date().toLocaleString("es-CO");
     }
 
-    crearGraficoCumplimiento(ventaRed, ventaParticular, ventaExcedentes);
+    crearGraficoCumplimiento(
+        ventaRed,
+        ventaParticular,
+        ventaExcedentes
+    );
 }
 
 function crearGraficoCumplimiento(
@@ -201,12 +241,20 @@ function crearGraficoCumplimiento(
                 {
                     label: "Meta",
                     data: [META_RED, META_PARTICULAR, META_EXCEDENTES],
-                    backgroundColor: "rgba(149, 165, 166, 0.65)"
+                    backgroundColor: [
+                        "rgba(255, 99, 132, 0.70)",
+                        "rgba(54, 162, 235, 0.70)",
+                        "rgba(255, 159, 64, 0.70)"
+                    ]
                 },
                 {
                     label: "Real",
                     data: [ventaRed, ventaParticular, ventaExcedentes],
-                    backgroundColor: "rgba(0, 166, 81, 0.8)"
+                    backgroundColor: [
+                        "rgba(16, 185, 129, 0.95)",
+                        "rgba(37, 99, 235, 0.95)",
+                        "rgba(245, 158, 11, 0.95)"
+                    ]
                 }
             ]
         },
@@ -217,6 +265,22 @@ function crearGraficoCumplimiento(
                 title: {
                     display: true,
                     text: "Meta vs Real"
+                },
+                annotation: {
+                    annotations: {
+                        metaGrupal: {
+                            type: "line",
+                            yMin: META_GRUPAL,
+                            yMax: META_GRUPAL,
+                            borderColor: "#ff2d55",
+                            borderWidth: 4,
+                            borderDash: [10, 6],
+                            label: {
+                                display: true,
+                                content: "Meta Grupal"
+                            }
+                        }
+                    }
                 }
             },
             scales: {
@@ -365,10 +429,12 @@ function crearGraficoIngresos(
                 {
                     data: [ventaRed, ventaParticular, ventaExcedentes],
                     backgroundColor: [
-                        "rgba(0, 166, 81, 0.85)",
-                        "rgba(52, 152, 219, 0.85)",
-                        "rgba(241, 196, 15, 0.85)"
-                    ]
+                        "rgba(255, 99, 132, 0.90)",
+                        "rgba(54, 162, 235, 0.90)",
+                        "rgba(255, 159, 64, 0.90)"
+                    ],
+                    borderColor: "#ffffff",
+                    borderWidth: 2
                 }
             ]
         },
@@ -467,7 +533,7 @@ function crearGraficoMensual(homenajes) {
                 {
                     label: "Ventas Mensuales",
                     data: valores,
-                    backgroundColor: "rgba(0, 166, 81, 0.85)"
+                    backgroundColor: "rgba(0, 166, 81, 0.90)"
                 }
             ]
         },
@@ -478,6 +544,22 @@ function crearGraficoMensual(homenajes) {
                 title: {
                     display: true,
                     text: "Tendencia de Ventas Mensuales"
+                },
+                annotation: {
+                    annotations: {
+                        metaGrupal: {
+                            type: "line",
+                            yMin: META_GRUPAL,
+                            yMax: META_GRUPAL,
+                            borderColor: "#ff2d55",
+                            borderWidth: 4,
+                            borderDash: [10, 6],
+                            label: {
+                                display: true,
+                                content: "Meta Grupal"
+                            }
+                        }
+                    }
                 }
             },
             scales: {
@@ -566,7 +648,7 @@ function crearGraficoGestores(homenajes) {
                 {
                     label: "Ventas",
                     data: ranking.map(item => item.valor),
-                    backgroundColor: "rgba(0, 166, 81, 0.85)"
+                    backgroundColor: "rgba(37, 99, 235, 0.92)"
                 }
             ]
         },
@@ -578,6 +660,25 @@ function crearGraficoGestores(homenajes) {
                 title: {
                     display: true,
                     text: "Top 10 Gestores por Ventas"
+                },
+                annotation: {
+                    annotations: {
+                        metaGeneral: {
+                            type: "line",
+                            xMin: META_GRUPAL,
+                            xMax: META_GRUPAL,
+                            borderColor: "#ff2d55",
+                            borderWidth: 4,
+                            borderDash: [10, 6],
+                            label: {
+                                display: true,
+                                content: "Meta Grupal"
+                            }
+                        }
+                    }
+                },
+                legend: {
+                    display: false
                 }
             },
             scales: {
