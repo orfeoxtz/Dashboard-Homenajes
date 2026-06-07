@@ -667,6 +667,62 @@ beginAtZero:true
 });
 
 }
+function crearRankingGestores(homenajes){
+
+const tbody =
+document.querySelector("#tablaGestores tbody");
+
+if(!tbody) return;
+
+tbody.innerHTML = "";
+
+let gestores = {};
+
+homenajes.forEach(item=>{
+
+const gestor =
+String(item.Gestor || "")
+.trim()
+.toUpperCase();
+
+if(gestor === "") return;
+
+if(!gestores[gestor]){
+
+gestores[gestor] = {
+cantidad:0,
+valor:0
+};
+
+}
+
+gestores[gestor].cantidad += 1;
+
+gestores[gestor].valor +=
+Number(item.Valor || 0);
+
+});
+
+const ranking =
+Object.entries(gestores)
+.sort(
+(a,b)=>b[1].valor-a[1].valor
+);
+
+ranking.forEach(item=>{
+
+tbody.innerHTML += `
+<tr>
+<td>${item[0]}</td>
+<td>${item[1].cantidad}</td>
+<td>$${item[1].valor.toLocaleString("es-CO")}</td>
+</tr>
+`;
+
+});
+
+}
+
 document
 .getElementById("btnFiltrar")
 ?.addEventListener(
