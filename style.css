@@ -104,6 +104,12 @@ body{
     font-size:14px;
 }
 
+.menu-item.active{
+    background:#ffffff;
+    color:#00a651;
+    font-weight:800;
+}
+
 .main{
     margin-left:230px;
     width:calc(100% - 230px);
@@ -137,10 +143,15 @@ header p{
     font-size:14px;
 }
 
-#ultimaActualizacion{
+.ultima-act{
     font-weight:700;
     color:var(--text);
     font-size:14px;
+}
+
+#ultimaActualizacion{
+    font-weight:800;
+    color:var(--text);
 }
 
 .filtros{
@@ -201,6 +212,23 @@ header p{
 #btnFiltrar:hover{
     transform:translateY(-1px);
     box-shadow:0 14px 26px rgba(0,166,81,.28);
+}
+
+.vista{
+    display:none;
+}
+
+.active-view{
+    display:block;
+}
+
+.vista-titulo{
+    margin-top:18px;
+    margin-bottom:0;
+    font-size:24px;
+    color:var(--green-dark);
+    font-weight:900;
+    letter-spacing:-.2px;
 }
 
 .kpis,
@@ -306,9 +334,15 @@ header p{
 }
 
 #graficoGestores,
-#velocimetroCumplimiento{
+#velocimetroCumplimiento,
+#ventasAnuales,
+#ventasPorCategoriaVista,
+#cumplimientoAnual,
+#rankingCompletoGestores,
+#graficoExcedentes,
+#graficoHistorico{
     width:100% !important;
-    height:330px !important;
+    height:420px !important;
 }
 
 .tabla-cumplimiento{
@@ -497,6 +531,50 @@ header p{
     color:#ef4444;
 }
 
+.card-big{
+    background:white;
+    padding:22px;
+    border-radius:25px;
+    margin-top:18px;
+    box-shadow:0 15px 35px rgba(0,0,0,.08);
+    border:1px solid rgba(148,163,184,.14);
+}
+
+.card-big h3{
+    color:#0f172a;
+    margin-bottom:14px;
+    font-size:18px;
+    font-weight:800;
+}
+
+.admin-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+    margin-top:20px;
+}
+
+.admin-card{
+    background:white;
+    padding:30px;
+    border-radius:25px;
+    box-shadow:0 15px 35px rgba(0,0,0,.08);
+    border:1px solid rgba(148,163,184,.14);
+}
+
+.admin-card h2{
+    color:#00a651;
+    margin-bottom:15px;
+    font-size:18px;
+}
+
+.admin-card span{
+    font-size:22px;
+    font-weight:900;
+    color:#0f172a;
+    word-break:break-word;
+}
+
 @media(max-width:1400px){
     .kpis{
         grid-template-columns:repeat(3,minmax(0,1fr));
@@ -533,6 +611,10 @@ header p{
     }
 
     .semaforo-grid{
+        grid-template-columns:1fr;
+    }
+
+    .admin-grid{
         grid-template-columns:1fr;
     }
 }
@@ -579,8 +661,14 @@ header p{
         min-height:300px;
     }
 
-    .grafico-card canvas{
-        height:240px !important;
+    .grafico-card canvas,
+    #ventasAnuales,
+    #ventasPorCategoriaVista,
+    #cumplimientoAnual,
+    #rankingCompletoGestores,
+    #graficoExcedentes,
+    #graficoHistorico{
+        height:260px !important;
     }
 }
 
