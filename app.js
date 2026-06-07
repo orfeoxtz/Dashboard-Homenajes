@@ -20,6 +20,7 @@ let chartHistorico = null;
 let chartComparativoVentas = null;
 let chartComparativoCategorias = null;
 let chartGestoresCategoria = null;
+let chartComparativoHistorico = null;
 
 let DATASET = [];
 let DATASET_FILTRADO = [];
@@ -180,7 +181,6 @@ async function cargarDashboard() {
 
         renderizarVistasAdicionales(DATASET_FILTRADO);
         actualizarAdmin(DATASET, DATASET_FILTRADO);
-
     } catch (error) {
         console.error("Error al cargar dashboard:", error);
         const alertasBox = document.getElementById("alertasGerenciales");
@@ -1229,6 +1229,65 @@ function crearGraficoGestoresExtra(homenajes) {
     });
 }
 
+function crearGraficoComparativoHistorico(homenajes) {
+    const canvas = document.getElementById("comparativoHistorico");
+    if (!canvas) return;
+
+    if (chartComparativoHistorico) chartComparativoHistorico.destroy();
+
+    const mensual = {};
+
+    homenajes.forEach(item => {
+        const fecha = parseFecha(item.Fecha);
+        if (!fecha) return;
+        const llave = mesKey(fecha);
+        mensual[llave] = (mensual[llave] || 0) + toNumber(item.Valor);
+    });
+
+    const etiquetas = ordenarMeses(Object.keys(mensual));
+    const valores = etiquetas.map(k => mensual[k]);
+
+    chartComparativoHistorico = new Chart(canvas, {
+        type: "line",
+        data: {
+            labels: etiquetas,
+            datasets: [
+                {
+                    label: "Ventas históricas",
+                    data: valores,
+                    borderColor: "#2563eb",
+                    backgroundColor: "rgba(37,99,235,.12)",
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 5
+                },
+                {
+                    label: "Tendencia",
+                    data: valores.map((v, i) => {
+                        if (i < 1) return v;
+                        const avg = valores.slice(0, i + 1).reduce((a, b) => a + b, 0) / (i + 1);
+                        return avg;
+                    }),
+                    borderColor: "#f97316",
+                    backgroundColor: "rgba(249,115,22,.10)",
+                    fill: false,
+                    tension: 0.2,
+                    pointRadius: 0,
+                    borderDash: [8, 6]
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
 function crearTablaExcedentesDetallada(homenajes) {
     const tbody = document.querySelector("#tablaExcedentesDetallada tbody");
     if (!tbody) return;
@@ -1402,6 +1461,7 @@ function renderizarVistasAdicionales(homenajes) {
     crearGraficoComparativoCategorias(resumen);
     crearGraficoGestoresExtra(homenajes);
     crearTablaExcedentesDetallada(homenajes);
+    crearGraficoComparativoHistorico(homenajes);
 
     actualizarIndicadoresVistaVentas(homenajes);
     actualizarIndicadoresVistaCumplimiento(homenajes);
@@ -1476,7 +1536,8 @@ function cambiarVista(seccion) {
             chartHistorico,
             chartComparativoVentas,
             chartComparativoCategorias,
-            chartGestoresCategoria
+            chartGestoresCategoria,
+            chartComparativoHistorico
         ].forEach(chart => {
             if (chart && typeof chart.resize === "function") {
                 chart.resize();
