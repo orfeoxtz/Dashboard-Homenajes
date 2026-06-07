@@ -44,8 +44,6 @@ if(fechaInicio && fechaFin){
 
 }
 
-}
-
 METAS_EXCEDENTES = {};
 
 excedentesConfig.forEach((fila,index) => {
@@ -161,7 +159,7 @@ crearGraficoIngresos(
     ventaParticular,
     ventaExcedentes
 );
-    
+}    
 
 function actualizarKPIs(
     ventaTotal,
