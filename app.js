@@ -17,10 +17,6 @@ let chartCumplimientoAnual = null;
 let chartRankingCompletoGestores = null;
 let chartExcedentes = null;
 let chartHistorico = null;
-let chartComparativoVentas = null;
-let chartComparativoCategorias = null;
-let chartGestoresCategoria = null;
-let chartComparativoHistorico = null;
 
 let DATASET = [];
 let DATASET_FILTRADO = [];
@@ -181,6 +177,7 @@ async function cargarDashboard() {
 
         renderizarVistasAdicionales(DATASET_FILTRADO);
         actualizarAdmin(DATASET, DATASET_FILTRADO);
+
     } catch (error) {
         console.error("Error al cargar dashboard:", error);
         const alertasBox = document.getElementById("alertasGerenciales");
@@ -1112,362 +1109,14 @@ function crearGraficoHistorico(homenajes) {
     });
 }
 
-function crearGraficoComparativoVentas(homenajes) {
-    const canvas = document.getElementById("comparativoVentas");
-    if (!canvas) return;
-
-    if (chartComparativoVentas) chartComparativoVentas.destroy();
-
-    const mensual = {};
-
-    homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
-        if (!fecha) return;
-        const llave = mesKey(fecha);
-        mensual[llave] = (mensual[llave] || 0) + toNumber(item.Valor);
-    });
-
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const valores = etiquetas.map(k => mensual[k]);
-
-    chartComparativoVentas = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: etiquetas,
-            datasets: [{
-                label: "Ventas mensuales",
-                data: valores,
-                backgroundColor: "rgba(0,166,81,.9)",
-                borderRadius: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-}
-
-function crearGraficoComparativoCategorias(resumen) {
-    const canvas = document.getElementById("cumplimientoCategorias");
-    if (!canvas) return;
-
-    if (chartComparativoCategorias) chartComparativoCategorias.destroy();
-
-    chartComparativoCategorias = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: ["RED", "PARTICULAR", "EXCEDENTES"],
-            datasets: [
-                {
-                    label: "Meta",
-                    data: [META_RED, META_PARTICULAR, META_EXCEDENTES],
-                    backgroundColor: "rgba(255,99,132,.75)",
-                    borderRadius: 10
-                },
-                {
-                    label: "Real",
-                    data: [resumen.red, resumen.particular, resumen.excedentes],
-                    backgroundColor: "rgba(37,99,235,.9)",
-                    borderRadius: 10
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-}
-
-function crearGraficoGestoresExtra(homenajes) {
-    const canvas = document.getElementById("graficoGestoresCategoria");
-    if (!canvas) return;
-
-    if (chartGestoresCategoria) chartGestoresCategoria.destroy();
-
-    const gestores = {};
-
-    homenajes.forEach(item => {
-        const nombre = String(item.Gestor || "").trim();
-        if (!nombre) return;
-        gestores[nombre] = (gestores[nombre] || 0) + toNumber(item.Valor);
-    });
-
-    const ranking = Object.entries(gestores)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10);
-
-    chartGestoresCategoria = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: ranking.map(([nombre]) => nombre),
-            datasets: [{
-                label: "Valor",
-                data: ranking.map(([, valor]) => valor),
-                backgroundColor: "rgba(124,58,237,.9)",
-                borderRadius: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: "y",
-            scales: {
-                x: { beginAtZero: true },
-                y: { grid: { display: false } }
-            }
-        }
-    });
-}
-
-function crearGraficoComparativoHistorico(homenajes) {
-    const canvas = document.getElementById("comparativoHistorico");
-    if (!canvas) return;
-
-    if (chartComparativoHistorico) chartComparativoHistorico.destroy();
-
-    const mensual = {};
-
-    homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
-        if (!fecha) return;
-        const llave = mesKey(fecha);
-        mensual[llave] = (mensual[llave] || 0) + toNumber(item.Valor);
-    });
-
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const valores = etiquetas.map(k => mensual[k]);
-
-    chartComparativoHistorico = new Chart(canvas, {
-        type: "line",
-        data: {
-            labels: etiquetas,
-            datasets: [
-                {
-                    label: "Ventas históricas",
-                    data: valores,
-                    borderColor: "#2563eb",
-                    backgroundColor: "rgba(37,99,235,.12)",
-                    fill: true,
-                    tension: 0.35,
-                    pointRadius: 5
-                },
-                {
-                    label: "Tendencia",
-                    data: valores.map((v, i) => {
-                        if (i < 1) return v;
-                        const avg = valores.slice(0, i + 1).reduce((a, b) => a + b, 0) / (i + 1);
-                        return avg;
-                    }),
-                    borderColor: "#f97316",
-                    backgroundColor: "rgba(249,115,22,.10)",
-                    fill: false,
-                    tension: 0.2,
-                    pointRadius: 0,
-                    borderDash: [8, 6]
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { beginAtZero: true },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-}
-
-function crearTablaExcedentesDetallada(homenajes) {
-    const tbody = document.querySelector("#tablaExcedentesDetallada tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    const excedentes = {};
-
-    homenajes.forEach(item => {
-        const ex = normalizarTexto(item.Tipo_Excedente);
-        if (!ex || ex === "SOAT" || ex === "PENSIONADO") return;
-
-        if (!excedentes[ex]) {
-            excedentes[ex] = { cantidad: 0, valor: 0 };
-        }
-
-        excedentes[ex].cantidad += 1;
-        excedentes[ex].valor += toNumber(item.Valor);
-    });
-
-    const totalValor = Object.values(excedentes).reduce((acc, v) => acc + v.valor, 0);
-
-    Object.entries(excedentes)
-        .sort((a, b) => b[1].valor - a[1].valor)
-        .forEach(([nombre, data]) => {
-            const porcentaje = totalValor > 0 ? ((data.valor / totalValor) * 100).toFixed(1) : "0.0";
-            tbody.innerHTML += `
-                <tr>
-                    <td>${nombre}</td>
-                    <td>${data.cantidad}</td>
-                    <td>${formatMoney(data.valor)}</td>
-                    <td>${porcentaje}%</td>
-                </tr>
-            `;
-        });
-}
-
-function actualizarIndicadoresVistaVentas(homenajes) {
-    const resumen = calcularResumen(homenajes);
-    const periodo = document.getElementById("ventasPeriodo");
-    const promedio = document.getElementById("promedioMensual");
-    const mesAlto = document.getElementById("mesMasAlto");
-    const valorMesAlto = document.getElementById("valorMesMasAlto");
-
-    const mensual = {};
-    homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
-        if (!fecha) return;
-        const llave = mesKey(fecha);
-        mensual[llave] = (mensual[llave] || 0) + toNumber(item.Valor);
-    });
-
-    const ranking = Object.entries(mensual).sort((a, b) => b[1] - a[1]);
-    const top = ranking[0];
-
-    if (periodo) periodo.innerHTML = formatMoney(resumen.total);
-    if (promedio) promedio.innerHTML = formatMoney(ranking.length > 0 ? resumen.total / ranking.length : 0);
-    if (mesAlto) mesAlto.innerHTML = top ? top[0] : "-";
-    if (valorMesAlto) valorMesAlto.innerHTML = top ? formatMoney(top[1]) : formatMoney(0);
-}
-
-function actualizarIndicadoresVistaCumplimiento(homenajes) {
-    const resumen = calcularResumen(homenajes);
-
-    const cumplimiento = document.getElementById("cumplimientoGeneralVista");
-    const metaMensual = document.getElementById("metaMensualVista");
-    const realMensual = document.getElementById("realMensualVista");
-    const brecha = document.getElementById("brechaVista");
-
-    const porcentaje = META_GRUPAL > 0 ? (resumen.total / META_GRUPAL) * 100 : 0;
-
-    if (cumplimiento) cumplimiento.innerHTML = `${porcentaje.toFixed(1)}%`;
-    if (metaMensual) metaMensual.innerHTML = formatMoney(META_GRUPAL);
-    if (realMensual) realMensual.innerHTML = formatMoney(resumen.total);
-    if (brecha) brecha.innerHTML = formatMoney(META_GRUPAL - resumen.total);
-}
-
-function actualizarIndicadoresVistaGestores(homenajes) {
-    const gestores = {};
-
-    homenajes.forEach(item => {
-        const nombre = String(item.Gestor || "").trim();
-        if (!nombre) return;
-        gestores[nombre] = (gestores[nombre] || 0) + toNumber(item.Valor);
-    });
-
-    const ranking = Object.entries(gestores).sort((a, b) => b[1] - a[1]);
-    const top = ranking[0];
-
-    const activos = document.getElementById("gestoresActivos");
-    const promedio = document.getElementById("promedioGestor");
-    const topGestor = document.getElementById("topGestorVista");
-    const valorTop = document.getElementById("valorTopGestorVista");
-
-    if (activos) activos.innerHTML = ranking.length;
-    if (promedio) promedio.innerHTML = formatMoney(ranking.length > 0 ? ranking.reduce((acc, [, v]) => acc + v, 0) / ranking.length : 0);
-    if (topGestor) topGestor.innerHTML = top ? top[0] : "-";
-    if (valorTop) valorTop.innerHTML = top ? formatMoney(top[1]) : formatMoney(0);
-}
-
-function actualizarIndicadoresVistaExcedentes(homenajes) {
-    const excedentes = {};
-
-    homenajes.forEach(item => {
-        const ex = normalizarTexto(item.Tipo_Excedente);
-        if (!ex || ex === "SOAT" || ex === "PENSIONADO") return;
-
-        if (!excedentes[ex]) {
-            excedentes[ex] = { cantidad: 0, valor: 0 };
-        }
-
-        excedentes[ex].cantidad += 1;
-        excedentes[ex].valor += toNumber(item.Valor);
-    });
-
-    const ranking = Object.entries(excedentes).sort((a, b) => b[1].valor - a[1].valor);
-    const top = ranking[0];
-    const totalValor = ranking.reduce((acc, [, v]) => acc + v.valor, 0);
-
-    const total = document.getElementById("excedentesTotales");
-    const lider = document.getElementById("excedenteLider");
-    const valorLider = document.getElementById("valorExcedenteLider");
-    const categorias = document.getElementById("categoriasExcedentes");
-
-    if (total) total.innerHTML = formatMoney(totalValor);
-    if (lider) lider.innerHTML = top ? top[0] : "-";
-    if (valorLider) valorLider.innerHTML = top ? formatMoney(top[1].valor) : formatMoney(0);
-    if (categorias) categorias.innerHTML = ranking.length;
-}
-
-function actualizarIndicadoresVistaTendencias(homenajes) {
-    const mensual = {};
-
-    homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
-        if (!fecha) return;
-        const llave = mesKey(fecha);
-        mensual[llave] = (mensual[llave] || 0) + toNumber(item.Valor);
-    });
-
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const valores = etiquetas.map(k => mensual[k]);
-
-    const periodo = document.getElementById("periodoAnalizado");
-    const promedio = document.getElementById("promedioHistorico");
-    const tendencia = document.getElementById("tendenciaVista");
-    const variacion = document.getElementById("variacionVista");
-
-    const promedioHist = valores.length > 0 ? valores.reduce((a, b) => a + b, 0) / valores.length : 0;
-    const first = valores[0] || 0;
-    const last = valores[valores.length - 1] || 0;
-    const variacionPct = first > 0 ? ((last - first) / first) * 100 : 0;
-
-    if (periodo) periodo.innerHTML = etiquetas.length > 0 ? `${etiquetas[0]} a ${etiquetas[etiquetas.length - 1]}` : "-";
-    if (promedio) promedio.innerHTML = formatMoney(promedioHist);
-    if (tendencia) tendencia.innerHTML = variacionPct >= 0 ? "Creciente" : "Decreciente";
-    if (variacion) variacion.innerHTML = `${variacionPct.toFixed(1)}%`;
-}
-
 function renderizarVistasAdicionales(homenajes) {
     const resumen = calcularResumen(homenajes);
-
     crearGraficoVentasVista(homenajes);
     crearGraficoCategoriaVista(resumen);
     crearGraficoCumplimientoAnual(homenajes);
     crearGraficoRankingCompletoGestores(homenajes);
     crearGraficoExcedentes(homenajes);
     crearGraficoHistorico(homenajes);
-
-    crearGraficoComparativoVentas(homenajes);
-    crearGraficoComparativoCategorias(resumen);
-    crearGraficoGestoresExtra(homenajes);
-    crearTablaExcedentesDetallada(homenajes);
-    crearGraficoComparativoHistorico(homenajes);
-
-    actualizarIndicadoresVistaVentas(homenajes);
-    actualizarIndicadoresVistaCumplimiento(homenajes);
-    actualizarIndicadoresVistaGestores(homenajes);
-    actualizarIndicadoresVistaExcedentes(homenajes);
-    actualizarIndicadoresVistaTendencias(homenajes);
 }
 
 function actualizarAdmin(totalOriginal, totalFiltrado) {
@@ -1475,25 +1124,10 @@ function actualizarAdmin(totalOriginal, totalFiltrado) {
     const ultima = document.getElementById("adminUltimaActualizacion");
     const registros = document.getElementById("adminTotalRegistros");
     const rango = document.getElementById("adminRangoFechas");
-    const totalGestores = document.getElementById("adminTotalGestores");
-    const totalExcedentes = document.getElementById("adminTotalExcedentes");
-
-    const gestores = new Set();
-    const excedentes = new Set();
-
-    totalFiltrado.forEach(item => {
-        const gestor = String(item.Gestor || "").trim();
-        const ex = normalizarTexto(item.Tipo_Excedente);
-
-        if (gestor) gestores.add(gestor);
-        if (ex && ex !== "SOAT" && ex !== "PENSIONADO") excedentes.add(ex);
-    });
 
     if (meta) meta.innerHTML = formatMoney(META_GRUPAL);
     if (ultima) ultima.innerHTML = new Date().toLocaleString("es-CO");
     if (registros) registros.innerHTML = `${totalFiltrado.length} / ${totalOriginal.length}`;
-    if (totalGestores) totalGestores.innerHTML = gestores.size;
-    if (totalExcedentes) totalExcedentes.innerHTML = excedentes.size;
 
     const { fechaInicio, fechaFin } = obtenerRangoFechas();
     if (rango) {
@@ -1533,11 +1167,7 @@ function cambiarVista(seccion) {
             chartCumplimientoAnual,
             chartRankingCompletoGestores,
             chartExcedentes,
-            chartHistorico,
-            chartComparativoVentas,
-            chartComparativoCategorias,
-            chartGestoresCategoria,
-            chartComparativoHistorico
+            chartHistorico
         ].forEach(chart => {
             if (chart && typeof chart.resize === "function") {
                 chart.resize();
@@ -1582,14 +1212,16 @@ function exportarPDF() {
     const elemento = document.querySelector(".main");
     if (!elemento || typeof html2pdf === "undefined") return;
 
-    html2pdf().set({
+    const opciones = {
         margin: 0.2,
         filename: "dashboard_gerencial_4k.pdf",
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "in", format: "a4", orientation: "landscape" },
         pagebreak: { mode: ["css", "legacy"] }
-    }).from(elemento).save();
+    };
+
+    html2pdf().set(opciones).from(elemento).save();
 }
 
 function exportarPDFVista() {
@@ -1707,4 +1339,5 @@ document.getElementById("btnPresentacion")?.addEventListener("click", activarPre
 aplicarPreferencias();
 buscadorGlobal();
 cargarDashboard();
+
 setInterval(autoActualizarDashboard, 5 * 60 * 1000);
