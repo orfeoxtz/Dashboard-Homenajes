@@ -164,8 +164,82 @@ crearTopServicios(
     homenajesFiltrados
 );
 
+crearGraficoMensual(
+    homenajesFiltrados
+);
+
+} // ← aquí termina cargarDashboard()
+
+
+function crearGraficoMensual(homenajes){
+
+const canvas =
+document.getElementById("ventasMensuales");
+
+if(!canvas) return;
+
+if(window.graficoMensual){
+window.graficoMensual.destroy();
 }
 
+let ventasMes = {};
+
+homenajes.forEach(item=>{
+
+const fechaTexto =
+String(item.Fecha || "");
+
+if(!fechaTexto.includes("/")) return;
+
+const partes = fechaTexto.split("/");
+
+const mes = partes[1];
+const anio = partes[2];
+
+const llave = mes + "/" + anio;
+
+if(!ventasMes[llave]){
+ventasMes[llave] = 0;
+}
+
+ventasMes[llave] +=
+Number(item.Valor || 0);
+
+});
+
+const etiquetas =
+Object.keys(ventasMes);
+
+const valores =
+Object.values(ventasMes);
+
+window.graficoMensual =
+new Chart(canvas,{
+
+type:"line",
+
+data:{
+labels:etiquetas,
+datasets:[{
+label:"Ventas",
+data:valores,
+tension:0.3
+}]
+},
+
+options:{
+responsive:true,
+plugins:{
+title:{
+display:true,
+text:"Tendencia de Ventas Mensuales"
+}
+}
+}
+
+});
+
+}
 function actualizarKPIs(
     ventaTotal,
     ventaRed,
@@ -178,8 +252,8 @@ function actualizarKPIs(
         ? ((ventaTotal / META_GRUPAL) * 100).toFixed(1)
         : 0;
 
-    const faltante =
-        META_GRUPAL - ventaTotal;
+       const faltante =
+    META_GRUPAL - ventaTotal;
 
     document.getElementById("ventas").innerHTML =
         "$" + ventaTotal.toLocaleString("es-CO");
