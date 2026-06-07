@@ -159,7 +159,11 @@ crearGraficoIngresos(
     ventaParticular,
     ventaExcedentes
 );
-}    
+}   
+
+crearTopServicios(
+    homenajesFiltrados
+);
 
 function actualizarKPIs(
     ventaTotal,
