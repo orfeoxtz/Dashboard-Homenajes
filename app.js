@@ -196,6 +196,8 @@ async function cargarDashboard() {
     );
 
     crearVelocimetroCumplimiento(ventaTotal);
+    crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes);
+    crearAlertasGerenciales(homenajesFiltrados);
 }
 
 function actualizarKPIs(
@@ -902,6 +904,94 @@ function crearVelocimetroCumplimiento(ventaTotal) {
             }
         }
     });
+}
+
+function actualizarSemaforo(idEstado, idTexto, porcentaje, nombre){
+    const estado = document.getElementById(idEstado);
+    const texto = document.getElementById(idTexto);
+
+    if(!estado || !texto) return;
+
+    let clase = "semaforo-danger";
+    let simbolo = "●";
+    let mensaje = "Bajo meta";
+
+    if(porcentaje >= 100){
+        clase = "semaforo-ok";
+        simbolo = "✓";
+        mensaje = "Cumplido";
+    } else if(porcentaje >= 80){
+        clase = "semaforo-warning";
+        simbolo = "!";
+        mensaje = "En riesgo";
+    }
+
+    estado.className = "semaforo-estado " + clase;
+    estado.innerHTML = simbolo;
+    texto.innerHTML = `${nombre}: ${porcentaje.toFixed(1)}% - ${mensaje}`;
+}
+
+function crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes){
+    const porcRed = META_RED > 0 ? (ventaRed / META_RED) * 100 : 0;
+    const porcParticular = META_PARTICULAR > 0 ? (ventaParticular / META_PARTICULAR) * 100 : 0;
+    const porcExcedentes = META_EXCEDENTES > 0 ? (ventaExcedentes / META_EXCEDENTES) * 100 : 0;
+
+    actualizarSemaforo("semaforoRed", "semaforoRedTexto", porcRed, "RED");
+    actualizarSemaforo("semaforoParticular", "semaforoParticularTexto", porcParticular, "PARTICULAR");
+    actualizarSemaforo("semaforoExcedentes", "semaforoExcedentesTexto", porcExcedentes, "EXCEDENTES");
+}
+
+function crearAlertasGerenciales(homenajes){
+    const contenedor = document.getElementById("alertasGerenciales");
+    if(!contenedor) return;
+
+    const alertas = [];
+
+    const total = homenajes.reduce((acc, item) => acc + toNumber(item.Valor), 0);
+    const porcGrupo = META_GRUPAL > 0 ? (total / META_GRUPAL) * 100 : 0;
+
+    if(porcGrupo < 80){
+        alertas.push(`El cumplimiento grupal está en ${porcGrupo.toFixed(1)}%, por debajo del nivel esperado.`);
+    }
+
+    const gestores = {};
+    homenajes.forEach(item => {
+        const gestor = String(item.Gestor || "").trim();
+        if(!gestor) return;
+        gestores[gestor] = (gestores[gestor] || 0) + toNumber(item.Valor);
+    });
+
+    const mejorGestor = Object.entries(gestores).sort((a,b) => b[1] - a[1])[0];
+    if(mejorGestor && mejorGestor[1] > META_GRUPAL * 0.35){
+        alertas.push(`El gestor ${mejorGestor[0]} concentra una participación alta de ventas.`);
+    }
+
+    const excedentes = {};
+    homenajes.forEach(item => {
+        const ex = String(item.Tipo_Excedente || "").trim().toUpperCase();
+        if(!ex || ex === "SOAT" || ex === "PENSIONADO") return;
+        excedentes[ex] = (excedentes[ex] || 0) + toNumber(item.Valor);
+    });
+
+    const topExcedente = Object.entries(excedentes).sort((a,b) => b[1] - a[1])[0];
+    if(topExcedente && METAS_EXCEDENTES[topExcedente[0]]){
+        const porcEx = (topExcedente[1] / METAS_EXCEDENTES[topExcedente[0]]) * 100;
+        if(porcEx < 80){
+            alertas.push(`El excedente ${topExcedente[0]} está por debajo de meta.`);
+        }
+    }
+
+    if(alertas.length === 0){
+        contenedor.innerHTML = `<p>Sin alertas por el momento.</p>`;
+        return;
+    }
+
+    contenedor.innerHTML = alertas.map(a => `
+        <div class="alerta-item">
+            <i class="fas fa-circle-exclamation"></i>
+            <span>${a}</span>
+        </div>
+    `).join("");
 }
 
 document
