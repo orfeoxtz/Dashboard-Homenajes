@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>General Report Jkfh | Control</title>
+<title>General Report Jkfh | Dashboard Gerencial 4K</title>
 
-<link rel="stylesheet" href="./style.css?v=20260608">
+<link rel="stylesheet" href="./style.css?v=20260610">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -20,7 +20,10 @@
     <div class="access-card">
         <h1>General Report Jkfh</h1>
         <p>Acceso gerencial al dashboard</p>
+
+        <input type="email" id="accessEmail" placeholder="Correo autorizado">
         <input type="password" id="accessCode" placeholder="Código de acceso">
+
         <button id="btnAccess">Ingresar</button>
         <small>Clave inicial: JKFH2026</small>
     </div>
@@ -38,7 +41,8 @@
 
 <aside class="sidebar">
     <div class="logo">
-        <h2>General Report</h2>
+        <img id="sidebarLogo" src="" alt="" class="sidebar-logo-img">
+        <h2 id="sidebarEmpresa">General Report</h2>
         <h3>George Korfan</h3>
         <p>Dashboard Gerencial 4K</p>
     </div>
@@ -55,7 +59,8 @@
         <li class="menu-item" data-seccion="sedes"><i class="fas fa-building"></i> Sedes</li>
 
         <li class="sidebar-section-title">METAS</li>
-        <li class="menu-item" data-seccion="metas"><i class="fas fa-calendar-check"></i> Metas</li>
+        <li class="menu-item" data-seccion="metas"><i class="fas fa-calendar-check"></i> Metas Generales</li>
+        <li class="menu-item" data-seccion="metasAvanzadas"><i class="fas fa-sliders"></i> Metas Avanzadas</li>
         <li class="menu-item" data-seccion="metasGestor"><i class="fas fa-user-check"></i> Metas por Gestor</li>
         <li class="menu-item" data-seccion="cumplimientoDiario"><i class="fas fa-calendar-day"></i> Cumplimiento Diario</li>
         <li class="menu-item" data-seccion="cumplimientoSemanal"><i class="fas fa-calendar-week"></i> Cumplimiento Semanal</li>
@@ -64,41 +69,47 @@
         <li class="menu-item" data-seccion="cumplimientoSemestral"><i class="fas fa-calendar"></i> Cumplimiento Semestral</li>
         <li class="menu-item" data-seccion="cumplimientoAnual"><i class="fas fa-bullseye"></i> Cumplimiento Anual</li>
 
-        <li class="sidebar-section-title">GESTIÓN</li>
+        <li class="sidebar-section-title">ANÁLISIS</li>
         <li class="menu-item" data-seccion="gestores"><i class="fas fa-users"></i> Gestores</li>
         <li class="menu-item" data-seccion="excedentes"><i class="fas fa-box"></i> Excedentes</li>
         <li class="menu-item" data-seccion="comparativos"><i class="fas fa-scale-balanced"></i> Comparativos</li>
-
-        <li class="sidebar-section-title">ANÁLISIS</li>
-        <li class="menu-item" data-seccion="tendencias"><i class="fas fa-chart-area"></i> Tendencias Históricas</li>
+        <li class="menu-item" data-seccion="comparativoAnual"><i class="fas fa-calendar-days"></i> Año Actual vs Anterior</li>
+        <li class="menu-item" data-seccion="pareto"><i class="fas fa-chart-pie"></i> Pareto 80/20</li>
+        <li class="menu-item" data-seccion="tendencias"><i class="fas fa-chart-area"></i> Tendencias</li>
         <li class="menu-item" data-seccion="proyecciones"><i class="fas fa-chart-simple"></i> Proyecciones</li>
-        <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas Gerenciales</li>
+        <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas</li>
         <li class="menu-item" data-seccion="cierreGerencial"><i class="fas fa-briefcase"></i> Cierre Gerencial</li>
-        <li class="menu-item" data-seccion="diagnostico"><i class="fas fa-stethoscope"></i> Diagnóstico de Datos</li>
+
+        <li class="sidebar-section-title">CONTROL</li>
+        <li class="menu-item" data-seccion="diagnostico"><i class="fas fa-stethoscope"></i> Diagnóstico API</li>
         <li class="menu-item" data-seccion="auditoria"><i class="fas fa-shield-halved"></i> Auditoría</li>
-        <li class="menu-item" data-seccion="vistaTv"><i class="fas fa-tv"></i> Vista TV Gerencial</li>
+        <li class="menu-item" data-seccion="bitacora"><i class="fas fa-clock-rotate-left"></i> Bitácora</li>
+        <li class="menu-item" data-seccion="registroManual"><i class="fas fa-pen-to-square"></i> Registro Manual</li>
+        <li class="menu-item" data-seccion="pruebas"><i class="fas fa-list-check"></i> Pruebas Finales</li>
+        <li class="menu-item" data-seccion="vistaTv"><i class="fas fa-tv"></i> Vista TV</li>
 
         <li class="sidebar-section-title">SISTEMA</li>
         <li class="menu-item" data-seccion="reportes"><i class="fas fa-file-export"></i> Reportes</li>
         <li class="menu-item" data-seccion="baseDatos"><i class="fas fa-database"></i> Base de Datos</li>
-        <li class="menu-item" data-seccion="configuracion"><i class="fas fa-sliders"></i> Configuración</li>
+        <li class="menu-item" data-seccion="configuracion"><i class="fas fa-cogs"></i> Configuración</li>
         <li class="menu-item" data-seccion="manual"><i class="fas fa-circle-info"></i> Manual</li>
-        <li class="menu-item" data-seccion="administracion"><i class="fas fa-cogs"></i> Administración</li>
+        <li class="menu-item" data-seccion="administracion"><i class="fas fa-user-shield"></i> Administración</li>
     </ul>
 </aside>
 
 <main class="main" id="panelExportar">
 
 <header class="topbar">
-    <div>
-        <h1 id="tituloDashboard">General Report Jkfh</h1>
-        <p id="subtituloDashboard">Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo</p>
+    <div class="brand-head">
+        <img id="logoTopbar" src="" alt="" class="top-logo-img">
+        <div>
+            <h1 id="tituloDashboard">General Report Jkfh</h1>
+            <p id="subtituloDashboard">Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo</p>
+        </div>
     </div>
 
     <div class="header-right">
-        <div class="estado-api cargando" id="estadoApi">
-            <i class="fas fa-circle"></i> Conectando...
-        </div>
+        <div class="estado-api cargando" id="estadoApi"><i class="fas fa-circle"></i> Conectando...</div>
 
         <div class="ultima-act">
             Última actualización:
@@ -110,6 +121,7 @@
             <button id="btnTema" class="icon-btn" title="Modo oscuro"><i class="fas fa-moon"></i></button>
             <button id="btnFull" class="icon-btn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
             <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
+            <button id="btnAuto" class="action-btn alt"><i class="fas fa-clock"></i> Auto</button>
             <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
             <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
             <button id="btnLogout" class="danger-btn"><i class="fas fa-right-from-bracket"></i> Salir</button>
@@ -118,6 +130,14 @@
 </header>
 
 <section class="filtros">
+    <div class="quick-filters">
+        <button class="quick-btn" data-rango="hoy">Hoy</button>
+        <button class="quick-btn" data-rango="mes">Mes actual</button>
+        <button class="quick-btn" data-rango="trimestre">Trimestre</button>
+        <button class="quick-btn" data-rango="semestre">Semestre</button>
+        <button class="quick-btn" data-rango="anio">Año actual</button>
+    </div>
+
     <div class="filtro-item">
         <label>Fecha inicial</label>
         <input type="date" id="fechaInicio">
@@ -197,7 +217,6 @@
 </section>
 
 <section id="dashboard" class="vista active-view">
-
     <section class="resumen-ejecutivo">
         <div>
             <h2>Resumen Ejecutivo</h2>
@@ -210,32 +229,32 @@
         <div class="card"><span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span><h3>Ventas Acumuladas</h3><h2 id="ventas">$0</h2><p class="mini-text">Según filtros aplicados</p></div>
         <div class="card"><span class="card-icon violet"><i class="fas fa-percent"></i></span><h3>Cumplimiento</h3><h2 id="cumplimiento">0%</h2><p class="mini-text" id="estadoCumplimientoTexto">Sin datos</p></div>
         <div class="card"><span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span><h3>Faltante</h3><h2 id="faltante">$0</h2><p class="mini-text">Para cumplir meta</p></div>
-        <div class="card"><span class="card-icon amber"><i class="fas fa-chart-simple"></i></span><h3>Proyección del Rango</h3><h2 id="proyeccion">$0</h2><p class="mini-text">Según promedio diario</p></div>
+        <div class="card"><span class="card-icon amber"><i class="fas fa-chart-simple"></i></span><h3>Proyección</h3><h2 id="proyeccion">$0</h2><p class="mini-text">Ritmo actual</p></div>
     </section>
 
     <section class="kpis-secundarios">
-        <div class="card"><h3>📅 Meta Mensual Base</h3><h2 id="metaMensual">$0</h2></div>
-        <div class="card"><h3>📆 Meta Semanal Proporcional</h3><h2 id="metaSemanal">$0</h2></div>
+        <div class="card"><h3>📅 Meta Mensual</h3><h2 id="metaMensual">$0</h2></div>
+        <div class="card"><h3>📆 Meta Semanal</h3><h2 id="metaSemanal">$0</h2></div>
         <div class="card"><h3>🗓 Meta Trimestral</h3><h2 id="metaTrimestral">$0</h2></div>
         <div class="card"><h3>🏁 Meta Semestral</h3><h2 id="metaSemestral">$0</h2></div>
         <div class="card"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
-        <div class="card"><h3>⏱ Meses Equivalentes</h3><h2 id="mesesEquivalentes">0</h2></div>
-        <div class="card"><h3>📈 Promedio Diario Real</h3><h2 id="promedioDiarioReal">$0</h2></div>
+        <div class="card"><h3>⏱ Meses Equiv.</h3><h2 id="mesesEquivalentes">0</h2></div>
+        <div class="card"><h3>📈 Promedio Diario</h3><h2 id="promedioDiarioReal">$0</h2></div>
     </section>
 
     <section class="kpis-secundarios">
         <div class="card"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
         <div class="card"><h3>💰 Venta Mejor Gestor</h3><h2 id="ventaMejorGestor">$0</h2></div>
         <div class="card"><h3>⭐ Servicio Top</h3><h2 id="servicioTop">-</h2></div>
-        <div class="card"><h3>📦 Cantidad Servicio Top</h3><h2 id="cantidadServicioTop">0</h2></div>
-        <div class="card"><h3>📊 Total Registros</h3><h2 id="totalRegistros">0</h2></div>
+        <div class="card"><h3>📦 Cantidad Top</h3><h2 id="cantidadServicioTop">0</h2></div>
+        <div class="card"><h3>📊 Registros</h3><h2 id="totalRegistros">0</h2></div>
         <div class="card"><h3>🧮 Ticket Promedio</h3><h2 id="ticketPromedio">$0</h2></div>
-        <div class="card"><h3>🚦 Cumplimiento Visual</h3><h2 id="cumplimientoVisual">-</h2></div>
+        <div class="card"><h3>🚦 Estado</h3><h2 id="cumplimientoVisual">-</h2></div>
     </section>
 
     <section class="kpis-secundarios">
-        <div class="card"><h3>🔐 Calidad de Datos</h3><h2 id="kpiCalidadDatos">0%</h2></div>
-        <div class="card"><h3>♻ Registros Duplicados</h3><h2 id="kpiDuplicados">0</h2></div>
+        <div class="card"><h3>🔐 Calidad API/Datos</h3><h2 id="kpiCalidadDatos">0%</h2></div>
+        <div class="card"><h3>♻ Duplicados</h3><h2 id="kpiDuplicados">0</h2></div>
         <div class="card"><h3>👥 Gestores Activos</h3><h2 id="kpiGestoresActivos">0</h2></div>
         <div class="card"><h3>🏢 Sedes Activas</h3><h2 id="kpiSedesActivas">0</h2></div>
         <div class="card"><h3>📌 Concentración Top</h3><h2 id="kpiConcentracionTop">0%</h2></div>
@@ -253,95 +272,20 @@
     <section class="tabla-cumplimiento">
         <h2>Tabla Gerencial Consolidada</h2>
         <table id="tablaConsolidada">
-            <thead>
-                <tr>
-                    <th>Periodo</th>
-                    <th>Meta</th>
-                    <th>Venta Real</th>
-                    <th>% Cumplimiento</th>
-                    <th>Faltante</th>
-                    <th>Proyección</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Periodo</th><th>Meta</th><th>Venta Real</th><th>%</th><th>Faltante</th><th>Proyección</th><th>Estado</th></tr></thead>
             <tbody></tbody>
         </table>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Cumplimiento General del Rango</h2>
-        <table id="tablaCumplimiento">
-            <thead>
-                <tr>
-                    <th>Indicador</th>
-                    <th>Meta</th>
-                    <th>Real</th>
-                    <th>% Cumplimiento</th>
-                    <th>Faltante</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </section>
-
-    <div class="tablas-inferiores">
-        <section class="tabla-detalle">
-            <h2>Detalle por Categoría</h2>
-            <table id="tablaCategorias">
-                <thead><tr><th>Categoría</th><th>Valor</th><th>Participación</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </section>
-
-        <section class="tabla-detalle">
-            <h2>Detalle de Excedentes</h2>
-            <table id="tablaExcedentes">
-                <thead><tr><th>Excedente</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </section>
-    </div>
-
-    <section class="tabla-cumplimiento">
-        <h2>Top Servicios Vendidos</h2>
-        <table id="tablaTopServicios">
-            <thead><tr><th>Servicio</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Ranking de Gestores</h2>
-        <table id="tablaGestores">
-            <thead><tr><th>Gestor</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Semáforo Gerencial</h2>
-        <div class="semaforo-grid">
-            <div class="semaforo-card"><h3>META GENERAL</h3><div id="semaforoGeneral" class="semaforo-estado">-</div><p id="semaforoGeneralTexto">Sin datos</p></div>
-            <div class="semaforo-card"><h3>VENTA REAL</h3><div id="semaforoVenta" class="semaforo-estado">-</div><p id="semaforoVentaTexto">Sin datos</p></div>
-            <div class="semaforo-card"><h3>PROYECCIÓN</h3><div id="semaforoProyeccion" class="semaforo-estado">-</div><p id="semaforoProyeccionTexto">Sin datos</p></div>
-        </div>
     </section>
 
     <section class="tabla-cumplimiento">
         <h2>Alertas Gerenciales</h2>
         <div id="alertasGerenciales" class="alertas-box"><p>Sin alertas por el momento.</p></div>
     </section>
-
 </section>
 
 <section id="resumenGerencial" class="vista">
     <h1 class="vista-titulo">Resumen Gerencial</h1>
-    <div class="card-big">
-        <h3>Informe Ejecutivo Automático</h3>
-        <p id="vistaResumenTexto" class="texto-informe">Cargando resumen...</p>
-    </div>
-
+    <div class="card-big"><h3>Informe Ejecutivo Automático</h3><p id="vistaResumenTexto" class="texto-informe">Cargando resumen...</p></div>
     <div class="tabla-cumplimiento">
         <h2>Indicadores Principales</h2>
         <table id="tablaResumenGerencial">
@@ -360,286 +304,162 @@
 <section id="categorias" class="vista">
     <h1 class="vista-titulo">Categorías</h1>
     <div class="card-big"><h3>Ventas por categoría</h3><canvas id="graficoCategoriasVista"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de Categorías</h2>
-        <table id="tablaCategoriasVista">
-            <thead><tr><th>Categoría</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="tabla-cumplimiento"><h2>Detalle de Categorías</h2><table id="tablaCategoriasVista"><thead><tr><th>Categoría</th><th>Valor</th><th>Participación</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="servicios" class="vista">
     <h1 class="vista-titulo">Servicios</h1>
     <div class="card-big"><h3>Servicios más vendidos</h3><canvas id="graficoServiciosVista"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de Servicios</h2>
-        <table id="tablaServiciosVista">
-            <thead><tr><th>Servicio</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="tabla-cumplimiento"><h2>Detalle de Servicios</h2><table id="tablaServiciosVista"><thead><tr><th>Servicio</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="sedes" class="vista">
     <h1 class="vista-titulo">Sedes</h1>
     <div class="card-big"><h3>Ventas por sede</h3><canvas id="graficoSedesVista"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle por Sede</h2>
-        <table id="tablaSedesVista">
-            <thead><tr><th>Sede</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="tabla-cumplimiento"><h2>Detalle por Sede</h2><table id="tablaSedesVista"><thead><tr><th>Sede</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="metas" class="vista">
-    <h1 class="vista-titulo">Control de Metas</h1>
-
+    <h1 class="vista-titulo">Control de Metas Generales</h1>
     <div class="metas-grid">
         <div class="admin-card"><h2>Meta Diaria Promedio</h2><span id="vistaMetaDiaria">$0</span></div>
-        <div class="admin-card"><h2>Meta Semanal Proporcional</h2><span id="vistaMetaSemanal">$0</span></div>
-        <div class="admin-card"><h2>Meta Mensual Base</h2><span id="vistaMetaMensual">$0</span></div>
+        <div class="admin-card"><h2>Meta Semanal</h2><span id="vistaMetaSemanal">$0</span></div>
+        <div class="admin-card"><h2>Meta Mensual</h2><span id="vistaMetaMensual">$0</span></div>
         <div class="admin-card"><h2>Meta Trimestral</h2><span id="vistaMetaTrimestral">$0</span></div>
         <div class="admin-card"><h2>Meta Semestral</h2><span id="vistaMetaSemestral">$0</span></div>
         <div class="admin-card"><h2>Meta Anual</h2><span id="vistaMetaAnual">$0</span></div>
-        <div class="admin-card"><h2>Meta del Rango Seleccionado</h2><span id="vistaMetaRango">$0</span></div>
+        <div class="admin-card"><h2>Meta del Rango</h2><span id="vistaMetaRango">$0</span></div>
         <div class="admin-card"><h2>Meses Equivalentes</h2><span id="vistaMesesRango">0</span></div>
     </div>
-
     <div class="card-big"><h3>Meta acumulada por meses</h3><canvas id="graficoMetasAcumuladas"></canvas></div>
+</section>
+
+<section id="metasAvanzadas" class="vista">
+    <h1 class="vista-titulo">Metas Avanzadas</h1>
+
+    <section class="resumen-ejecutivo">
+        <div>
+            <h2>Metas configurables</h2>
+            <p>Permite evaluar metas por gestor, sede, categoría y mes sin incluir costos, utilidad ni rentabilidad.</p>
+        </div>
+    </section>
+
+    <div class="graficos">
+        <div class="grafico-card"><h3>Meta por Sede vs Venta</h3><canvas id="graficoMetasSede"></canvas></div>
+        <div class="grafico-card"><h3>Meta por Categoría vs Venta</h3><canvas id="graficoMetasCategoria"></canvas></div>
+        <div class="grafico-card grafico-ancho"><h3>Meta mensual configurada vs Venta mensual</h3><canvas id="graficoMetasMes"></canvas></div>
+    </div>
+
+    <div class="tabla-cumplimiento"><h2>Metas por Sede</h2><table id="tablaMetasSede"><thead><tr><th>Sede</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
+    <div class="tabla-cumplimiento"><h2>Metas por Categoría</h2><table id="tablaMetasCategoria"><thead><tr><th>Categoría</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
+    <div class="tabla-cumplimiento"><h2>Metas por Mes</h2><table id="tablaMetasMes"><thead><tr><th>Mes</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="metasGestor" class="vista">
     <h1 class="vista-titulo">Metas por Gestor</h1>
-
-    <section class="resumen-ejecutivo">
-        <div>
-            <h2>Distribución de Meta</h2>
-            <p id="textoMetasGestor">Cargando distribución de metas...</p>
-        </div>
-    </section>
-
-    <div class="card-big">
-        <h3>Cumplimiento por gestor contra meta distribuida</h3>
-        <canvas id="graficoMetasGestor"></canvas>
-    </div>
-
+    <section class="resumen-ejecutivo"><div><h2>Distribución de Meta</h2><p id="textoMetasGestor">Cargando distribución...</p></div></section>
+    <div class="card-big"><h3>Cumplimiento por gestor contra meta asignada</h3><canvas id="graficoMetasGestor"></canvas></div>
     <div class="tabla-cumplimiento">
         <h2>Tabla de Metas por Gestor</h2>
-        <table id="tablaMetasGestor">
-            <thead>
-                <tr>
-                    <th>Gestor</th>
-                    <th>Meta Asignada</th>
-                    <th>Venta Real</th>
-                    <th>% Cumplimiento</th>
-                    <th>Faltante</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <table id="tablaMetasGestor"><thead><tr><th>Gestor</th><th>Meta</th><th>Venta</th><th>%</th><th>Faltante</th><th>Estado</th></tr></thead><tbody></tbody></table>
     </div>
 </section>
 
-<section id="cumplimientoDiario" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Diario</h1>
-    <div class="card-big"><h3>Venta diaria vs meta diaria proporcional</h3><canvas id="graficoCumplimientoDiario"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Diario</h2>
-        <table id="tablaCumplimientoDiario">
-            <thead><tr><th>Día</th><th>Meta Diaria</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
+<section id="cumplimientoDiario" class="vista"><h1 class="vista-titulo">Cumplimiento Diario</h1><div class="card-big"><h3>Venta diaria vs meta diaria</h3><canvas id="graficoCumplimientoDiario"></canvas></div><div class="tabla-cumplimiento"><h2>Detalle Diario</h2><table id="tablaCumplimientoDiario"><thead><tr><th>Día</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div></section>
 
-<section id="cumplimientoSemanal" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Semanal</h1>
-    <div class="card-big"><h3>Venta semanal vs meta semanal proporcional</h3><canvas id="graficoCumplimientoSemanal"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Semanal</h2>
-        <table id="tablaCumplimientoSemanal">
-            <thead><tr><th>Semana</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
+<section id="cumplimientoSemanal" class="vista"><h1 class="vista-titulo">Cumplimiento Semanal</h1><div class="card-big"><h3>Venta semanal vs meta semanal</h3><canvas id="graficoCumplimientoSemanal"></canvas></div><div class="tabla-cumplimiento"><h2>Detalle Semanal</h2><table id="tablaCumplimientoSemanal"><thead><tr><th>Semana</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div></section>
 
-<section id="cumplimientoMensual" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Mensual</h1>
-    <div class="card-big"><h3>Cumplimiento mensual contra meta base</h3><canvas id="cumplimientoMensualGrafico"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Mensual</h2>
-        <table id="tablaCumplimientoMensual">
-            <thead><tr><th>Mes</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
+<section id="cumplimientoMensual" class="vista"><h1 class="vista-titulo">Cumplimiento Mensual</h1><div class="card-big"><h3>Cumplimiento mensual</h3><canvas id="cumplimientoMensualGrafico"></canvas></div><div class="tabla-cumplimiento"><h2>Detalle Mensual</h2><table id="tablaCumplimientoMensual"><thead><tr><th>Mes</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div></section>
 
-<section id="cumplimientoTrimestral" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Trimestral</h1>
-    <div class="card-big"><h3>Cumplimiento por trimestre</h3><canvas id="graficoCumplimientoTrimestral"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Trimestral</h2>
-        <table id="tablaCumplimientoTrimestral">
-            <thead><tr><th>Trimestre</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
+<section id="cumplimientoTrimestral" class="vista"><h1 class="vista-titulo">Cumplimiento Trimestral</h1><div class="card-big"><h3>Cumplimiento por trimestre</h3><canvas id="graficoCumplimientoTrimestral"></canvas></div><div class="tabla-cumplimiento"><h2>Detalle Trimestral</h2><table id="tablaCumplimientoTrimestral"><thead><tr><th>Trimestre</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div></section>
 
-<section id="cumplimientoSemestral" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Semestral</h1>
-    <div class="card-big"><h3>Cumplimiento por semestre</h3><canvas id="graficoCumplimientoSemestral"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Semestral</h2>
-        <table id="tablaCumplimientoSemestral">
-            <thead><tr><th>Semestre</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
+<section id="cumplimientoSemestral" class="vista"><h1 class="vista-titulo">Cumplimiento Semestral</h1><div class="card-big"><h3>Cumplimiento por semestre</h3><canvas id="graficoCumplimientoSemestral"></canvas></div><div class="tabla-cumplimiento"><h2>Detalle Semestral</h2><table id="tablaCumplimientoSemestral"><thead><tr><th>Semestre</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div></section>
 
-<section id="cumplimientoAnual" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Anual</h1>
-    <div class="card-big"><h3>Cumplimiento anual acumulado</h3><canvas id="cumplimientoAnualGrafico"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Anual</h2>
-        <table id="tablaCumplimientoAnual">
-            <thead><tr><th>Año</th><th>Meta Anual</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
+<section id="cumplimientoAnual" class="vista"><h1 class="vista-titulo">Cumplimiento Anual</h1><div class="card-big"><h3>Cumplimiento anual</h3><canvas id="cumplimientoAnualGrafico"></canvas></div><div class="tabla-cumplimiento"><h2>Detalle Anual</h2><table id="tablaCumplimientoAnual"><thead><tr><th>Año</th><th>Meta</th><th>Venta</th><th>%</th><th>Estado</th></tr></thead><tbody></tbody></table></div></section>
 
 <section id="gestores" class="vista">
     <h1 class="vista-titulo">Productividad de Gestores</h1>
     <div class="card-big"><h3>Top gestores por valor vendido</h3><canvas id="rankingCompletoGestores"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Ranking Completo</h2>
-        <table id="tablaGestoresVista">
-            <thead><tr><th>Gestor</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="tabla-cumplimiento"><h2>Ranking Completo</h2><table id="tablaGestoresVista"><thead><tr><th>Gestor</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="excedentes" class="vista">
     <h1 class="vista-titulo">Control de Excedentes</h1>
     <div class="card-big"><h3>Excedentes por valor vendido</h3><canvas id="graficoExcedentes"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de Excedentes</h2>
-        <table id="tablaExcedentesVista">
-            <thead><tr><th>Excedente</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="tabla-cumplimiento"><h2>Detalle de Excedentes</h2><table id="tablaExcedentesVista"><thead><tr><th>Excedente</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="comparativos" class="vista">
     <h1 class="vista-titulo">Comparativos</h1>
     <div class="card-big"><h3>Comparativo mensual: venta vs meta</h3><canvas id="graficoComparativoMensual"></canvas></div>
-    <div class="card-big"><h3>Comparativo periodo actual vs periodo anterior</h3><canvas id="graficoComparativoPeriodos"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Comparativo de Periodos</h2>
-        <table id="tablaComparativos">
-            <thead><tr><th>Periodo</th><th>Venta Actual</th><th>Periodo Anterior</th><th>Diferencia</th><th>Crecimiento</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="card-big"><h3>Periodo actual vs anterior</h3><canvas id="graficoComparativoPeriodos"></canvas></div>
+    <div class="tabla-cumplimiento"><h2>Comparativo de Periodos</h2><table id="tablaComparativos"><thead><tr><th>Periodo</th><th>Actual</th><th>Anterior</th><th>Diferencia</th><th>Crecimiento</th></tr></thead><tbody></tbody></table></div>
 </section>
 
-<section id="tendencias" class="vista">
-    <h1 class="vista-titulo">Tendencias Históricas</h1>
-    <div class="card-big"><h3>Serie histórica de ventas</h3><canvas id="graficoHistorico"></canvas></div>
+<section id="comparativoAnual" class="vista">
+    <h1 class="vista-titulo">Comparativo Año Actual vs Año Anterior</h1>
+    <div class="card-big"><h3>Comparativo mensual año actual vs anterior</h3><canvas id="graficoYoYMensual"></canvas></div>
+    <div class="tabla-cumplimiento"><h2>Detalle Comparativo Anual</h2><table id="tablaYoY"><thead><tr><th>Mes</th><th>Año Actual</th><th>Año Anterior</th><th>Diferencia</th><th>Crecimiento</th></tr></thead><tbody></tbody></table></div>
 </section>
+
+<section id="pareto" class="vista">
+    <h1 class="vista-titulo">Análisis Pareto 80/20</h1>
+    <section class="resumen-ejecutivo"><div><h2>Lectura Gerencial</h2><p id="textoPareto">Cargando análisis Pareto...</p></div></section>
+
+    <div class="graficos">
+        <div class="grafico-card"><h3>Pareto Gestores</h3><canvas id="graficoParetoGestores"></canvas></div>
+        <div class="grafico-card"><h3>Pareto Servicios</h3><canvas id="graficoParetoServicios"></canvas></div>
+        <div class="grafico-card grafico-ancho"><h3>Pareto Sedes</h3><canvas id="graficoParetoSedes"></canvas></div>
+    </div>
+
+    <div class="tabla-cumplimiento"><h2>Pareto Gestores</h2><table id="tablaParetoGestores"><thead><tr><th>Gestor</th><th>Valor</th><th>Participación</th><th>Acumulado</th><th>Clasificación</th></tr></thead><tbody></tbody></table></div>
+    <div class="tabla-cumplimiento"><h2>Pareto Servicios</h2><table id="tablaParetoServicios"><thead><tr><th>Servicio</th><th>Valor</th><th>Participación</th><th>Acumulado</th><th>Clasificación</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section id="tendencias" class="vista"><h1 class="vista-titulo">Tendencias Históricas</h1><div class="card-big"><h3>Serie histórica de ventas</h3><canvas id="graficoHistorico"></canvas></div></section>
 
 <section id="proyecciones" class="vista">
     <h1 class="vista-titulo">Proyecciones Gerenciales</h1>
-
     <section class="kpis">
-        <div class="card"><span class="card-icon green"><i class="fas fa-calendar-day"></i></span><h3>Promedio Diario Real</h3><h2 id="proyPromedioDiario">$0</h2><p class="mini-text">Según filtros</p></div>
-        <div class="card"><span class="card-icon blue"><i class="fas fa-calendar-check"></i></span><h3>Proyección Mes</h3><h2 id="proyMes">$0</h2><p class="mini-text">Cierre estimado mensual</p></div>
-        <div class="card"><span class="card-icon violet"><i class="fas fa-flag"></i></span><h3>Proyección Año</h3><h2 id="proyAnual">$0</h2><p class="mini-text">Estimación anualizada</p></div>
-        <div class="card"><span class="card-icon red"><i class="fas fa-triangle-exclamation"></i></span><h3>Riesgo Proyectado</h3><h2 id="riesgoProyectado">-</h2><p class="mini-text">Estado gerencial</p></div>
-        <div class="card"><span class="card-icon amber"><i class="fas fa-stopwatch"></i></span><h3>Valor Diario Necesario</h3><h2 id="valorDiarioNecesario">$0</h2><p class="mini-text">Para cubrir faltante</p></div>
+        <div class="card"><span class="card-icon green"><i class="fas fa-calendar-day"></i></span><h3>Promedio Diario</h3><h2 id="proyPromedioDiario">$0</h2><p class="mini-text">Según filtros</p></div>
+        <div class="card"><span class="card-icon blue"><i class="fas fa-calendar-check"></i></span><h3>Proyección Mes</h3><h2 id="proyMes">$0</h2><p class="mini-text">Cierre mensual</p></div>
+        <div class="card"><span class="card-icon violet"><i class="fas fa-flag"></i></span><h3>Proyección Año</h3><h2 id="proyAnual">$0</h2><p class="mini-text">Estimación anual</p></div>
+        <div class="card"><span class="card-icon red"><i class="fas fa-triangle-exclamation"></i></span><h3>Riesgo</h3><h2 id="riesgoProyectado">-</h2><p class="mini-text">Estado gerencial</p></div>
+        <div class="card"><span class="card-icon amber"><i class="fas fa-stopwatch"></i></span><h3>Diario Necesario</h3><h2 id="valorDiarioNecesario">$0</h2><p class="mini-text">Para cubrir faltante</p></div>
     </section>
-
     <div class="card-big"><h3>Meta Anual vs Proyección Anual</h3><canvas id="graficoProyeccionAnual"></canvas></div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Tabla de Proyección Ejecutiva</h2>
-        <table id="tablaProyecciones">
-            <thead><tr><th>Concepto</th><th>Resultado</th><th>Interpretación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="tabla-cumplimiento"><h2>Tabla de Proyección Ejecutiva</h2><table id="tablaProyecciones"><thead><tr><th>Concepto</th><th>Resultado</th><th>Interpretación</th></tr></thead><tbody></tbody></table></div>
 </section>
 
-<section id="alertas" class="vista">
-    <h1 class="vista-titulo">Alertas Gerenciales</h1>
-    <div id="alertasGerencialesVista" class="alertas-box card-big"><p>Sin alertas por el momento.</p></div>
-</section>
+<section id="alertas" class="vista"><h1 class="vista-titulo">Alertas Gerenciales</h1><div id="alertasGerencialesVista" class="alertas-box card-big"><p>Sin alertas por el momento.</p></div></section>
 
 <section id="cierreGerencial" class="vista">
     <h1 class="vista-titulo">Cierre Gerencial</h1>
-
-    <section class="resumen-ejecutivo">
-        <div>
-            <h2>Conclusión Ejecutiva</h2>
-            <p id="conclusionGerencial">Cargando conclusión...</p>
-        </div>
-    </section>
-
-    <div class="card-big">
-        <h3>Plan de Acción Recomendado</h3>
-        <div id="planAccionGerencial" class="plan-accion-box"><p>Cargando plan de acción...</p></div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Matriz de Decisiones Gerenciales</h2>
-        <table id="tablaDecisionGerencial">
-            <thead><tr><th>Área</th><th>Estado</th><th>Acción Recomendada</th><th>Prioridad</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <section class="resumen-ejecutivo"><div><h2>Conclusión Ejecutiva</h2><p id="conclusionGerencial">Cargando conclusión...</p></div></section>
+    <div class="card-big"><h3>Plan de Acción Recomendado</h3><div id="planAccionGerencial" class="plan-accion-box"><p>Cargando plan...</p></div></div>
+    <div class="tabla-cumplimiento"><h2>Matriz de Decisiones</h2><table id="tablaDecisionGerencial"><thead><tr><th>Área</th><th>Estado</th><th>Acción</th><th>Prioridad</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="diagnostico" class="vista">
-    <h1 class="vista-titulo">Diagnóstico de Datos</h1>
-
+    <h1 class="vista-titulo">Diagnóstico API y Datos</h1>
     <section class="kpis-secundarios">
+        <div class="card"><h3>📡 Estado API</h3><h2 id="diagEstadoApi">-</h2></div>
         <div class="card"><h3>📦 Registros API</h3><h2 id="diagTotalApi">0</h2></div>
-        <div class="card"><h3>🔎 Registros Filtrados</h3><h2 id="diagTotalFiltrado">0</h2></div>
+        <div class="card"><h3>🔎 Filtrados</h3><h2 id="diagTotalFiltrado">0</h2></div>
         <div class="card"><h3>📅 Fechas Inválidas</h3><h2 id="diagFechasInvalidas">0</h2></div>
-        <div class="card"><h3>💰 Valores en Cero</h3><h2 id="diagValoresCero">0</h2></div>
+        <div class="card"><h3>💰 Valores Cero</h3><h2 id="diagValoresCero">0</h2></div>
         <div class="card"><h3>👤 Sin Gestor</h3><h2 id="diagSinGestor">0</h2></div>
-        <div class="card"><h3>🏷 Sin Categoría</h3><h2 id="diagSinCategoria">0</h2></div>
-        <div class="card"><h3>✅ Calidad de Datos</h3><h2 id="diagCalidad">0%</h2></div>
+        <div class="card"><h3>✅ Calidad</h3><h2 id="diagCalidad">0%</h2></div>
     </section>
-
-    <div class="card-big">
-        <h3>Estado Técnico de la Información</h3>
-        <p id="diagnosticoTexto" class="texto-informe">Cargando diagnóstico...</p>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Primeros 50 Registros Detectados</h2>
-        <table id="tablaDiagnosticoDatos">
-            <thead><tr><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Valor</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="card-big"><h3>Estado Técnico</h3><p id="diagnosticoTexto" class="texto-informe">Cargando diagnóstico...</p></div>
+    <div class="tabla-cumplimiento"><h2>Columnas Detectadas</h2><table id="tablaColumnasApi"><thead><tr><th>Columna</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
+    <div class="tabla-cumplimiento"><h2>Primeros 50 Registros</h2><table id="tablaDiagnosticoDatos"><thead><tr><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Valor</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="auditoria" class="vista">
     <h1 class="vista-titulo">Auditoría de Datos</h1>
-
     <section class="kpis-secundarios">
-        <div class="card"><h3>♻ Duplicados Detectados</h3><h2 id="audDuplicados">0</h2></div>
+        <div class="card"><h3>♻ Duplicados</h3><h2 id="audDuplicados">0</h2></div>
         <div class="card"><h3>📅 Fechas Inválidas</h3><h2 id="audFechasInvalidas">0</h2></div>
         <div class="card"><h3>💰 Valores Cero</h3><h2 id="audValoresCero">0</h2></div>
         <div class="card"><h3>👤 Sin Gestor</h3><h2 id="audSinGestor">0</h2></div>
@@ -647,76 +467,85 @@
         <div class="card"><h3>🏢 Sin Sede</h3><h2 id="audSinSede">0</h2></div>
         <div class="card"><h3>🔐 Riesgo Técnico</h3><h2 id="audRiesgo">-</h2></div>
     </section>
+    <div class="card-big"><h3>Recomendación</h3><p id="auditoriaTexto" class="texto-informe">Cargando auditoría...</p></div>
+    <div class="tabla-cumplimiento"><h2>Registros por Revisar</h2><table id="tablaAuditoria"><thead><tr><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Sede</th><th>Valor</th><th>Hallazgo</th></tr></thead><tbody></tbody></table></div>
+</section>
 
-    <div class="card-big">
-        <h3>Recomendación de Auditoría</h3>
-        <p id="auditoriaTexto" class="texto-informe">Cargando auditoría...</p>
+<section id="bitacora" class="vista">
+    <h1 class="vista-titulo">Bitácora del Sistema</h1>
+    <div class="card-big"><h3>Registro de acciones</h3><p class="texto-informe">Registra actualizaciones, exportaciones, cambios de configuración y registro manual.</p></div>
+    <div class="tabla-cumplimiento"><h2>Historial</h2><table id="tablaBitacora"><thead><tr><th>Fecha</th><th>Acción</th><th>Detalle</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section id="registroManual" class="vista">
+    <h1 class="vista-titulo">Registro Manual</h1>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Nuevo Registro</h2>
+            <p>Estos registros se guardan localmente en el navegador y se suman a la información cargada desde la API.</p>
+            <input type="date" id="regFecha">
+            <input type="text" id="regGestor" placeholder="Gestor">
+            <input type="text" id="regCategoria" placeholder="Tipo_Homenaje / Categoría">
+            <input type="text" id="regServicio" placeholder="Tipo_Excedente / Servicio">
+            <input type="text" id="regSede" placeholder="Sede">
+            <input type="number" id="regValor" placeholder="Valor">
+            <input type="text" id="regObservacion" placeholder="Observación">
+            <button id="btnAgregarRegistro" class="action-btn">Agregar Registro</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control de registros manuales</h2>
+            <p>Desde aquí puedes eliminar todos los registros manuales guardados localmente.</p>
+            <button id="btnEliminarManuales" class="danger-btn">Eliminar Registros Manuales</button>
+        </div>
     </div>
 
     <div class="tabla-cumplimiento">
-        <h2>Registros Duplicados o por Revisar</h2>
-        <table id="tablaAuditoria">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Gestor</th>
-                    <th>Categoría</th>
-                    <th>Servicio</th>
-                    <th>Sede</th>
-                    <th>Valor</th>
-                    <th>Hallazgo</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <h2>Registros Manuales Guardados</h2>
+        <table id="tablaRegistrosManuales"><thead><tr><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Sede</th><th>Valor</th><th>Acción</th></tr></thead><tbody></tbody></table>
     </div>
+</section>
+
+<section id="pruebas" class="vista">
+    <h1 class="vista-titulo">Pruebas Finales</h1>
+    <div class="card-big"><h3>Checklist antes de presentar a gerencia</h3><p id="textoPruebas" class="texto-informe">Cargando pruebas...</p></div>
+    <div class="tabla-cumplimiento"><h2>Validaciones</h2><table id="tablaPruebas"><thead><tr><th>Prueba</th><th>Estado</th><th>Observación</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="vistaTv" class="vista">
     <h1 class="vista-titulo">Vista TV Gerencial</h1>
-
     <div class="tv-board">
-        <div class="tv-card"><h3>Meta del Rango</h3><strong id="tvMeta">$0</strong></div>
+        <div class="tv-card"><h3>Meta</h3><strong id="tvMeta">$0</strong></div>
         <div class="tv-card"><h3>Ventas</h3><strong id="tvVentas">$0</strong></div>
         <div class="tv-card"><h3>Cumplimiento</h3><strong id="tvCumplimiento">0%</strong></div>
         <div class="tv-card"><h3>Faltante</h3><strong id="tvFaltante">$0</strong></div>
     </div>
-
     <div class="card-big"><h3>Velocímetro General</h3><canvas id="graficoTvCumplimiento"></canvas></div>
 </section>
 
 <section id="reportes" class="vista">
     <h1 class="vista-titulo">Reportes</h1>
-
     <div class="reportes-grid">
-        <button class="reporte-btn" id="reporteExcelResumen"><i class="fas fa-file-excel"></i> Exportar Resumen Excel</button>
-        <button class="reporte-btn" id="reportePdfGeneral"><i class="fas fa-file-pdf"></i> Exportar Reporte PDF Formal</button>
-        <button class="reporte-btn" id="reporteRecargar"><i class="fas fa-rotate"></i> Actualizar Información</button>
+        <button class="reporte-btn" id="reporteExcelResumen"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+        <button class="reporte-btn" id="reportePdfGeneral"><i class="fas fa-file-pdf"></i> Exportar PDF Ejecutivo</button>
+        <button class="reporte-btn" id="reporteCsv"><i class="fas fa-file-csv"></i> Exportar CSV</button>
+        <button class="reporte-btn" id="reporteJson"><i class="fas fa-code"></i> Backup JSON</button>
+        <button class="reporte-btn" id="reporteRecargar"><i class="fas fa-rotate"></i> Actualizar</button>
+        <button class="reporte-btn danger-report" id="reporteLimpiarCache"><i class="fas fa-broom"></i> Limpiar Caché</button>
     </div>
-
-    <div class="card-big">
-        <h3>Estado del Reporte</h3>
-        <p id="estadoReporte">Listo para generar reportes gerenciales.</p>
-    </div>
+    <div class="card-big"><h3>Estado del Reporte</h3><p id="estadoReporte">Listo para generar reportes gerenciales.</p></div>
 </section>
 
 <section id="baseDatos" class="vista">
     <h1 class="vista-titulo">Base de Datos</h1>
-
     <div class="admin-grid">
-        <div class="admin-card"><h2>Total Registros API</h2><span id="bdTotalApi">0</span></div>
-        <div class="admin-card"><h2>Registros Filtrados</h2><span id="bdTotalFiltrados">0</span></div>
-        <div class="admin-card"><h2>Registros con Fecha Inválida</h2><span id="bdFechasInvalidas">0</span></div>
-        <div class="admin-card"><h2>Registros con Valor Cero</h2><span id="bdValoresCero">0</span></div>
+        <div class="admin-card"><h2>Total API</h2><span id="bdTotalApi">0</span></div>
+        <div class="admin-card"><h2>Manual Local</h2><span id="bdTotalManual">0</span></div>
+        <div class="admin-card"><h2>Filtrados</h2><span id="bdTotalFiltrados">0</span></div>
+        <div class="admin-card"><h2>Valores Cero</h2><span id="bdValoresCero">0</span></div>
     </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Vista Previa de Datos</h2>
-        <table id="tablaBaseDatos">
-            <thead><tr><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Sede</th><th>Valor</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
+    <div class="tabla-cumplimiento"><h2>Vista Previa</h2><table id="tablaBaseDatos"><thead><tr><th>Origen</th><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Sede</th><th>Valor</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 <section id="configuracion" class="vista">
@@ -725,89 +554,91 @@
     <div class="config-grid">
         <div class="config-card">
             <h2>Meta Mensual Base</h2>
-            <p>Valor utilizado para calcular metas diaria, semanal, mensual, trimestral, semestral, anual y rango filtrado.</p>
+            <p>Valor base para calcular meta diaria, semanal, mensual, trimestral, semestral, anual y proporcional.</p>
             <input type="number" id="configMetaMensual" placeholder="219133881">
             <button id="btnGuardarMeta" class="action-btn">Guardar Meta</button>
         </div>
 
         <div class="config-card">
-            <h2>Personalización</h2>
-            <p>Nombre visible del dashboard y descripción general.</p>
+            <h2>Identidad Corporativa</h2>
+            <p>Datos visibles en pantalla y PDF ejecutivo.</p>
             <input type="text" id="configTitulo" placeholder="General Report Jkfh">
             <input type="text" id="configSubtitulo" placeholder="Dashboard gerencial premium">
-            <button id="btnGuardarConfigVisual" class="action-btn">Guardar Visual</button>
+            <input type="text" id="configEmpresa" placeholder="Empresa">
+            <input type="text" id="configArea" placeholder="Área">
+            <input type="text" id="configResponsable" placeholder="Responsable">
+            <input type="text" id="configLogoUrl" placeholder="URL logo">
+            <button id="btnGuardarConfigVisual" class="action-btn">Guardar Identidad</button>
         </div>
 
         <div class="config-card">
-            <h2>Acceso Visual</h2>
-            <p>Clave básica de acceso visual. No reemplaza seguridad real de servidor.</p>
+            <h2>Acceso Visual por Correo</h2>
+            <p>Correos autorizados separados por coma. Si queda vacío, solo valida la clave.</p>
             <input type="text" id="configAccessCode" placeholder="JKFH2026">
+            <textarea id="configEmails" placeholder="correo1@gmail.com, correo2@gmail.com"></textarea>
             <button id="btnGuardarAccess" class="action-btn">Guardar Acceso</button>
         </div>
 
         <div class="config-card">
-            <h2>Estructura Oficial Esperada</h2>
-            <p><strong>Columnas recomendadas:</strong> Fecha, Gestor, Tipo_Homenaje, Tipo_Excedente, Valor, Sede, Observación.</p>
-            <p>El sistema acepta nombres similares, pero es mejor mantener estos encabezados.</p>
+            <h2>Autoactualización</h2>
+            <p>Define cada cuántos minutos se actualizará el dashboard en modo automático.</p>
+            <input type="number" id="configAutoMinutos" placeholder="5">
+            <button id="btnGuardarAuto" class="action-btn">Guardar Auto</button>
+        </div>
+    </div>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Metas por Gestor</h2>
+            <p>Formato: nombre=valor mensual</p>
+            <textarea id="configMetasGestor" placeholder="JUAN PEREZ=50000000"></textarea>
+            <button id="btnGuardarMetasGestor" class="action-btn">Guardar Gestores</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Metas por Sede</h2>
+            <p>Formato: sede=valor mensual</p>
+            <textarea id="configMetasSede" placeholder="MONTERIA=219133881"></textarea>
+            <button id="btnGuardarMetasSede" class="action-btn">Guardar Sedes</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Metas por Categoría</h2>
+            <p>Formato: categoría=valor mensual</p>
+            <textarea id="configMetasCategoria" placeholder="RED=100000000"></textarea>
+            <button id="btnGuardarMetasCategoria" class="action-btn">Guardar Categorías</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Metas por Mes</h2>
+            <p>Formato: número de mes=valor. Ejemplo: 1=219133881</p>
+            <textarea id="configMetasMes" placeholder="1=219133881&#10;2=219133881"></textarea>
+            <button id="btnGuardarMetasMes" class="action-btn">Guardar Meses</button>
         </div>
     </div>
 </section>
 
 <section id="manual" class="vista">
-    <h1 class="vista-titulo">Manual Interno del Dashboard</h1>
-
+    <h1 class="vista-titulo">Manual Interno</h1>
     <div class="manual-grid">
-        <div class="manual-card">
-            <h2>1. Estructura de Google Sheets</h2>
-            <p>La base debe manejar columnas claras para evitar errores de lectura.</p>
-            <ul>
-                <li>Fecha</li>
-                <li>Gestor</li>
-                <li>Tipo_Homenaje</li>
-                <li>Tipo_Excedente</li>
-                <li>Valor</li>
-                <li>Sede</li>
-                <li>Observación</li>
-            </ul>
-        </div>
-
-        <div class="manual-card">
-            <h2>2. Uso de Filtros</h2>
-            <p>Los filtros permiten revisar la información por fecha, gestor, categoría, servicio, sede, mes, año y estado de cumplimiento.</p>
-        </div>
-
-        <div class="manual-card">
-            <h2>3. Metas</h2>
-            <p>La meta mensual base se multiplica o prorratea según el rango seleccionado. Si seleccionas medio mes, la meta se calcula proporcional a los días.</p>
-        </div>
-
-        <div class="manual-card">
-            <h2>4. Auditoría</h2>
-            <p>La auditoría detecta duplicados, fechas inválidas, valores en cero, registros sin gestor, sin categoría o sin sede.</p>
-        </div>
-
-        <div class="manual-card">
-            <h2>5. Reportes</h2>
-            <p>El botón PDF genera un informe formal. El botón Excel exporta resumen y base filtrada.</p>
-        </div>
-
-        <div class="manual-card">
-            <h2>6. Recomendación</h2>
-            <p>Antes de presentar a gerencia, revisa Diagnóstico, Auditoría, Cumplimiento y Cierre Gerencial.</p>
-        </div>
+        <div class="manual-card"><h2>1. Columnas recomendadas</h2><p>Fecha, Gestor, Tipo_Homenaje, Tipo_Excedente, Valor, Sede y Observación.</p></div>
+        <div class="manual-card"><h2>2. Seguridad</h2><p>El acceso visual valida clave y correos configurados. Para seguridad total se requiere backend o Apps Script con validación real.</p></div>
+        <div class="manual-card"><h2>3. Metas</h2><p>La meta se calcula proporcionalmente según días seleccionados. También puedes configurar metas por gestor, sede, categoría y mes.</p></div>
+        <div class="manual-card"><h2>4. Pareto 80/20</h2><p>Identifica qué gestores, servicios o sedes concentran el mayor porcentaje de ventas.</p></div>
+        <div class="manual-card"><h2>5. Reportes</h2><p>PDF ejecutivo, Excel, CSV y backup JSON.</p></div>
+        <div class="manual-card"><h2>6. Antes de presentar</h2><p>Revisa Diagnóstico API, Auditoría, Comparativo Anual, Pareto y Cierre Gerencial.</p></div>
     </div>
 </section>
 
 <section id="administracion" class="vista">
     <h1 class="vista-titulo">Administración</h1>
-
     <div class="admin-grid">
-        <div class="admin-card"><h2>Meta Mensual Configurada</h2><span id="adminMetaMensual">-</span></div>
-        <div class="admin-card"><h2>Meta del Rango Actual</h2><span id="adminMetaGeneral">-</span></div>
+        <div class="admin-card"><h2>Meta Mensual</h2><span id="adminMetaMensual">-</span></div>
+        <div class="admin-card"><h2>Meta Rango</h2><span id="adminMetaGeneral">-</span></div>
         <div class="admin-card"><h2>Última Actualización</h2><span id="adminUltimaActualizacion">-</span></div>
         <div class="admin-card"><h2>Total Registros</h2><span id="adminTotalRegistros">-</span></div>
         <div class="admin-card"><h2>Rango Filtrado</h2><span id="adminRangoFechas">-</span></div>
-        <div class="admin-card"><h2>Estado de Conexión</h2><span id="adminEstadoConexion">-</span></div>
+        <div class="admin-card"><h2>Estado Conexión</h2><span id="adminEstadoConexion">-</span></div>
     </div>
 </section>
 
@@ -815,6 +646,6 @@
 
 </main>
 
-<script src="./app.js?v=20260608"></script>
+<script src="./app.js?v=20260610"></script>
 </body>
 </html>
