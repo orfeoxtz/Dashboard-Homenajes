@@ -28,6 +28,27 @@ function destruirChart(id){
     }
 }
 
+function showLoading(show){
+    const overlay = document.getElementById("loadingOverlay");
+    if(!overlay) return;
+    overlay.classList.toggle("show", show);
+}
+
+function toast(message, type = "ok"){
+    const contenedor = document.getElementById("toastContainer");
+    if(!contenedor) return;
+
+    const div = document.createElement("div");
+    div.className = `toast ${type}`;
+    div.textContent = message;
+
+    contenedor.appendChild(div);
+
+    setTimeout(() => {
+        div.remove();
+    }, 3800);
+}
+
 function toNumber(valor){
     if(typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
 
@@ -527,6 +548,7 @@ function poblarFiltros(){
 
 async function cargarDashboard(){
     setEstadoApi("cargando", "Cargando...");
+    showLoading(true);
 
     try{
         const response = await fetch(API_URL, { cache:"no-store" });
@@ -555,10 +577,12 @@ async function cargarDashboard(){
 
         renderTodo(resumen, metaInfo);
         setEstadoApi("ok", "Conectado");
+        toast("Dashboard actualizado correctamente.");
 
     }catch(error){
         console.error("Error al cargar dashboard:", error);
         setEstadoApi("error", "Error API");
+        toast("No fue posible cargar la información.", "error");
 
         const mensaje = `
             <div class="alerta-item">
@@ -569,6 +593,8 @@ async function cargarDashboard(){
 
         setHtml("alertasGerenciales", mensaje);
         setHtml("alertasGerencialesVista", mensaje);
+    }finally{
+        showLoading(false);
     }
 }
 
@@ -585,6 +611,8 @@ function renderTodo(resumen, metaInfo){
     actualizarProyeccionesGerenciales(resumen, metaInfo);
     actualizarCierreGerencial(DATASET_FILTRADO, resumen);
     actualizarDiagnosticoAvanzado();
+    actualizarAuditoria();
+    actualizarMetasPorGestor();
     actualizarAdmin(DATASET_NORMAL, DATASET_FILTRADO, metaInfo);
     actualizarVistaMetas(metaInfo);
     actualizarBaseDatos();
@@ -617,8 +645,17 @@ function actualizarKPIs(resumen, metaInfo){
 
     const diasAnalizados = Math.max(Math.min(DIAS_RANGO_ACTUAL, diasEntre(metaInfo.inicio, new Date())), 1);
     const promedioDiarioReal = ventaTotal / diasAnalizados;
+    const metaDiaria = META_RANGO_ACTUAL / Math.max(DIAS_RANGO_ACTUAL, 1);
+    const brechaDiaria = promedioDiarioReal - metaDiaria;
     const proyeccion = promedioDiarioReal * DIAS_RANGO_ACTUAL;
     const ticketPromedio = DATASET_FILTRADO.length > 0 ? ventaTotal / DATASET_FILTRADO.length : 0;
+    const calidad = calcularCalidadDatos();
+    const duplicados = obtenerDuplicados();
+    const gestoresActivos = new Set(DATASET_FILTRADO.map(r => r.gestor).filter(Boolean)).size;
+    const sedesActivas = new Set(DATASET_FILTRADO.map(r => r.sede).filter(Boolean)).size;
+    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b)=>b.valor-a.valor);
+    const top = gestores[0];
+    const concentracionTop = top && ventaTotal > 0 ? (top.valor / ventaTotal) * 100 : 0;
 
     setHtml("metaGrupal", formatMoney(META_RANGO_ACTUAL));
     setHtml("ventas", formatMoney(ventaTotal));
@@ -644,6 +681,14 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("tvCumplimiento", `${cumplimientoGeneral.toFixed(1)}%`);
     setHtml("tvFaltante", formatMoney(faltante));
 
+    setHtml("kpiCalidadDatos", `${calidad.calidad.toFixed(1)}%`);
+    setHtml("kpiDuplicados", duplicados.length);
+    setHtml("kpiGestoresActivos", gestoresActivos);
+    setHtml("kpiSedesActivas", sedesActivas);
+    setHtml("kpiConcentracionTop", `${concentracionTop.toFixed(1)}%`);
+    setHtml("kpiBrechaDiaria", formatMoney(brechaDiaria));
+    setHtml("kpiEstadoGerencial", textoEstado(cumplimientoGeneral));
+
     setHtml("metaRangoDetalle", `${fechaISO(metaInfo.inicio)} a ${fechaISO(metaInfo.fin)}`);
 
     const cumplimientoEl = document.getElementById("cumplimiento");
@@ -651,6 +696,12 @@ function actualizarKPIs(resumen, metaInfo){
 
     const tvCumplimiento = document.getElementById("tvCumplimiento");
     if(tvCumplimiento) tvCumplimiento.style.color = colorPorPorcentaje(cumplimientoGeneral);
+
+    const calidadEl = document.getElementById("kpiCalidadDatos");
+    if(calidadEl) calidadEl.style.color = colorPorPorcentaje(calidad.calidad);
+
+    const estadoEl = document.getElementById("kpiEstadoGerencial");
+    if(estadoEl) estadoEl.style.color = colorPorPorcentaje(cumplimientoGeneral);
 }
 
 function crearResumenEjecutivo(rows, resumen, metaInfo){
@@ -1115,6 +1166,9 @@ function crearAlertasGerenciales(rows, ventaTotal){
 
         const calidad = calcularCalidadDatos().calidad;
         if(calidad < 90) alertas.push(`Calidad de datos por debajo del 90%. Revisar registros incompletos o mal digitados.`);
+
+        const duplicados = obtenerDuplicados();
+        if(duplicados.length > 0) alertas.push(`Se detectaron ${duplicados.length} posibles registros duplicados. Revisar módulo Auditoría.`);
     }
 
     const html = alertas.map(a => `
@@ -1351,41 +1405,12 @@ function crearVistaMetas(){
 function calcularPeriodo(tipo, refDate){
     let inicio, fin, nombre;
 
-    if(tipo === "Diario"){
-        inicio = inicioDia(refDate);
-        fin = finDia(refDate);
-        nombre = "Diario";
-    }
-
-    if(tipo === "Semanal"){
-        inicio = inicioSemana(refDate);
-        fin = finSemana(refDate);
-        nombre = "Semanal";
-    }
-
-    if(tipo === "Mensual"){
-        inicio = inicioMes(refDate);
-        fin = finMes(refDate);
-        nombre = "Mensual";
-    }
-
-    if(tipo === "Trimestral"){
-        inicio = inicioTrimestre(refDate);
-        fin = finTrimestre(refDate);
-        nombre = "Trimestral";
-    }
-
-    if(tipo === "Semestral"){
-        inicio = inicioSemestre(refDate);
-        fin = finSemestre(refDate);
-        nombre = "Semestral";
-    }
-
-    if(tipo === "Anual"){
-        inicio = inicioAnio(refDate);
-        fin = finAnio(refDate);
-        nombre = "Anual";
-    }
+    if(tipo === "Diario"){ inicio = inicioDia(refDate); fin = finDia(refDate); nombre = "Diario"; }
+    if(tipo === "Semanal"){ inicio = inicioSemana(refDate); fin = finSemana(refDate); nombre = "Semanal"; }
+    if(tipo === "Mensual"){ inicio = inicioMes(refDate); fin = finMes(refDate); nombre = "Mensual"; }
+    if(tipo === "Trimestral"){ inicio = inicioTrimestre(refDate); fin = finTrimestre(refDate); nombre = "Trimestral"; }
+    if(tipo === "Semestral"){ inicio = inicioSemestre(refDate); fin = finSemestre(refDate); nombre = "Semestral"; }
+    if(tipo === "Anual"){ inicio = inicioAnio(refDate); fin = finAnio(refDate); nombre = "Anual"; }
 
     const rows = filtrarPorRangoConFiltros(inicio, fin);
     const venta = sumar(rows);
@@ -1498,6 +1523,7 @@ function actualizarCierreGerencial(rows, resumen){
 
     plan.push({ titulo:"Revisión por categoría", texto:"Identificar categorías fuertes y fortalecer líneas de baja participación.", prioridad:"Media" });
     plan.push({ titulo:"Seguimiento por gestor", texto:"Revisar ranking, concentración de ventas y asignar metas de recuperación.", prioridad:"Media" });
+    plan.push({ titulo:"Auditoría de datos", texto:"Verificar duplicados, valores en cero, fechas inválidas y registros incompletos.", prioridad:"Media" });
     plan.push({ titulo:"Reporte a gerencia", texto:"Exportar PDF formal y Excel para comité gerencial.", prioridad:"Baja" });
 
     const planBox = document.getElementById("planAccionGerencial");
@@ -1548,6 +1574,24 @@ function calcularCalidadDatos(){
     return { totalApi, fechasInvalidas, valoresCero, sinGestor, sinCategoria, sinSede, calidad };
 }
 
+function claveDuplicado(row){
+    const fecha = row.fecha ? fechaISO(row.fecha) : row.fechaTexto || "";
+    return `${fecha}|${normalizarTexto(row.gestor)}|${normalizarTexto(row.categoria)}|${normalizarTexto(row.servicio)}|${normalizarTexto(row.sede)}|${Math.round(row.valor)}`;
+}
+
+function obtenerDuplicados(){
+    const mapa = {};
+    DATASET_NORMAL.forEach(row => {
+        const key = claveDuplicado(row);
+        if(!mapa[key]) mapa[key] = [];
+        mapa[key].push(row);
+    });
+
+    return Object.values(mapa)
+        .filter(grupo => grupo.length > 1)
+        .flat();
+}
+
 function actualizarDiagnosticoAvanzado(){
     const d = calcularCalidadDatos();
 
@@ -1593,6 +1637,130 @@ function actualizarDiagnosticoAvanzado(){
             `;
         }).join("");
     }
+}
+
+function actualizarAuditoria(){
+    const d = calcularCalidadDatos();
+    const duplicados = obtenerDuplicados();
+
+    setHtml("audDuplicados", duplicados.length);
+    setHtml("audFechasInvalidas", d.fechasInvalidas);
+    setHtml("audValoresCero", d.valoresCero);
+    setHtml("audSinGestor", d.sinGestor);
+    setHtml("audSinCategoria", d.sinCategoria);
+    setHtml("audSinSede", d.sinSede);
+
+    let riesgo = "BAJO";
+    let riesgoColor = "#16a34a";
+
+    if(d.calidad < 80 || duplicados.length > 10){
+        riesgo = "ALTO";
+        riesgoColor = "#dc2626";
+    }else if(d.calidad < 95 || duplicados.length > 0){
+        riesgo = "MEDIO";
+        riesgoColor = "#f59e0b";
+    }
+
+    setHtml("audRiesgo", riesgo);
+
+    const audRiesgo = document.getElementById("audRiesgo");
+    if(audRiesgo) audRiesgo.style.color = riesgoColor;
+
+    let texto = "La base de datos se encuentra en condiciones aceptables para análisis gerencial.";
+    if(riesgo === "MEDIO") texto = "Se recomienda revisar duplicados e inconsistencias antes de presentar el informe final.";
+    if(riesgo === "ALTO") texto = "La base requiere revisión prioritaria. Los errores pueden afectar ventas, metas y reportes.";
+
+    setHtml("auditoriaTexto", texto);
+
+    const tbody = document.querySelector("#tablaAuditoria tbody");
+    if(!tbody) return;
+
+    const hallazgos = [];
+
+    DATASET_NORMAL.forEach(row => {
+        const faltantes = [];
+        if(!row.fecha) faltantes.push("Fecha inválida");
+        if(row.valor === 0) faltantes.push("Valor cero");
+        if(!row.gestor) faltantes.push("Sin gestor");
+        if(!row.categoria) faltantes.push("Sin categoría");
+        if(!row.sede) faltantes.push("Sin sede");
+
+        if(faltantes.length){
+            hallazgos.push({ row, hallazgo: faltantes.join(", ") });
+        }
+    });
+
+    duplicados.forEach(row => {
+        hallazgos.push({ row, hallazgo: "Posible duplicado" });
+    });
+
+    const muestra = hallazgos.slice(0, 80);
+
+    if(muestra.length === 0){
+        tbody.innerHTML = `<tr><td colspan="7">Sin hallazgos críticos</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = muestra.map(item => `
+        <tr>
+            <td>${item.row.fechaTexto || "-"}</td>
+            <td>${item.row.gestor || "-"}</td>
+            <td>${item.row.categoria || "-"}</td>
+            <td>${item.row.servicio || "-"}</td>
+            <td>${item.row.sede || "-"}</td>
+            <td>${formatMoney(item.row.valor)}</td>
+            <td>${item.hallazgo}</td>
+        </tr>
+    `).join("");
+}
+
+function actualizarMetasPorGestor(){
+    const gestores = Object.values(agruparGestores(DATASET_FILTRADO))
+        .sort((a,b) => b.valor - a.valor)
+        .filter(g => g.nombre && g.nombre !== "SIN GESTOR");
+
+    const cantidadGestores = gestores.length;
+    const metaPorGestor = cantidadGestores > 0 ? META_RANGO_ACTUAL / cantidadGestores : 0;
+
+    setHtml(
+        "textoMetasGestor",
+        `La meta del rango seleccionado es <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. 
+        Distribuida entre <strong>${cantidadGestores}</strong> gestores activos, corresponde a 
+        <strong>${formatMoney(metaPorGestor)}</strong> por gestor.`
+    );
+
+    const tbody = document.querySelector("#tablaMetasGestor tbody");
+    if(tbody){
+        if(gestores.length === 0){
+            tbody.innerHTML = `<tr><td colspan="6">Sin gestores activos en el rango seleccionado</td></tr>`;
+        }else{
+            tbody.innerHTML = gestores.map(g => {
+                const cumplimiento = metaPorGestor > 0 ? (g.valor / metaPorGestor) * 100 : 0;
+                const faltante = Math.max(metaPorGestor - g.valor, 0);
+
+                return `
+                    <tr>
+                        <td>${g.nombre}</td>
+                        <td>${formatMoney(metaPorGestor)}</td>
+                        <td>${formatMoney(g.valor)}</td>
+                        <td>${cumplimiento.toFixed(1)}%</td>
+                        <td>${formatMoney(faltante)}</td>
+                        <td>${badgeEstado(cumplimiento)}</td>
+                    </tr>
+                `;
+            }).join("");
+        }
+    }
+
+    crearChartBar(
+        "graficoMetasGestor",
+        gestores.map(g => g.nombre),
+        gestores.map(g => metaPorGestor > 0 ? (g.valor / metaPorGestor) * 100 : 0),
+        "% Cumplimiento",
+        "Cumplimiento por gestor contra meta distribuida",
+        "rgba(37,99,235,.92)",
+        true
+    );
 }
 
 function actualizarVistaMetas(metaInfo){
@@ -1711,16 +1879,15 @@ function generarReporteFormal(){
             Estado general: ${textoEstado(cumplimiento)}.
         </p>
 
-        <h2>Tabla Gerencial Consolidada</h2>
+        <h2>Tabla Gerencial</h2>
         <table>
-            <thead>
-                <tr><th>Indicador</th><th>Resultado</th></tr>
-            </thead>
+            <thead><tr><th>Indicador</th><th>Resultado</th></tr></thead>
             <tbody>
                 <tr><td>Meta mensual base</td><td>${formatMoney(META_MENSUAL_BASE)}</td></tr>
                 <tr><td>Meta anual</td><td>${formatMoney(META_ANUAL_BASE)}</td></tr>
                 <tr><td>Registros analizados</td><td>${DATASET_FILTRADO.length}</td></tr>
                 <tr><td>Calidad de datos</td><td>${d.calidad.toFixed(1)}%</td></tr>
+                <tr><td>Duplicados detectados</td><td>${obtenerDuplicados().length}</td></tr>
             </tbody>
         </table>
 
@@ -1728,7 +1895,7 @@ function generarReporteFormal(){
         <p>${document.getElementById("conclusionGerencial")?.innerText || ""}</p>
 
         <h2>Plan de Acción</h2>
-        <p>Reforzar seguimiento por gestor, validar registros incompletos, monitorear cumplimiento diario y exportar informe para comité gerencial.</p>
+        <p>Reforzar seguimiento por gestor, validar registros incompletos, revisar duplicados, monitorear cumplimiento diario y exportar informe para comité gerencial.</p>
     `;
 }
 
@@ -1741,7 +1908,8 @@ function exportarExcel(){
         Categoria: row.categoria || "",
         Servicio: row.servicio || "",
         Sede: row.sede || "",
-        Valor: row.valor
+        Valor: row.valor,
+        Observacion: row.observacion || ""
     }));
 
     const resumen = calcularResumen(DATASET_FILTRADO);
@@ -1760,7 +1928,8 @@ function exportarExcel(){
         ["Cumplimiento %", cumplimiento],
         ["Faltante", Math.max(META_RANGO_ACTUAL - resumen.total, 0)],
         ["Registros Filtrados", DATASET_FILTRADO.length],
-        ["Calidad de datos %", d.calidad]
+        ["Calidad de datos %", d.calidad],
+        ["Duplicados detectados", obtenerDuplicados().length]
     ]);
 
     const wsDatos = XLSX.utils.json_to_sheet(hojaDatos);
@@ -1771,6 +1940,7 @@ function exportarExcel(){
 
     XLSX.writeFile(wb, "dashboard_gerencial_homenajes.xlsx");
     setHtml("estadoReporte", "Reporte Excel generado correctamente.");
+    toast("Excel generado correctamente.");
 }
 
 function exportarPDF(){
@@ -1790,6 +1960,7 @@ function exportarPDF(){
 
     html2pdf().set(opciones).from(elemento).save();
     setHtml("estadoReporte", "Reporte PDF formal generado correctamente.");
+    toast("PDF generado correctamente.");
 }
 
 function alternarTema(){
@@ -1825,7 +1996,7 @@ function guardarMetaMensual(){
     const nuevaMeta = toNumber(input.value);
 
     if(nuevaMeta <= 0){
-        alert("Ingrese una meta válida mayor a cero.");
+        toast("Ingrese una meta válida mayor a cero.", "warning");
         return;
     }
 
@@ -1833,7 +2004,7 @@ function guardarMetaMensual(){
     localStorage.setItem("metaMensualBase", String(nuevaMeta));
     recalcularMetasBase();
     cargarDashboard();
-    alert("Meta mensual guardada correctamente.");
+    toast("Meta mensual guardada correctamente.");
 }
 
 function guardarConfigVisual(){
@@ -1844,14 +2015,14 @@ function guardarConfigVisual(){
     localStorage.setItem("dashboardSubtitulo", subtitulo);
 
     actualizarConfiguracion();
-    alert("Configuración visual guardada correctamente.");
+    toast("Configuración visual guardada correctamente.");
 }
 
 function guardarAccessCode(){
     const code = document.getElementById("configAccessCode")?.value || "JKFH2026";
     ACCESS_CODE = code;
     localStorage.setItem("dashboardAccessCode", code);
-    alert("Código de acceso actualizado correctamente.");
+    toast("Código de acceso actualizado correctamente.");
 }
 
 function aplicarPreferencias(){
@@ -1883,9 +2054,17 @@ function ingresarDashboard(){
     if(valor === ACCESS_CODE){
         sessionStorage.setItem("dashboardAutorizado", "1");
         document.getElementById("accessPanel")?.classList.add("hidden");
+        toast("Acceso permitido.");
     }else{
-        alert("Código incorrecto.");
+        toast("Código incorrecto.", "error");
     }
+}
+
+function cerrarSesion(){
+    sessionStorage.removeItem("dashboardAutorizado");
+    document.getElementById("accessCode").value = "";
+    validarAcceso();
+    toast("Sesión cerrada.");
 }
 
 document.querySelectorAll(".menu-item").forEach(item => {
@@ -1900,6 +2079,7 @@ document.getElementById("btnExcel")?.addEventListener("click", exportarExcel);
 document.getElementById("btnTema")?.addEventListener("click", alternarTema);
 document.getElementById("btnSidebar")?.addEventListener("click", alternarSidebar);
 document.getElementById("btnFull")?.addEventListener("click", pantallaCompleta);
+document.getElementById("btnLogout")?.addEventListener("click", cerrarSesion);
 
 document.getElementById("reporteExcelResumen")?.addEventListener("click", exportarExcel);
 document.getElementById("reportePdfGeneral")?.addEventListener("click", exportarPDF);
