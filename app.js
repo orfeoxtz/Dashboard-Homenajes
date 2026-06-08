@@ -61,7 +61,6 @@ function getCampo(item, posibles){
             return item[campo];
         }
     }
-
     return "";
 }
 
@@ -141,11 +140,9 @@ function convertirArrayAObjetos(tabla){
 
         return tabla.slice(1).map(fila => {
             const obj = {};
-
             encabezados.forEach((encabezado, index) => {
                 obj[encabezado] = fila[index];
             });
-
             return obj;
         });
     }
@@ -158,6 +155,7 @@ function obtenerHomenajesDesdeApi(json){
     if(Array.isArray(json.datos)) return convertirArrayAObjetos(json.datos);
     if(Array.isArray(json.data)) return convertirArrayAObjetos(json.data);
     if(Array.isArray(json.registros)) return convertirArrayAObjetos(json.registros);
+    if(Array.isArray(json.result)) return convertirArrayAObjetos(json.result);
     if(Array.isArray(json)) return convertirArrayAObjetos(json);
 
     return [];
@@ -445,6 +443,7 @@ async function cargarDashboard(){
         crearSemaforoGerencial(resumen.total);
         crearAlertasGerenciales(DATASET_FILTRADO, resumen.total);
         renderizarVistasAdicionales(DATASET_FILTRADO, resumen, metaInfo);
+        ejecutarModulosFinales(DATASET_FILTRADO, resumen, metaInfo);
         actualizarAdmin(DATASET, DATASET_FILTRADO, metaInfo);
         actualizarVistaMetas(metaInfo);
         actualizarBaseDatos();
@@ -624,10 +623,7 @@ function crearChartLine(idCanvas, labels, datasets, titulo){
 
     charts[idCanvas] = new Chart(canvas, {
         type:"line",
-        data:{
-            labels,
-            datasets
-        },
+        data:{ labels, datasets },
         options:opcionesChartBasicas(titulo)
     });
 }
@@ -822,7 +818,6 @@ function agruparCategorias(homenajes){
     homenajes.forEach(item => {
         let categoria = normalizarTexto(getTipoHomenajeItem(item));
         if(!categoria) categoria = "SIN CATEGORÍA";
-
         categorias[categoria] = (categorias[categoria] || 0) + toNumber(getValorItem(item));
     });
 
@@ -901,6 +896,7 @@ function crearTablasPrincipales(homenajes, totalGeneral){
 
     const servicios = agruparServicios(homenajes);
     const serviciosRanking = Object.entries(servicios).sort((a,b) => b[1].valor - a[1].valor).slice(0, 12);
+
     crearChartBar(
         "graficoServiciosVista",
         serviciosRanking.map(([nombre]) => nombre),
@@ -1405,6 +1401,309 @@ function crearVistaMetas(){
             pointRadius:5
         }
     ], "Meta acumulada mensual");
+}
+
+function ejecutarModulosFinales(homenajes, resumen, metaInfo){
+    actualizarProyeccionesGerenciales(homenajes, resumen, metaInfo);
+    actualizarCierreGerencial(homenajes, resumen, metaInfo);
+    actualizarDiagnosticoAvanzado(homenajes);
+}
+
+function actualizarProyeccionesGerenciales(homenajes, resumen, metaInfo){
+    const ventaTotal = resumen.total;
+    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
+
+    const diasRango = Math.max(DIAS_RANGO_ACTUAL, 1);
+    const promedioDiarioReal = ventaTotal / diasRango;
+    const proyeccionRango = promedioDiarioReal * diasRango;
+    const proyeccionAnual = promedioDiarioReal * 365;
+
+    const valorDiarioNecesario = diasRango > 0 ? faltante / diasRango : 0;
+    const cumplimientoProyectadoAnual = META_ANUAL_BASE > 0 ? (proyeccionAnual / META_ANUAL_BASE) * 100 : 0;
+
+    let riesgo = "BAJO";
+    let riesgoClase = "#16a34a";
+
+    if(cumplimientoProyectadoAnual < 80){
+        riesgo = "ALTO";
+        riesgoClase = "#dc2626";
+    }else if(cumplimientoProyectadoAnual < 100){
+        riesgo = "MEDIO";
+        riesgoClase = "#f59e0b";
+    }
+
+    setHtml("proyPromedioDiario", formatMoney(promedioDiarioReal));
+    setHtml("proyRango", formatMoney(proyeccionRango));
+    setHtml("proyAnual", formatMoney(proyeccionAnual));
+    setHtml("riesgoProyectado", riesgo);
+    setHtml("valorDiarioNecesario", formatMoney(valorDiarioNecesario));
+
+    const riesgoEl = document.getElementById("riesgoProyectado");
+    if(riesgoEl) riesgoEl.style.color = riesgoClase;
+
+    crearGraficoProyeccionAnual(proyeccionAnual);
+
+    const tbody = document.querySelector("#tablaProyecciones tbody");
+
+    if(tbody){
+        tbody.innerHTML = `
+            <tr>
+                <td>Meta anual</td>
+                <td>${formatMoney(META_ANUAL_BASE)}</td>
+                <td>Objetivo general anual configurado.</td>
+            </tr>
+            <tr>
+                <td>Proyección anual</td>
+                <td>${formatMoney(proyeccionAnual)}</td>
+                <td>Estimación con base en el ritmo diario del rango filtrado.</td>
+            </tr>
+            <tr>
+                <td>Cumplimiento proyectado anual</td>
+                <td>${cumplimientoProyectadoAnual.toFixed(1)}%</td>
+                <td>${textoEstado(cumplimientoProyectadoAnual)}</td>
+            </tr>
+            <tr>
+                <td>Faltante del rango</td>
+                <td>${formatMoney(faltante)}</td>
+                <td>Valor pendiente para cumplir la meta seleccionada.</td>
+            </tr>
+            <tr>
+                <td>Valor diario necesario</td>
+                <td>${formatMoney(valorDiarioNecesario)}</td>
+                <td>Promedio requerido para cubrir el faltante del rango.</td>
+            </tr>
+        `;
+    }
+}
+
+function crearGraficoProyeccionAnual(proyeccionAnual){
+    const canvas = document.getElementById("graficoProyeccionAnual");
+    if(!canvas) return;
+
+    destruirChart("graficoProyeccionAnual");
+
+    charts.graficoProyeccionAnual = new Chart(canvas, {
+        type:"bar",
+        data:{
+            labels:["Meta anual", "Proyección anual"],
+            datasets:[{
+                label:"Valor",
+                data:[META_ANUAL_BASE, proyeccionAnual],
+                backgroundColor:[
+                    "rgba(37,99,235,.90)",
+                    "rgba(0,166,81,.90)"
+                ],
+                borderRadius:12
+            }]
+        },
+        options:opcionesChartBasicas("Meta anual vs proyección anual")
+    });
+}
+
+function actualizarCierreGerencial(homenajes, resumen, metaInfo){
+    const ventaTotal = resumen.total;
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
+    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
+    const promedioDiarioMeta = DIAS_RANGO_ACTUAL > 0 ? META_RANGO_ACTUAL / DIAS_RANGO_ACTUAL : 0;
+    const promedioDiarioReal = DIAS_RANGO_ACTUAL > 0 ? ventaTotal / DIAS_RANGO_ACTUAL : 0;
+
+    let conclusion = "";
+
+    if(cumplimiento >= 100){
+        conclusion = `
+            El desempeño del rango seleccionado es favorable. La meta se encuentra cumplida con un avance de 
+            <strong>${cumplimiento.toFixed(1)}%</strong>, superando la meta calculada de 
+            <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. Se recomienda mantener el ritmo comercial, 
+            fortalecer los servicios de mayor participación y documentar las prácticas exitosas del periodo.
+        `;
+    }else if(cumplimiento >= 80){
+        conclusion = `
+            El desempeño del rango seleccionado se encuentra en zona de riesgo controlado con un avance de 
+            <strong>${cumplimiento.toFixed(1)}%</strong>. La venta acumulada es de 
+            <strong>${formatMoney(ventaTotal)}</strong> frente a una meta de 
+            <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. Se requiere reforzar el seguimiento diario 
+            para cerrar el faltante de <strong>${formatMoney(faltante)}</strong>.
+        `;
+    }else{
+        conclusion = `
+            El desempeño del rango seleccionado se encuentra por debajo del nivel esperado, con un avance de 
+            <strong>${cumplimiento.toFixed(1)}%</strong>. La brecha frente a la meta es de 
+            <strong>${formatMoney(faltante)}</strong>. Se recomienda activar un plan de choque comercial, 
+            seguimiento por gestor y revisión de servicios con baja rotación.
+        `;
+    }
+
+    setHtml("conclusionGerencial", conclusion);
+
+    const plan = [];
+
+    if(cumplimiento < 80){
+        plan.push({
+            titulo:"Plan de choque comercial",
+            texto:"Realizar seguimiento diario a gestores, priorizar oportunidades activas y revisar casos pendientes de cierre.",
+            prioridad:"Alta"
+        });
+    }
+
+    if(promedioDiarioReal < promedioDiarioMeta){
+        plan.push({
+            titulo:"Incrementar promedio diario",
+            texto:`El promedio diario real es ${formatMoney(promedioDiarioReal)}, por debajo de la meta diaria de ${formatMoney(promedioDiarioMeta)}.`,
+            prioridad:"Alta"
+        });
+    }
+
+    plan.push({
+        titulo:"Revisión de categorías",
+        texto:"Identificar las categorías con mayor participación y fortalecer las de menor rendimiento.",
+        prioridad:"Media"
+    });
+
+    plan.push({
+        titulo:"Seguimiento por gestor",
+        texto:"Revisar ranking, concentración de ventas y asignar metas de recuperación por responsable.",
+        prioridad:"Media"
+    });
+
+    plan.push({
+        titulo:"Reporte a gerencia",
+        texto:"Exportar PDF y Excel del dashboard para revisión en comité gerencial.",
+        prioridad:"Baja"
+    });
+
+    const planBox = document.getElementById("planAccionGerencial");
+
+    if(planBox){
+        planBox.innerHTML = plan.map(item => {
+            const clase =
+                item.prioridad === "Alta" ? "prioridad-alta" :
+                item.prioridad === "Media" ? "prioridad-media" :
+                "prioridad-baja";
+
+            return `
+                <div class="plan-card">
+                    <h4>${item.titulo}</h4>
+                    <p>${item.texto}</p>
+                    <p class="${clase}">Prioridad: ${item.prioridad}</p>
+                </div>
+            `;
+        }).join("");
+    }
+
+    actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta, homenajes);
+}
+
+function actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta, homenajes){
+    const tbody = document.querySelector("#tablaDecisionGerencial tbody");
+    if(!tbody) return;
+
+    const estadoCumplimiento =
+        cumplimiento >= 100 ? "Bueno" :
+        cumplimiento >= 80 ? "Riesgo" :
+        "Crítico";
+
+    const estadoPromedio =
+        promedioDiarioReal >= promedioDiarioMeta ? "Bueno" : "Crítico";
+
+    const estadoDatos =
+        homenajes.length > 0 ? "Bueno" : "Crítico";
+
+    tbody.innerHTML = `
+        <tr>
+            <td>Cumplimiento de meta</td>
+            <td class="${claseEstado(estadoCumplimiento)}">${estadoCumplimiento}</td>
+            <td>Revisar avance contra meta y activar acciones según brecha.</td>
+            <td>${estadoCumplimiento === "Crítico" ? "Alta" : "Media"}</td>
+        </tr>
+        <tr>
+            <td>Promedio diario</td>
+            <td class="${claseEstado(estadoPromedio)}">${estadoPromedio}</td>
+            <td>Comparar promedio real contra promedio requerido.</td>
+            <td>${estadoPromedio === "Crítico" ? "Alta" : "Media"}</td>
+        </tr>
+        <tr>
+            <td>Calidad de datos</td>
+            <td class="${claseEstado(estadoDatos)}">${estadoDatos}</td>
+            <td>Validar que la API entregue registros con fecha, valor, gestor y categoría.</td>
+            <td>${estadoDatos === "Crítico" ? "Alta" : "Baja"}</td>
+        </tr>
+    `;
+}
+
+function claseEstado(estado){
+    if(estado === "Bueno") return "estado-bueno";
+    if(estado === "Riesgo") return "estado-riesgo";
+    return "estado-critico";
+}
+
+function actualizarDiagnosticoAvanzado(){
+    const totalApi = DATASET.length;
+    const totalFiltrado = DATASET_FILTRADO.length;
+
+    const fechasInvalidas = DATASET.filter(item => !parseFecha(getFechaItem(item))).length;
+    const valoresCero = DATASET.filter(item => toNumber(getValorItem(item)) === 0).length;
+    const sinGestor = DATASET.filter(item => !String(getGestorItem(item) || "").trim()).length;
+    const sinCategoria = DATASET.filter(item => !String(getTipoHomenajeItem(item) || "").trim()).length;
+
+    const errores = fechasInvalidas + valoresCero + sinGestor + sinCategoria;
+    const calidad = totalApi > 0 ? Math.max(100 - ((errores / (totalApi * 4)) * 100), 0) : 0;
+
+    setHtml("diagTotalApi", totalApi);
+    setHtml("diagTotalFiltrado", totalFiltrado);
+    setHtml("diagFechasInvalidas", fechasInvalidas);
+    setHtml("diagValoresCero", valoresCero);
+    setHtml("diagSinGestor", sinGestor);
+    setHtml("diagSinCategoria", sinCategoria);
+    setHtml("diagCalidad", `${calidad.toFixed(1)}%`);
+
+    const calidadEl = document.getElementById("diagCalidad");
+    if(calidadEl) calidadEl.style.color = colorPorPorcentaje(calidad);
+
+    let texto = "";
+
+    if(totalApi === 0){
+        texto = "No se están recibiendo registros desde la API. Verifica Apps Script, permisos de publicación y estructura del JSON.";
+    }else if(calidad >= 95){
+        texto = "La calidad de datos es alta. La información recibida es suficiente para análisis gerencial.";
+    }else if(calidad >= 80){
+        texto = "La calidad de datos es aceptable, pero existen registros que deben corregirse para mejorar la precisión del dashboard.";
+    }else{
+        texto = "La calidad de datos requiere revisión. Hay inconsistencias que pueden afectar metas, ventas, gráficos y reportes.";
+    }
+
+    setHtml("diagnosticoTexto", texto);
+
+    const tbody = document.querySelector("#tablaDiagnosticoDatos tbody");
+
+    if(tbody){
+        const muestra = DATASET.slice(0, 50);
+
+        if(muestra.length === 0){
+            tbody.innerHTML = `<tr><td colspan="6">Sin registros recibidos desde la API</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = muestra.map(item => {
+            const fecha = getFechaItem(item);
+            const gestor = getGestorItem(item);
+            const categoria = getTipoHomenajeItem(item);
+            const servicio = getTipoExcedenteItem(item);
+            const valor = toNumber(getValorItem(item));
+
+            const correcto = parseFecha(fecha) && valor > 0 && gestor && categoria;
+
+            return `
+                <tr>
+                    <td>${fecha || "-"}</td>
+                    <td>${gestor || "-"}</td>
+                    <td>${categoria || "-"}</td>
+                    <td>${servicio || "-"}</td>
+                    <td>${formatMoney(valor)}</td>
+                    <td>${correcto ? '<span class="badge badge-ok">Correcto</span>' : '<span class="badge badge-danger">Revisar</span>'}</td>
+                </tr>
+            `;
+        }).join("");
+    }
 }
 
 function actualizarVistaMetas(metaInfo){
