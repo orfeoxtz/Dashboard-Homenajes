@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>General Report Jkfh | Internal control dashboard Coordination of the area</title>
+<title>General Report Jkfh | Control</title>
 
-<link rel="stylesheet" href="./style.css?v=20260607">
+<link rel="stylesheet" href="./style.css?v=20260608">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -25,6 +25,16 @@
         <small>Clave inicial: JKFH2026</small>
     </div>
 </section>
+
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="loader-card">
+        <div class="loader-spinner"></div>
+        <h3>Cargando dashboard</h3>
+        <p>Procesando información gerencial...</p>
+    </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
 
 <aside class="sidebar">
     <div class="logo">
@@ -46,6 +56,7 @@
 
         <li class="sidebar-section-title">METAS</li>
         <li class="menu-item" data-seccion="metas"><i class="fas fa-calendar-check"></i> Metas</li>
+        <li class="menu-item" data-seccion="metasGestor"><i class="fas fa-user-check"></i> Metas por Gestor</li>
         <li class="menu-item" data-seccion="cumplimientoDiario"><i class="fas fa-calendar-day"></i> Cumplimiento Diario</li>
         <li class="menu-item" data-seccion="cumplimientoSemanal"><i class="fas fa-calendar-week"></i> Cumplimiento Semanal</li>
         <li class="menu-item" data-seccion="cumplimientoMensual"><i class="fas fa-calendar-alt"></i> Cumplimiento Mensual</li>
@@ -64,12 +75,14 @@
         <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas Gerenciales</li>
         <li class="menu-item" data-seccion="cierreGerencial"><i class="fas fa-briefcase"></i> Cierre Gerencial</li>
         <li class="menu-item" data-seccion="diagnostico"><i class="fas fa-stethoscope"></i> Diagnóstico de Datos</li>
+        <li class="menu-item" data-seccion="auditoria"><i class="fas fa-shield-halved"></i> Auditoría</li>
         <li class="menu-item" data-seccion="vistaTv"><i class="fas fa-tv"></i> Vista TV Gerencial</li>
 
         <li class="sidebar-section-title">SISTEMA</li>
         <li class="menu-item" data-seccion="reportes"><i class="fas fa-file-export"></i> Reportes</li>
         <li class="menu-item" data-seccion="baseDatos"><i class="fas fa-database"></i> Base de Datos</li>
         <li class="menu-item" data-seccion="configuracion"><i class="fas fa-sliders"></i> Configuración</li>
+        <li class="menu-item" data-seccion="manual"><i class="fas fa-circle-info"></i> Manual</li>
         <li class="menu-item" data-seccion="administracion"><i class="fas fa-cogs"></i> Administración</li>
     </ul>
 </aside>
@@ -99,6 +112,7 @@
             <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
             <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
             <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
+            <button id="btnLogout" class="danger-btn"><i class="fas fa-right-from-bracket"></i> Salir</button>
         </div>
     </div>
 </header>
@@ -217,6 +231,16 @@
         <div class="card"><h3>📊 Total Registros</h3><h2 id="totalRegistros">0</h2></div>
         <div class="card"><h3>🧮 Ticket Promedio</h3><h2 id="ticketPromedio">$0</h2></div>
         <div class="card"><h3>🚦 Cumplimiento Visual</h3><h2 id="cumplimientoVisual">-</h2></div>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>🔐 Calidad de Datos</h3><h2 id="kpiCalidadDatos">0%</h2></div>
+        <div class="card"><h3>♻ Registros Duplicados</h3><h2 id="kpiDuplicados">0</h2></div>
+        <div class="card"><h3>👥 Gestores Activos</h3><h2 id="kpiGestoresActivos">0</h2></div>
+        <div class="card"><h3>🏢 Sedes Activas</h3><h2 id="kpiSedesActivas">0</h2></div>
+        <div class="card"><h3>📌 Concentración Top</h3><h2 id="kpiConcentracionTop">0%</h2></div>
+        <div class="card"><h3>📉 Brecha Diaria</h3><h2 id="kpiBrechaDiaria">$0</h2></div>
+        <div class="card"><h3>✅ Estado Gerencial</h3><h2 id="kpiEstadoGerencial">-</h2></div>
     </section>
 
     <section class="graficos">
@@ -384,6 +408,39 @@
     </div>
 
     <div class="card-big"><h3>Meta acumulada por meses</h3><canvas id="graficoMetasAcumuladas"></canvas></div>
+</section>
+
+<section id="metasGestor" class="vista">
+    <h1 class="vista-titulo">Metas por Gestor</h1>
+
+    <section class="resumen-ejecutivo">
+        <div>
+            <h2>Distribución de Meta</h2>
+            <p id="textoMetasGestor">Cargando distribución de metas...</p>
+        </div>
+    </section>
+
+    <div class="card-big">
+        <h3>Cumplimiento por gestor contra meta distribuida</h3>
+        <canvas id="graficoMetasGestor"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Tabla de Metas por Gestor</h2>
+        <table id="tablaMetasGestor">
+            <thead>
+                <tr>
+                    <th>Gestor</th>
+                    <th>Meta Asignada</th>
+                    <th>Venta Real</th>
+                    <th>% Cumplimiento</th>
+                    <th>Faltante</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 </section>
 
 <section id="cumplimientoDiario" class="vista">
@@ -578,6 +635,43 @@
     </div>
 </section>
 
+<section id="auditoria" class="vista">
+    <h1 class="vista-titulo">Auditoría de Datos</h1>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>♻ Duplicados Detectados</h3><h2 id="audDuplicados">0</h2></div>
+        <div class="card"><h3>📅 Fechas Inválidas</h3><h2 id="audFechasInvalidas">0</h2></div>
+        <div class="card"><h3>💰 Valores Cero</h3><h2 id="audValoresCero">0</h2></div>
+        <div class="card"><h3>👤 Sin Gestor</h3><h2 id="audSinGestor">0</h2></div>
+        <div class="card"><h3>🏷 Sin Categoría</h3><h2 id="audSinCategoria">0</h2></div>
+        <div class="card"><h3>🏢 Sin Sede</h3><h2 id="audSinSede">0</h2></div>
+        <div class="card"><h3>🔐 Riesgo Técnico</h3><h2 id="audRiesgo">-</h2></div>
+    </section>
+
+    <div class="card-big">
+        <h3>Recomendación de Auditoría</h3>
+        <p id="auditoriaTexto" class="texto-informe">Cargando auditoría...</p>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Registros Duplicados o por Revisar</h2>
+        <table id="tablaAuditoria">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Gestor</th>
+                    <th>Categoría</th>
+                    <th>Servicio</th>
+                    <th>Sede</th>
+                    <th>Valor</th>
+                    <th>Hallazgo</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
 <section id="vistaTv" class="vista">
     <h1 class="vista-titulo">Vista TV Gerencial</h1>
 
@@ -638,7 +732,7 @@
 
         <div class="config-card">
             <h2>Personalización</h2>
-            <p>Nombre visible del dashboard y sede general.</p>
+            <p>Nombre visible del dashboard y descripción general.</p>
             <input type="text" id="configTitulo" placeholder="General Report Jkfh">
             <input type="text" id="configSubtitulo" placeholder="Dashboard gerencial premium">
             <button id="btnGuardarConfigVisual" class="action-btn">Guardar Visual</button>
@@ -655,6 +749,51 @@
             <h2>Estructura Oficial Esperada</h2>
             <p><strong>Columnas recomendadas:</strong> Fecha, Gestor, Tipo_Homenaje, Tipo_Excedente, Valor, Sede, Observación.</p>
             <p>El sistema acepta nombres similares, pero es mejor mantener estos encabezados.</p>
+        </div>
+    </div>
+</section>
+
+<section id="manual" class="vista">
+    <h1 class="vista-titulo">Manual Interno del Dashboard</h1>
+
+    <div class="manual-grid">
+        <div class="manual-card">
+            <h2>1. Estructura de Google Sheets</h2>
+            <p>La base debe manejar columnas claras para evitar errores de lectura.</p>
+            <ul>
+                <li>Fecha</li>
+                <li>Gestor</li>
+                <li>Tipo_Homenaje</li>
+                <li>Tipo_Excedente</li>
+                <li>Valor</li>
+                <li>Sede</li>
+                <li>Observación</li>
+            </ul>
+        </div>
+
+        <div class="manual-card">
+            <h2>2. Uso de Filtros</h2>
+            <p>Los filtros permiten revisar la información por fecha, gestor, categoría, servicio, sede, mes, año y estado de cumplimiento.</p>
+        </div>
+
+        <div class="manual-card">
+            <h2>3. Metas</h2>
+            <p>La meta mensual base se multiplica o prorratea según el rango seleccionado. Si seleccionas medio mes, la meta se calcula proporcional a los días.</p>
+        </div>
+
+        <div class="manual-card">
+            <h2>4. Auditoría</h2>
+            <p>La auditoría detecta duplicados, fechas inválidas, valores en cero, registros sin gestor, sin categoría o sin sede.</p>
+        </div>
+
+        <div class="manual-card">
+            <h2>5. Reportes</h2>
+            <p>El botón PDF genera un informe formal. El botón Excel exporta resumen y base filtrada.</p>
+        </div>
+
+        <div class="manual-card">
+            <h2>6. Recomendación</h2>
+            <p>Antes de presentar a gerencia, revisa Diagnóstico, Auditoría, Cumplimiento y Cierre Gerencial.</p>
         </div>
     </div>
 </section>
@@ -676,6 +815,6 @@
 
 </main>
 
-<script src="app.js"></script>
+<script src="./app.js?v=20260608"></script>
 </body>
 </html>
