@@ -1,101 +1,100 @@
 
-
-let DATASET = [];
-let DATASET_FILTRADO = [];
-let IS_LOADING = false;
-
-if (typeof Chart !== "undefined" && typeof ChartAnnotation !== "undefined") {
-    Chart.register(ChartAnnotation);
+canvas{
+    max-width:100%;
 }
 
-if (typeof Chart !== "undefined") {
-    Chart.defaults.font.family = "'Segoe UI', Arial, sans-serif";
-    Chart.defaults.color = "#475569";
-    Chart.defaults.plugins.legend.labels.usePointStyle = true;
-    Chart.defaults.plugins.legend.labels.boxWidth = 8;
+/* Ajustes de continuidad gerencial */
+:root{
+    --radius:8px;
+    --surface-strong:#ffffff;
+    --line:#dbe4ef;
+    --nav-dark:#073b2a;
+    --info:#2563eb;
 }
 
-function toNumber(valor) {
-    if (typeof valor === "number") {
-        return Number.isFinite(valor) ? valor : 0;
-    return "$" + Math.round(toNumber(valor)).toLocaleString("es-CO");
+*{
+    letter-spacing:0 !important;
 }
 
-function escapeHTML(valor) {
-    return String(valor ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+body{
+    background:linear-gradient(180deg, #f8fafc 0%, #eef3f8 100%);
 }
 
-function setText(id, valor) {
-    const elemento = document.getElementById(id);
-    if (elemento) elemento.textContent = valor;
+body.dark-mode{
+    background:linear-gradient(180deg, #0b1220 0%, #111827 100%);
 }
 
-function setDashboardLoading(estado) {
-    IS_LOADING = estado;
-    document.body.classList.toggle("is-loading", estado);
-
-    ["btnFiltrar", "btnExcel", "btnPdf"].forEach(id => {
-        const boton = document.getElementById(id);
-        if (boton) boton.disabled = estado;
-    });
+.sidebar{
+    background:linear-gradient(180deg, #08a857 0%, #078445 54%, var(--nav-dark) 100%);
+    border-right:1px solid rgba(255,255,255,.12);
 }
 
-function mostrarToast(mensaje, tipo = "info") {
-    let toast = document.getElementById("dashboardToast");
-    if (!toast) {
-        toast = document.createElement("div");
-        toast.id = "dashboardToast";
-        toast.className = "dashboard-toast";
-        toast.setAttribute("role", "status");
-        toast.setAttribute("aria-live", "polite");
-        document.body.appendChild(toast);
-    }
-
-    toast.textContent = mensaje;
-    toast.dataset.tipo = tipo;
-    toast.classList.add("show");
-
-    window.clearTimeout(mostrarToast.timer);
-    mostrarToast.timer = window.setTimeout(() => {
-        toast.classList.remove("show");
-    }, 3200);
+.logo{
+    border-bottom-color:rgba(255,255,255,.2);
 }
 
-function clasificarCumplimiento(porcentaje) {
-    if (porcentaje >= 100) return "ok";
-    if (porcentaje >= 80) return "warning";
-    return "danger";
+.sidebar li{
+    border-radius:var(--radius);
+    outline:none;
 }
 
-function aplicarEstadoCard(elemento, estado) {
-    const card = elemento?.closest(".card");
-    if (!card) return;
-
-    card.classList.remove("estado-ok", "estado-warning", "estado-danger");
-    card.classList.add(`estado-${estado}`);
+.sidebar li:focus-visible{
+    box-shadow:0 0 0 3px rgba(255,255,255,.28);
 }
 
-function inicializarRangoMesActual() {
-    const inicio = document.getElementById("fechaInicio");
-    const fin = document.getElementById("fechaFin");
-    if (!inicio || !fin || inicio.value || fin.value) return;
-
-    const hoy = new Date();
-    const primerDia = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-    const formato = fecha => {
-        const yyyy = fecha.getFullYear();
-        const mm = String(fecha.getMonth() + 1).padStart(2, "0");
-        const dd = String(fecha.getDate()).padStart(2, "0");
-        return `${yyyy}-${mm}-${dd}`;
-    };
-
-    inicio.value = formato(primerDia);
-    fin.value = formato(hoy);
+.main{
+    position:relative;
 }
 
-function normalizarTexto(valor) {
+.topbar,
+.filtros,
+.card,
+.grafico-card,
+.tabla-cumplimiento,
+.tabla-detalle,
+.semaforo-card,
+.alertas-box,
+.card-big,
+.admin-card{
+    border-radius:var(--radius);
+    border-color:var(--line);
+}
+
+.topbar{
+    box-shadow:0 10px 28px rgba(15,23,42,.07);
+}
+
+.filtros{
+    gap:16px;
+}
+
+.card{
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    min-height:132px;
+    background:linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+}
+
+.card::before{
+    display:none;
+}
+
+.card h3{
+    min-height:18px;
+    line-height:1.25;
+}
+
+.card h2{
+    font-size:clamp(18px, 1.35vw, 26px);
+    line-height:1.12;
+    overflow-wrap:anywhere;
+    hyphens:auto;
+}
+
+.kpis-secundarios .card h2,
+#mejorGestor,
+#servicioTop,
+#cumplimientoVisual{
+    font-size:clamp(16px, 1.05vw, 22px);
+}
