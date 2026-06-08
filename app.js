@@ -1,14 +1,9 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260610");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260611");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
-let META_MENSUAL_BASE = Number(localStorage.getItem("metaMensualBase")) || 219133881;
 let ACCESS_CODE = localStorage.getItem("dashboardAccessCode") || "JKFH2026";
-let AUTO_MINUTOS = Number(localStorage.getItem("dashboardAutoMinutos")) || 5;
-
-let META_TRIMESTRAL_BASE = META_MENSUAL_BASE * 3;
-let META_SEMESTRAL_BASE = META_MENSUAL_BASE * 6;
-let META_ANUAL_BASE = META_MENSUAL_BASE * 12;
+let META_MENSUAL_BASE = Number(localStorage.getItem("metaMensualBase")) || 219133881;
 
 let META_RANGO_ACTUAL = 0;
 let MESES_EQUIVALENTES_ACTUAL = 0;
@@ -19,26 +14,36 @@ let DATASET_MANUAL = [];
 let DATASET_NORMAL = [];
 let DATASET_FILTRADO = [];
 
+let PARAMETROS = {
+    gestor:{},
+    categoria:{},
+    excedente:{}
+};
+
+let API_STATUS = {
+    ok:false,
+    mensaje:"Sin validar",
+    registros:0,
+    columnas:[]
+};
+
 let charts = {};
 let ULTIMO_RESUMEN = null;
 let ULTIMA_META_INFO = null;
-let AUTO_TIMER = null;
-let API_STATUS = { ok:false, mensaje:"Sin validar", columnas:[], registros:0 };
 
 const $ = id => document.getElementById(id);
 
-function destruirChart(id){
-    if(charts[id]){
-        charts[id].destroy();
-        charts[id] = null;
-    }
+function setHtml(id, value){
+    const el = $(id);
+    if(el) el.innerHTML = value;
 }
 
-function showLoading(show){
-    $("loadingOverlay")?.classList.toggle("show", show);
+function setValue(id, value){
+    const el = $(id);
+    if(el) el.value = value;
 }
 
-function toast(message, type = "ok"){
+function toast(message, type="ok"){
     const contenedor = $("toastContainer");
     if(!contenedor) return;
 
@@ -50,17 +55,20 @@ function toast(message, type = "ok"){
     setTimeout(() => div.remove(), 3800);
 }
 
-function registrarBitacora(accion, detalle = ""){
-    const data = JSON.parse(localStorage.getItem("dashboardBitacora") || "[]");
+function showLoading(show){
+    $("loadingOverlay")?.classList.toggle("show", show);
+}
 
-    data.unshift({
-        fecha:new Date().toLocaleString("es-CO"),
-        accion,
-        detalle
-    });
+function normalizarTexto(valor){
+    return String(valor ?? "").trim().toUpperCase();
+}
 
-    localStorage.setItem("dashboardBitacora", JSON.stringify(data.slice(0, 100)));
-    renderBitacora();
+function normalizarLlave(valor){
+    return String(valor ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
 }
 
 function toNumber(valor){
@@ -83,28 +91,6 @@ function formatMoney(valor){
     return "$" + Math.round(toNumber(valor)).toLocaleString("es-CO");
 }
 
-function normalizarTexto(valor){
-    return String(valor ?? "").trim().toUpperCase();
-}
-
-function normalizarLlave(valor){
-    return String(valor ?? "")
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .toUpperCase()
-        .replace(/[^A-Z0-9]/g, "");
-}
-
-function setHtml(id, valor){
-    const el = $(id);
-    if(el) el.innerHTML = valor;
-}
-
-function setValue(id, valor){
-    const el = $(id);
-    if(el) el.value = valor;
-}
-
 function getCampo(item, posibles){
     const mapa = {};
     Object.keys(item || {}).forEach(k => mapa[normalizarLlave(k)] = item[k]);
@@ -120,31 +106,31 @@ function getCampo(item, posibles){
 }
 
 function getFechaItem(item){
-    return getCampo(item, ["Fecha","FECHA","fecha","Fecha_Homenaje","FECHA_HOMENAJE","Fecha Homenaje","FECHA HOMENAJE","Fecha Servicio","FECHA SERVICIO"]);
+    return getCampo(item, ["Fecha","FECHA","fecha","Fecha_Homenaje","Fecha Homenaje","Fecha Servicio","FECHA SERVICIO"]);
 }
 
 function getValorItem(item){
-    return getCampo(item, ["Valor","VALOR","valor","Valor_Homenaje","VALOR_HOMENAJE","Valor Homenaje","VALOR HOMENAJE","Total","TOTAL","Venta","VENTA","Valor Total","VALOR TOTAL"]);
+    return getCampo(item, ["Valor","VALOR","valor","Valor_Homenaje","Valor Homenaje","Total","TOTAL","Venta","VENTA","Valor Total"]);
 }
 
 function getGestorItem(item){
-    return getCampo(item, ["Gestor","GESTOR","gestor","Asesor","ASESOR","Vendedor","VENDEDOR","Responsable","RESPONSABLE"]);
+    return getCampo(item, ["Gestor","GESTOR","gestor","Asesor","ASESOR","Vendedor","VENDEDOR","Responsable"]);
 }
 
-function getTipoHomenajeItem(item){
-    return getCampo(item, ["Tipo_Homenaje","TIPO_HOMENAJE","Tipo Homenaje","TIPO HOMENAJE","Categoria","CATEGORIA","Categoría","CATEGORÍA","Tipo","TIPO"]);
+function getCategoriaItem(item){
+    return getCampo(item, ["Tipo_Homenaje","TIPO_HOMENAJE","Tipo Homenaje","Categoria","Categoría","CATEGORIA","Tipo Servicio","Tipo"]);
 }
 
-function getTipoExcedenteItem(item){
-    return getCampo(item, ["Tipo_Excedente","TIPO_EXCEDENTE","Tipo Excedente","TIPO EXCEDENTE","Servicio","SERVICIO","Excedente","EXCEDENTE","Producto","PRODUCTO"]);
+function getServicioItem(item){
+    return getCampo(item, ["Tipo_Excedente","TIPO_EXCEDENTE","Tipo Excedente","Servicio","SERVICIO","Excedente","EXCEDENTE","Producto"]);
 }
 
 function getSedeItem(item){
-    return getCampo(item, ["Sede","SEDE","Ciudad","CIUDAD","Sucursal","SUCURSAL","Zona","ZONA"]);
+    return getCampo(item, ["Sede","SEDE","Ciudad","Sucursal","Zona"]);
 }
 
 function getObservacionItem(item){
-    return getCampo(item, ["Observacion","Observación","OBSERVACION","OBSERVACIÓN","Nota","NOTA","Detalle","DETALLE"]);
+    return getCampo(item, ["Observacion","Observación","OBSERVACION","Nota","Detalle"]);
 }
 
 function convertirArrayAObjetos(tabla){
@@ -164,7 +150,7 @@ function convertirArrayAObjetos(tabla){
     return [];
 }
 
-function obtenerHomenajesDesdeApi(json){
+function obtenerDatosDesdeApi(json){
     if(Array.isArray(json.homenajes)) return convertirArrayAObjetos(json.homenajes);
     if(Array.isArray(json.datos)) return convertirArrayAObjetos(json.datos);
     if(Array.isArray(json.data)) return convertirArrayAObjetos(json.data);
@@ -201,8 +187,8 @@ function parseFecha(valor){
         return isNaN(fecha.getTime()) ? null : fecha;
     }
 
-    const fechaIso = new Date(texto);
-    return isNaN(fechaIso.getTime()) ? null : fechaIso;
+    const fecha = new Date(texto);
+    return isNaN(fecha.getTime()) ? null : fecha;
 }
 
 function fechaISO(fecha){
@@ -228,43 +214,17 @@ function finMes(fecha){
     return new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0);
 }
 
-function inicioSemana(fecha){
-    const f = inicioDia(fecha);
-    const dia = f.getDay() || 7;
-    f.setDate(f.getDate() - dia + 1);
-    return f;
-}
-
-function finSemana(fecha){
-    const f = inicioSemana(fecha);
-    f.setDate(f.getDate() + 6);
-    return finDia(f);
-}
-
 function inicioTrimestre(fecha){
     const mes = Math.floor(fecha.getMonth() / 3) * 3;
     return new Date(fecha.getFullYear(), mes, 1);
-}
-
-function finTrimestre(fecha){
-    const inicio = inicioTrimestre(fecha);
-    return new Date(inicio.getFullYear(), inicio.getMonth() + 3, 0);
 }
 
 function inicioSemestre(fecha){
     return new Date(fecha.getFullYear(), fecha.getMonth() < 6 ? 0 : 6, 1);
 }
 
-function finSemestre(fecha){
-    return fecha.getMonth() < 6 ? new Date(fecha.getFullYear(), 6, 0) : new Date(fecha.getFullYear(), 12, 0);
-}
-
 function inicioAnio(fecha){
     return new Date(fecha.getFullYear(), 0, 1);
-}
-
-function finAnio(fecha){
-    return new Date(fecha.getFullYear(), 11, 31);
 }
 
 function diasDelMes(fecha){
@@ -277,85 +237,113 @@ function diasEntre(fechaInicio, fechaFin){
     return Math.max(Math.floor((fin - inicio) / 86400000) + 1, 1);
 }
 
+function nombreMes(numero){
+    return ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][Number(numero) - 1] || String(numero);
+}
+
 function mesKey(fecha){
-    const mes = String(fecha.getMonth() + 1).padStart(2, "0");
-    return `${mes}/${fecha.getFullYear()}`;
-}
-
-function mesNumeroKey(fecha){
-    return String(fecha.getMonth() + 1);
-}
-
-function fechaKey(fecha){
-    return fechaISO(fecha);
-}
-
-function semanaKey(fecha){
-    const ini = inicioSemana(fecha);
-    const fin = finSemana(fecha);
-    return `${fechaISO(ini)} a ${fechaISO(fin)}`;
-}
-
-function trimestreKey(fecha){
-    const trimestre = Math.floor(fecha.getMonth() / 3) + 1;
-    return `T${trimestre}/${fecha.getFullYear()}`;
-}
-
-function semestreKey(fecha){
-    const semestre = fecha.getMonth() < 6 ? 1 : 2;
-    return `S${semestre}/${fecha.getFullYear()}`;
-}
-
-function anioKey(fecha){
-    return String(fecha.getFullYear());
+    return `${String(fecha.getMonth() + 1).padStart(2,"0")}/${fecha.getFullYear()}`;
 }
 
 function ordenarMeses(keys){
-    return keys.sort((a, b) => {
+    return keys.sort((a,b) => {
         const [ma, ya] = a.split("/").map(Number);
         const [mb, yb] = b.split("/").map(Number);
         return ya - yb || ma - mb;
     });
 }
 
-function ordenarFechas(keys){
-    return keys.sort((a, b) => new Date(a) - new Date(b));
+function cryptoRandom(){
+    return "id_" + Date.now() + "_" + Math.random().toString(16).slice(2);
 }
 
-function recalcularMetasBase(){
-    META_TRIMESTRAL_BASE = META_MENSUAL_BASE * 3;
-    META_SEMESTRAL_BASE = META_MENSUAL_BASE * 6;
-    META_ANUAL_BASE = META_MENSUAL_BASE * 12;
+function esFilaParametro(item){
+    const tipo = normalizarTexto(getCampo(item, ["Tipo","TIPO","tipo"]));
+    const nombre = getCampo(item, ["Nombre","NOMBRE","nombre"]);
+    const valor = getCampo(item, ["Valor","VALOR","valor"]);
+
+    return (
+        ["GESTOR","META_CATEGORIA","META_EXCEDENTE"].includes(tipo) &&
+        String(nombre || "").trim() !== "" &&
+        String(valor || "").trim() !== ""
+    );
 }
 
-function parseMapaMetas(texto){
-    const mapa = {};
-    String(texto || "").split(/\n|,/).forEach(linea => {
+function procesarParametros(datos){
+    PARAMETROS = {
+        gestor:{},
+        categoria:{},
+        excedente:{}
+    };
+
+    datos.filter(esFilaParametro).forEach(item => {
+        const tipo = normalizarTexto(getCampo(item, ["Tipo","TIPO","tipo"]));
+        const nombre = normalizarTexto(getCampo(item, ["Nombre","NOMBRE","nombre"]));
+        const valor = toNumber(getCampo(item, ["Valor","VALOR","valor"]));
+
+        if(!nombre || valor <= 0) return;
+
+        if(tipo === "GESTOR") PARAMETROS.gestor[nombre] = valor;
+        if(tipo === "META_CATEGORIA") PARAMETROS.categoria[nombre] = valor;
+        if(tipo === "META_EXCEDENTE") PARAMETROS.excedente[nombre] = valor;
+    });
+
+    procesarParametrosManuales();
+
+    const totalCategoria =
+        (PARAMETROS.categoria["PARTICULAR"] || 0) +
+        (PARAMETROS.categoria["RED"] || 0) +
+        (PARAMETROS.categoria["EXCEDENTES"] || 0);
+
+    if(totalCategoria > 0){
+        META_MENSUAL_BASE = totalCategoria;
+    }
+}
+
+function procesarParametrosManuales(){
+    const texto = localStorage.getItem("parametrosManual") || "";
+
+    texto.split(/\n/).forEach(linea => {
         const clean = linea.trim();
         if(!clean) return;
 
-        const partes = clean.split(/=|:/);
-        if(partes.length < 2) return;
+        const partes = clean.split("|").map(x => x.trim());
+        if(partes.length < 3) return;
 
-        const clave = normalizarTexto(partes[0]);
-        const valor = toNumber(partes.slice(1).join("="));
+        const tipo = normalizarTexto(partes[0]);
+        const nombre = normalizarTexto(partes[1]);
+        const valor = toNumber(partes[2]);
 
-        if(clave && valor > 0) mapa[clave] = valor;
+        if(!nombre || valor <= 0) return;
+
+        if(tipo === "GESTOR") PARAMETROS.gestor[nombre] = valor;
+        if(tipo === "META_CATEGORIA") PARAMETROS.categoria[nombre] = valor;
+        if(tipo === "META_EXCEDENTE") PARAMETROS.excedente[nombre] = valor;
     });
-
-    return mapa;
 }
 
-function getMapaMetas(tipo){
-    return parseMapaMetas(localStorage.getItem(tipo) || "");
+function metaCategoriaMensual(categoria){
+    const cat = normalizarTexto(categoria);
+    return PARAMETROS.categoria[cat] || 0;
 }
 
-function metaMensualAplicable(fecha){
-    const metasMes = getMapaMetas("metasMes");
-    const numero = normalizarTexto(mesNumeroKey(fecha));
-    const mesNombre = normalizarTexto(nombreMes(fecha.getMonth() + 1));
+function metaExcedenteMensual(nombre){
+    const key = normalizarTexto(nombre);
+    return PARAMETROS.excedente[key] || 0;
+}
 
-    return metasMes[numero] || metasMes[mesNombre] || META_MENSUAL_BASE;
+function metaGestorMensual(nombre){
+    const key = normalizarTexto(nombre);
+    return PARAMETROS.gestor[key] || 0;
+}
+
+function metaMensualTotal(){
+    const total =
+        (PARAMETROS.categoria["PARTICULAR"] || 0) +
+        (PARAMETROS.categoria["RED"] || 0) +
+        (PARAMETROS.categoria["EXCEDENTES"] || 0);
+
+    return total || META_MENSUAL_BASE;
 }
 
 function calcularMetaPorRango(fechaInicioTexto, fechaFinTexto){
@@ -392,7 +380,7 @@ function calcularMetaPorRango(fechaInicioTexto, fechaFinTexto){
         const totalDiasMes = diasDelMes(cursor);
         const factorMes = diasSeleccionados / totalDiasMes;
 
-        meta += metaMensualAplicable(cursor) * factorMes;
+        meta += metaMensualTotal() * factorMes;
         mesesEquivalentes += factorMes;
 
         cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
@@ -403,46 +391,158 @@ function calcularMetaPorRango(fechaInicioTexto, fechaFinTexto){
         fin,
         meta,
         mesesEquivalentes,
-        diasRango: diasEntre(inicio, fin)
+        diasRango:diasEntre(inicio, fin)
     };
 }
 
-function normalizarRegistro(item, origen = "API"){
-    const fecha = parseFecha(getFechaItem(item));
-    const valor = toNumber(getValorItem(item));
+function esServicioExcedente(servicio){
+    const s = normalizarTexto(servicio);
 
-    return {
+    if(!s) return false;
+
+    const noExcedentes = [
+        "SOAT",
+        "PENSIONADO",
+        "PLAN",
+        "NO APLICA",
+        "N/A",
+        "NA",
+        "-",
+        "SIN SERVICIO",
+        "SIN EXCEDENTE"
+    ];
+
+    if(noExcedentes.includes(s)) return false;
+
+    if(PARAMETROS.excedente[s]) return true;
+
+    return true;
+}
+
+function obtenerCategoriaGerencial(row){
+    const categoria = normalizarTexto(row.categoria);
+    const servicio = normalizarTexto(row.servicio);
+
+    if(categoria.includes("PLAN")) return "PLAN";
+    if(categoria.includes("PARTICULAR")) return "PARTICULAR";
+    if(categoria.includes("RED")) return "RED";
+    if(categoria.includes("EXCEDENTE")) return "EXCEDENTES";
+
+    if(PARAMETROS.excedente[servicio]) return "EXCEDENTES";
+    if(esServicioExcedente(servicio)) return "EXCEDENTES";
+
+    return categoria || "SIN CATEGORÍA";
+}
+
+function categoriaGeneraVenta(categoria){
+    return ["PARTICULAR","RED","EXCEDENTES"].includes(normalizarTexto(categoria));
+}
+
+function normalizarRegistro(item, origen="API"){
+    const fecha = parseFecha(getFechaItem(item));
+    const valorOriginal = toNumber(getValorItem(item));
+
+    const row = {
         id:item.id || cryptoRandom(),
         origen,
         raw:item,
         fecha,
         fechaTexto:getFechaItem(item),
-        valor,
+        valorOriginal,
         gestor:String(getGestorItem(item) || "").trim(),
-        categoria:String(getTipoHomenajeItem(item) || "").trim(),
-        servicio:String(getTipoExcedenteItem(item) || "").trim(),
+        categoria:String(getCategoriaItem(item) || "").trim(),
+        servicio:String(getServicioItem(item) || "").trim(),
         sede:String(getSedeItem(item) || "").trim(),
         observacion:String(getObservacionItem(item) || "").trim()
     };
+
+    row.categoriaGerencial = obtenerCategoriaGerencial(row);
+    row.generaVenta = categoriaGeneraVenta(row.categoriaGerencial);
+    row.valorVenta = row.generaVenta ? valorOriginal : 0;
+    row.cantidadAtendida = 1;
+
+    return row;
 }
 
-function cryptoRandom(){
-    return "id_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+function cargarManuales(){
+    DATASET_MANUAL = JSON.parse(localStorage.getItem("registrosManuales") || "[]");
+    return DATASET_MANUAL.map(item => normalizarRegistro(item, "MANUAL"));
 }
 
-function obtenerRangoFechas(){
+function validarEstructuraApi(datos){
+    const columnas = datos.length ? Object.keys(datos[0]) : [];
+    const requeridas = ["Fecha","Gestor","Tipo_Homenaje","Tipo_Excedente","Valor","Sede"];
+    const faltantes = requeridas.filter(req => !columnas.some(c => normalizarLlave(c) === normalizarLlave(req)));
+
     return {
-        fechaInicio: $("fechaInicio")?.value || "",
-        fechaFin: $("fechaFin")?.value || "",
-        gestor: $("filtroGestor")?.value || "",
-        categoria: $("filtroCategoria")?.value || "",
-        servicio: $("filtroServicio")?.value || "",
-        sede: $("filtroSede")?.value || "",
-        anio: $("filtroAnio")?.value || "",
-        mes: $("filtroMes")?.value || "",
-        estado: $("filtroEstado")?.value || "",
-        busqueda: normalizarTexto($("busquedaGeneral")?.value || "")
+        ok:datos.length > 0 && faltantes.length === 0,
+        mensaje:datos.length === 0 ? "Sin registros API" : faltantes.length ? "Columnas incompletas" : "API válida",
+        registros:datos.length,
+        columnas,
+        faltantes
     };
+}
+
+async function cargarDashboard(){
+    setEstadoApi("cargando", "Cargando...");
+    showLoading(true);
+
+    try{
+        const response = await fetch(API_URL, { cache:"no-store" });
+        if(!response.ok) throw new Error(`Error HTTP ${response.status}`);
+
+        const json = await response.json();
+        const datosCompletos = obtenerDatosDesdeApi(json);
+
+        procesarParametros(datosCompletos);
+
+        const datosVentas = datosCompletos.filter(item => !esFilaParametro(item));
+        DATASET_API = datosVentas;
+
+        const normalApi = datosVentas.map(item => normalizarRegistro(item, "API"));
+        const normalManual = cargarManuales();
+
+        DATASET_NORMAL = [...normalApi, ...normalManual];
+        API_STATUS = validarEstructuraApi(datosVentas);
+
+        poblarFiltros();
+        aplicarFiltrosYRender();
+
+        setEstadoApi("ok", "Conectado");
+        toast("Dashboard actualizado correctamente.");
+
+    }catch(error){
+        console.error("Error al cargar API:", error);
+
+        procesarParametros([]);
+        const normalManual = cargarManuales();
+
+        DATASET_API = [];
+        DATASET_NORMAL = [...normalManual];
+
+        API_STATUS = {
+            ok:false,
+            mensaje:"Error API",
+            registros:0,
+            columnas:[]
+        };
+
+        poblarFiltros();
+        aplicarFiltrosYRender();
+
+        setEstadoApi("error", "Error API");
+        toast("No fue posible cargar la API. Se muestran registros manuales si existen.", "error");
+    }finally{
+        showLoading(false);
+    }
+}
+
+function setEstadoApi(tipo, texto){
+    const estado = $("estadoApi");
+    if(!estado) return;
+
+    estado.className = `estado-api ${tipo}`;
+    estado.innerHTML = `<i class="fas fa-circle"></i> ${texto}`;
 }
 
 function establecerFechasPorDefecto(){
@@ -453,89 +553,6 @@ function establecerFechasPorDefecto(){
         $("fechaInicio").value = fechaISO(inicioAnio(hoy));
         $("fechaFin").value = fechaISO(hoy);
     }
-}
-
-function estadoRegistro(row){
-    if(!row.fecha) return "bajo";
-    const metaDiaria = metaMensualAplicable(row.fecha) / diasDelMes(row.fecha);
-    const porcentaje = metaDiaria > 0 ? (row.valor / metaDiaria) * 100 : 0;
-    if(porcentaje >= 100) return "cumplido";
-    if(porcentaje >= 80) return "riesgo";
-    return "bajo";
-}
-
-function coincideFiltrosNoFecha(row, f){
-    if(f.gestor && row.gestor !== f.gestor) return false;
-    if(f.categoria && row.categoria !== f.categoria) return false;
-    if(f.servicio && row.servicio !== f.servicio) return false;
-    if(f.sede && row.sede !== f.sede) return false;
-    if(f.estado && estadoRegistro(row) !== f.estado) return false;
-
-    if(f.busqueda){
-        const texto = normalizarTexto(`${row.gestor} ${row.categoria} ${row.servicio} ${row.sede} ${row.observacion}`);
-        if(!texto.includes(f.busqueda)) return false;
-    }
-
-    return true;
-}
-
-function filtrarDataset(){
-    const f = obtenerRangoFechas();
-
-    const inicio = f.fechaInicio ? new Date(`${f.fechaInicio}T00:00:00`) : new Date("1900-01-01T00:00:00");
-    const fin = f.fechaFin ? new Date(`${f.fechaFin}T23:59:59.999`) : new Date("2999-12-31T23:59:59.999");
-
-    return DATASET_NORMAL.filter(row => {
-        if(!row.fecha) return false;
-        if(row.fecha < inicio || row.fecha > fin) return false;
-        if(f.anio && row.fecha.getFullYear() !== Number(f.anio)) return false;
-        if(f.mes && row.fecha.getMonth() + 1 !== Number(f.mes)) return false;
-        return coincideFiltrosNoFecha(row, f);
-    });
-}
-
-function filtrarPorRangoConFiltros(inicio, fin){
-    const f = obtenerRangoFechas();
-
-    return DATASET_NORMAL.filter(row => {
-        if(!row.fecha) return false;
-        if(row.fecha < inicioDia(inicio) || row.fecha > finDia(fin)) return false;
-        return coincideFiltrosNoFecha(row, f);
-    });
-}
-
-function sumar(rows){
-    return rows.reduce((acc, row) => acc + toNumber(row.valor), 0);
-}
-
-function calcularResumen(rows){
-    let total = 0;
-    let red = 0;
-    let particular = 0;
-    let excedentes = 0;
-
-    rows.forEach(row => {
-        const valor = toNumber(row.valor);
-        total += valor;
-
-        const tipo = normalizarTexto(row.categoria);
-        const excedente = normalizarTexto(row.servicio);
-
-        if(tipo === "RED") red += valor;
-        else if(tipo === "PARTICULAR") particular += valor;
-        else if(excedente && excedente !== "SOAT" && excedente !== "PENSIONADO") excedentes += valor;
-    });
-
-    return { total, red, particular, excedentes };
-}
-
-function setEstadoApi(tipo, texto){
-    const estado = $("estadoApi");
-    if(!estado) return;
-
-    estado.className = `estado-api ${tipo}`;
-    estado.innerHTML = `<i class="fas fa-circle"></i> ${texto}`;
-    setHtml("adminEstadoConexion", texto);
 }
 
 function fillSelect(id, values){
@@ -561,7 +578,6 @@ function fillSelect(id, values){
 
 function poblarFiltros(){
     fillSelect("filtroGestor", DATASET_NORMAL.map(r => r.gestor));
-    fillSelect("filtroCategoria", DATASET_NORMAL.map(r => r.categoria));
     fillSelect("filtroServicio", DATASET_NORMAL.map(r => r.servicio));
     fillSelect("filtroSede", DATASET_NORMAL.map(r => r.sede));
 
@@ -583,73 +599,54 @@ function poblarFiltros(){
     }
 }
 
-function cargarManuales(){
-    const guardados = JSON.parse(localStorage.getItem("registrosManuales") || "[]");
-    DATASET_MANUAL = guardados;
-    return guardados.map(item => normalizarRegistro(item, "MANUAL"));
-}
-
-async function cargarDashboard(){
-    setEstadoApi("cargando", "Cargando...");
-    showLoading(true);
-
-    try{
-        const response = await fetch(API_URL, { cache:"no-store" });
-        if(!response.ok) throw new Error(`Error HTTP ${response.status}`);
-
-        const json = await response.json();
-        const datos = obtenerHomenajesDesdeApi(json);
-
-        DATASET_API = datos;
-        const normalApi = datos.map(item => normalizarRegistro(item, "API"));
-        const normalManual = cargarManuales();
-
-        DATASET_NORMAL = [...normalApi, ...normalManual];
-
-        API_STATUS = validarEstructuraApi(datos);
-
-        poblarFiltros();
-        aplicarFiltrosYRender();
-
-        setEstadoApi("ok", "Conectado");
-        toast("Dashboard actualizado correctamente.");
-        registrarBitacora("Actualización", "Se actualizó la información desde la API.");
-
-    }catch(error){
-        console.error("Error al cargar dashboard:", error);
-        API_STATUS = { ok:false, mensaje:"Error API", columnas:[], registros:0 };
-
-        const normalManual = cargarManuales();
-        DATASET_NORMAL = [...normalManual];
-
-        poblarFiltros();
-        aplicarFiltrosYRender();
-
-        setEstadoApi("error", "Error API");
-        toast("No fue posible cargar la API. Se muestran registros manuales si existen.", "error");
-    }finally{
-        showLoading(false);
-    }
-}
-
-function validarEstructuraApi(datos){
-    const columnas = datos.length ? Object.keys(datos[0]) : [];
-    const requeridas = ["Fecha","Gestor","Tipo_Homenaje","Tipo_Excedente","Valor","Sede"];
-    const faltantes = requeridas.filter(req => !columnas.some(c => normalizarLlave(c) === normalizarLlave(req)));
-
+function obtenerFiltros(){
     return {
-        ok: datos.length > 0 && faltantes.length === 0,
-        mensaje: datos.length === 0 ? "Sin registros API" : faltantes.length ? "Columnas incompletas" : "API válida",
-        columnas,
-        faltantes,
-        registros:datos.length
+        fechaInicio:$("fechaInicio")?.value || "",
+        fechaFin:$("fechaFin")?.value || "",
+        gestor:$("filtroGestor")?.value || "",
+        categoria:$("filtroCategoria")?.value || "",
+        servicio:$("filtroServicio")?.value || "",
+        sede:$("filtroSede")?.value || "",
+        anio:$("filtroAnio")?.value || "",
+        mes:$("filtroMes")?.value || "",
+        busqueda:normalizarTexto($("busquedaGeneral")?.value || "")
     };
+}
+
+function coincideFiltrosNoFecha(row, f){
+    if(f.gestor && row.gestor !== f.gestor) return false;
+    if(f.categoria && row.categoriaGerencial !== f.categoria) return false;
+    if(f.servicio && row.servicio !== f.servicio) return false;
+    if(f.sede && row.sede !== f.sede) return false;
+
+    if(f.busqueda){
+        const texto = normalizarTexto(`${row.gestor} ${row.categoriaGerencial} ${row.categoria} ${row.servicio} ${row.sede} ${row.observacion}`);
+        if(!texto.includes(f.busqueda)) return false;
+    }
+
+    return true;
+}
+
+function filtrarDataset(){
+    const f = obtenerFiltros();
+
+    const inicio = f.fechaInicio ? new Date(`${f.fechaInicio}T00:00:00`) : new Date("1900-01-01T00:00:00");
+    const fin = f.fechaFin ? new Date(`${f.fechaFin}T23:59:59.999`) : new Date("2999-12-31T23:59:59.999");
+
+    return DATASET_NORMAL.filter(row => {
+        if(!row.fecha) return false;
+        if(row.fecha < inicio || row.fecha > fin) return false;
+        if(f.anio && row.fecha.getFullYear() !== Number(f.anio)) return false;
+        if(f.mes && row.fecha.getMonth() + 1 !== Number(f.mes)) return false;
+
+        return coincideFiltrosNoFecha(row, f);
+    });
 }
 
 function aplicarFiltrosYRender(){
     DATASET_FILTRADO = filtrarDataset();
 
-    const f = obtenerRangoFechas();
+    const f = obtenerFiltros();
     const metaInfo = calcularMetaPorRango(f.fechaInicio, f.fechaFin);
     const resumen = calcularResumen(DATASET_FILTRADO);
 
@@ -663,30 +660,146 @@ function aplicarFiltrosYRender(){
     renderTodo(resumen, metaInfo);
 }
 
+function sumar(rows){
+    return rows.reduce((acc, row) => acc + toNumber(row.valorVenta), 0);
+}
+
+function calcularResumen(rows){
+    const categorias = agruparCategorias(rows);
+
+    const particular = categorias["PARTICULAR"] || {cantidad:0, valor:0};
+    const red = categorias["RED"] || {cantidad:0, valor:0};
+    const excedentes = categorias["EXCEDENTES"] || {cantidad:0, valor:0};
+    const plan = categorias["PLAN"] || {cantidad:0, valor:0};
+
+    return {
+        particular:particular.valor,
+        red:red.valor,
+        excedentes:excedentes.valor,
+        planCantidad:plan.cantidad,
+        total:particular.valor + red.valor + excedentes.valor
+    };
+}
+
+function agruparCategorias(rows){
+    const obj = {
+        PARTICULAR:{categoria:"PARTICULAR", cantidad:0, valor:0, generaVenta:true},
+        RED:{categoria:"RED", cantidad:0, valor:0, generaVenta:true},
+        EXCEDENTES:{categoria:"EXCEDENTES", cantidad:0, valor:0, generaVenta:true},
+        PLAN:{categoria:"PLAN", cantidad:0, valor:0, generaVenta:false}
+    };
+
+    rows.forEach(row => {
+        const cat = row.categoriaGerencial || "SIN CATEGORÍA";
+
+        if(!obj[cat]){
+            obj[cat] = {
+                categoria:cat,
+                cantidad:0,
+                valor:0,
+                generaVenta:categoriaGeneraVenta(cat)
+            };
+        }
+
+        obj[cat].cantidad += 1;
+        obj[cat].valor += categoriaGeneraVenta(cat) ? toNumber(row.valorVenta) : 0;
+    });
+
+    return obj;
+}
+
+function agruparGestores(rows){
+    const obj = {};
+
+    rows.forEach(row => {
+        const nombre = row.gestor || "SIN GESTOR";
+
+        if(!obj[nombre]){
+            obj[nombre] = {nombre, cantidad:0, valor:0};
+        }
+
+        obj[nombre].cantidad += 1;
+        obj[nombre].valor += toNumber(row.valorVenta);
+    });
+
+    return obj;
+}
+
+function agruparSedes(rows){
+    const obj = {};
+
+    rows.forEach(row => {
+        const nombre = row.sede || "SIN SEDE";
+
+        if(!obj[nombre]){
+            obj[nombre] = {nombre, cantidad:0, valor:0};
+        }
+
+        obj[nombre].cantidad += 1;
+        obj[nombre].valor += toNumber(row.valorVenta);
+    });
+
+    return obj;
+}
+
+function agruparExcedentes(rows){
+    const obj = {};
+
+    Object.keys(PARAMETROS.excedente || {}).forEach(nombre => {
+        obj[nombre] = {nombre, cantidad:0, valor:0};
+    });
+
+    rows.forEach(row => {
+        if(row.categoriaGerencial !== "EXCEDENTES") return;
+
+        const nombre = normalizarTexto(row.servicio) || "EXCEDENTES";
+
+        if(!obj[nombre]){
+            obj[nombre] = {nombre, cantidad:0, valor:0};
+        }
+
+        obj[nombre].cantidad += 1;
+        obj[nombre].valor += toNumber(row.valorVenta);
+    });
+
+    return obj;
+}
+
+function agruparMensual(rows){
+    const obj = {};
+
+    rows.forEach(row => {
+        if(!row.fecha) return;
+
+        const key = mesKey(row.fecha);
+
+        if(!obj[key]){
+            obj[key] = {venta:0, cantidad:0};
+        }
+
+        obj[key].venta += toNumber(row.valorVenta);
+        obj[key].cantidad += 1;
+    });
+
+    return obj;
+}
+
 function renderTodo(resumen, metaInfo){
     actualizarKPIs(resumen, metaInfo);
-    crearResumenEjecutivo(DATASET_FILTRADO, resumen);
-    crearGraficosDashboard(resumen);
-    crearTablasPrincipales(DATASET_FILTRADO, resumen.total);
-    crearTablaConsolidada();
-    crearAlertasGerenciales(DATASET_FILTRADO, resumen.total);
-    renderizarVistasAdicionales(DATASET_FILTRADO, resumen, metaInfo);
-    actualizarProyeccionesGerenciales(resumen, metaInfo);
-    actualizarCierreGerencial(DATASET_FILTRADO, resumen);
-    actualizarDiagnosticoAvanzado();
-    actualizarAuditoria();
-    actualizarMetasPorGestor();
-    actualizarMetasAvanzadas();
-    actualizarComparativoAnual();
-    actualizarPareto();
-    actualizarAdmin(DATASET_NORMAL, DATASET_FILTRADO, metaInfo);
-    actualizarVistaMetas(metaInfo);
-    actualizarBaseDatos();
-    actualizarRegistrosManuales();
-    actualizarPruebas();
+    crearResumenEjecutivo(resumen, metaInfo);
+    renderGraficosDashboard(resumen);
+    renderCategorias();
+    renderGestores();
+    renderExcedentes();
+    renderMetas();
+    renderCumplimientoMensual();
+    renderComparativoAnual();
+    renderPareto();
+    renderDatos();
+    renderAlertas(resumen);
+    renderRegistrosManuales();
+    renderReporteFormal();
     actualizarConfiguracion();
-    generarReporteFormal();
-    renderBitacora();
 }
 
 function colorPorPorcentaje(porcentaje){
@@ -714,105 +827,76 @@ function actualizarKPIs(resumen, metaInfo){
 
     const diasAnalizados = Math.max(Math.min(DIAS_RANGO_ACTUAL, diasEntre(metaInfo.inicio, new Date())), 1);
     const promedioDiarioReal = ventaTotal / diasAnalizados;
-    const metaDiaria = META_RANGO_ACTUAL / Math.max(DIAS_RANGO_ACTUAL, 1);
-    const brechaDiaria = promedioDiarioReal - metaDiaria;
     const proyeccion = promedioDiarioReal * DIAS_RANGO_ACTUAL;
-    const ticketPromedio = DATASET_FILTRADO.length > 0 ? ventaTotal / DATASET_FILTRADO.length : 0;
-    const calidad = calcularCalidadDatos();
-    const duplicados = obtenerDuplicados();
-    const gestoresActivos = new Set(DATASET_FILTRADO.map(r => r.gestor).filter(Boolean)).size;
-    const sedesActivas = new Set(DATASET_FILTRADO.map(r => r.sede).filter(Boolean)).size;
-    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b)=>b.valor-a.valor);
-    const top = gestores[0];
-    const concentracionTop = top && ventaTotal > 0 ? (top.valor / ventaTotal) * 100 : 0;
+
+    const categorias = agruparCategorias(DATASET_FILTRADO);
+    const particular = categorias["PARTICULAR"];
+    const red = categorias["RED"];
+    const excedentes = categorias["EXCEDENTES"];
+    const plan = categorias["PLAN"];
+
+    const pParticular = ventaTotal > 0 ? (particular.valor / ventaTotal) * 100 : 0;
+    const pRed = ventaTotal > 0 ? (red.valor / ventaTotal) * 100 : 0;
+    const pExcedentes = ventaTotal > 0 ? (excedentes.valor / ventaTotal) * 100 : 0;
+
+    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
+    const mejorGestor = gestores[0];
 
     setHtml("metaGrupal", formatMoney(META_RANGO_ACTUAL));
     setHtml("ventas", formatMoney(ventaTotal));
     setHtml("cumplimiento", `${cumplimientoGeneral.toFixed(1)}%`);
     setHtml("faltante", formatMoney(faltante));
     setHtml("proyeccion", formatMoney(proyeccion));
-
-    setHtml("metaMensual", formatMoney(META_MENSUAL_BASE));
-    setHtml("metaSemanal", formatMoney(META_MENSUAL_BASE / 30.4375 * 7));
-    setHtml("metaTrimestral", formatMoney(META_TRIMESTRAL_BASE));
-    setHtml("metaSemestral", formatMoney(META_SEMESTRAL_BASE));
-    setHtml("metaAnual", formatMoney(META_ANUAL_BASE));
-
-    setHtml("mesesEquivalentes", MESES_EQUIVALENTES_ACTUAL.toFixed(2));
-    setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
-    setHtml("totalRegistros", DATASET_FILTRADO.length);
-    setHtml("ticketPromedio", formatMoney(ticketPromedio));
-    setHtml("ultimaActualizacion", new Date().toLocaleString("es-CO"));
     setHtml("estadoCumplimientoTexto", textoEstado(cumplimientoGeneral));
 
-    setHtml("tvMeta", formatMoney(META_RANGO_ACTUAL));
-    setHtml("tvVentas", formatMoney(ventaTotal));
-    setHtml("tvCumplimiento", `${cumplimientoGeneral.toFixed(1)}%`);
-    setHtml("tvFaltante", formatMoney(faltante));
+    setHtml("metaMensual", formatMoney(metaMensualTotal()));
+    setHtml("metaAnual", formatMoney(metaMensualTotal() * 12));
+    setHtml("mesesEquivalentes", MESES_EQUIVALENTES_ACTUAL.toFixed(2));
+    setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
+    setHtml("mejorGestor", mejorGestor ? mejorGestor.nombre : "-");
+    setHtml("totalRegistros", DATASET_FILTRADO.length);
+    setHtml("kpiCalidadDatos", calcularCalidadDatos().calidad.toFixed(1) + "%");
 
-    setHtml("kpiCalidadDatos", `${calidad.calidad.toFixed(1)}%`);
-    setHtml("kpiDuplicados", duplicados.length);
-    setHtml("kpiGestoresActivos", gestoresActivos);
-    setHtml("kpiSedesActivas", sedesActivas);
-    setHtml("kpiConcentracionTop", `${concentracionTop.toFixed(1)}%`);
-    setHtml("kpiBrechaDiaria", formatMoney(brechaDiaria));
-    setHtml("kpiEstadoGerencial", textoEstado(cumplimientoGeneral));
+    setHtml("kpiParticularValor", formatMoney(particular.valor));
+    setHtml("kpiParticularCantidad", `${particular.cantidad} homenajes atendidos | ${pParticular.toFixed(1)}%`);
 
+    setHtml("kpiRedValor", formatMoney(red.valor));
+    setHtml("kpiRedCantidad", `${red.cantidad} homenajes atendidos | ${pRed.toFixed(1)}%`);
+
+    setHtml("kpiExcedentesValor", formatMoney(excedentes.valor));
+    setHtml("kpiExcedentesCantidad", `${excedentes.cantidad} unidades | ${pExcedentes.toFixed(1)}%`);
+
+    setHtml("kpiPlanCantidad", plan.cantidad);
     setHtml("metaRangoDetalle", `${fechaISO(metaInfo.inicio)} a ${fechaISO(metaInfo.fin)}`);
+    setHtml("ultimaActualizacion", new Date().toLocaleString("es-CO"));
 
-    ["cumplimiento", "tvCumplimiento", "kpiEstadoGerencial"].forEach(id => {
-        const el = $(id);
-        if(el) el.style.color = colorPorPorcentaje(cumplimientoGeneral);
-    });
-
-    const calidadEl = $("kpiCalidadDatos");
-    if(calidadEl) calidadEl.style.color = colorPorPorcentaje(calidad.calidad);
+    const cumplimientoEl = $("cumplimiento");
+    if(cumplimientoEl) cumplimientoEl.style.color = colorPorPorcentaje(cumplimientoGeneral);
 }
 
-function crearResumenEjecutivo(rows, resumen){
+function crearResumenEjecutivo(resumen, metaInfo){
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - resumen.total, 0);
 
-    const texto = `
-        El rango seleccionado comprende <strong>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</strong>, 
-        con una meta calculada de <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. 
-        Las ventas acumuladas son <strong>${formatMoney(resumen.total)}</strong>, equivalentes al 
-        <strong>${cumplimiento.toFixed(1)}%</strong> de cumplimiento. 
-        Estado actual: <strong>${textoEstado(cumplimiento)}</strong>. 
-        Faltante: <strong>${formatMoney(faltante)}</strong>. 
-        Registros analizados: <strong>${rows.length}</strong>.
-    `;
+    setHtml("resumenEjecutivoTexto", `
+        El rango seleccionado comprende <strong>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</strong>.
+        La meta calculada es <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>.
+        La venta real generada por <strong>PARTICULAR + RED + EXCEDENTES</strong> es
+        <strong>${formatMoney(resumen.total)}</strong>, con cumplimiento del
+        <strong>${cumplimiento.toFixed(1)}%</strong>. 
+        El faltante para cumplir la meta es <strong>${formatMoney(faltante)}</strong>.
+        PLAN registra <strong>${resumen.planCantidad}</strong> atenciones, pero no suma ventas.
+    `);
+}
 
-    setHtml("resumenEjecutivoTexto", texto);
-    setHtml("vistaResumenTexto", texto);
-
-    const tbody = document.querySelector("#tablaResumenGerencial tbody");
-    if(tbody){
-        tbody.innerHTML = `
-            <tr><td>Meta del rango</td><td>${formatMoney(META_RANGO_ACTUAL)}</td><td>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</td></tr>
-            <tr><td>Venta real</td><td>${formatMoney(resumen.total)}</td><td>${rows.length} registros analizados</td></tr>
-            <tr><td>Cumplimiento</td><td>${cumplimiento.toFixed(1)}%</td><td>${textoEstado(cumplimiento)}</td></tr>
-            <tr><td>Faltante</td><td>${formatMoney(faltante)}</td><td>Valor pendiente para cumplir la meta</td></tr>
-        `;
+function destruirChart(id){
+    if(charts[id]){
+        charts[id].destroy();
+        charts[id] = null;
     }
 }
 
-function opcionesChartBasicas(titulo){
-    return {
-        responsive:true,
-        maintainAspectRatio:false,
-        plugins:{
-            title:{ display:true, text:titulo },
-            legend:{ position:"top" }
-        },
-        scales:{
-            y:{ beginAtZero:true, grid:{ color:"rgba(148,163,184,.22)" } },
-            x:{ grid:{ display:false } }
-        }
-    };
-}
-
-function crearChartBar(idCanvas, labels, data, label, titulo, color = "rgba(0,166,81,.90)", horizontal = false){
+function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false){
     const canvas = $(idCanvas);
     if(!canvas || typeof Chart === "undefined") return;
 
@@ -822,11 +906,25 @@ function crearChartBar(idCanvas, labels, data, label, titulo, color = "rgba(0,16
         type:"bar",
         data:{
             labels,
-            datasets:[{label,data,backgroundColor:color,borderRadius:10}]
+            datasets:[{
+                label,
+                data,
+                backgroundColor:"rgba(0,166,81,.90)",
+                borderRadius:10
+            }]
         },
         options:{
-            ...opcionesChartBasicas(titulo),
-            indexAxis: horizontal ? "y" : "x"
+            responsive:true,
+            maintainAspectRatio:false,
+            indexAxis:horizontal ? "y" : "x",
+            plugins:{
+                title:{display:true,text:titulo},
+                legend:{display:true,position:"top"}
+            },
+            scales:{
+                y:{beginAtZero:true},
+                x:{grid:{display:false}}
+            }
         }
     });
 }
@@ -840,7 +938,18 @@ function crearChartLine(idCanvas, labels, datasets, titulo){
     charts[idCanvas] = new Chart(canvas, {
         type:"line",
         data:{labels,datasets},
-        options:opcionesChartBasicas(titulo)
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{
+                title:{display:true,text:titulo},
+                legend:{display:true,position:"top"}
+            },
+            scales:{
+                y:{beginAtZero:true},
+                x:{grid:{display:false}}
+            }
+        }
     });
 }
 
@@ -857,13 +966,10 @@ function crearChartDoughnut(idCanvas, labels, data, titulo){
             datasets:[{
                 data,
                 backgroundColor:[
-                    "rgba(239,68,68,.95)",
                     "rgba(37,99,235,.95)",
+                    "rgba(0,166,81,.95)",
                     "rgba(245,158,11,.95)",
-                    "rgba(124,58,237,.95)",
-                    "rgba(6,182,212,.95)",
-                    "rgba(236,72,153,.95)",
-                    "rgba(249,115,22,.95)"
+                    "rgba(100,116,139,.95)"
                 ],
                 borderColor:"#ffffff",
                 borderWidth:2
@@ -872,835 +978,268 @@ function crearChartDoughnut(idCanvas, labels, data, titulo){
         options:{
             responsive:true,
             maintainAspectRatio:false,
-            plugins:{title:{display:true,text:titulo},legend:{position:"top"}}
+            plugins:{
+                title:{display:true,text:titulo},
+                legend:{display:true,position:"top"}
+            }
         }
     });
 }
 
-function crearGraficosDashboard(resumen){
-    crearChartBar("graficoMetaReal", ["Meta", "Venta Real"], [META_RANGO_ACTUAL, resumen.total], "Valor", "Meta calculada vs venta real");
-    crearChartDoughnut("composicionIngresos", ["RED", "PARTICULAR", "EXCEDENTES"], [resumen.red, resumen.particular, resumen.excedentes], "Composición de ingresos");
-    crearGraficoMensual(DATASET_FILTRADO);
-    crearVelocimetroCumplimiento(resumen.total, "velocimetroCumplimiento");
-}
+function renderGraficosDashboard(resumen){
+    crearChartBar(
+        "graficoMetaReal",
+        ["Meta", "Venta Real"],
+        [META_RANGO_ACTUAL, resumen.total],
+        "Valor",
+        "Meta vs Venta Real"
+    );
 
-function crearGraficoMensual(rows){
-    const mensual = agruparPorPeriodo(rows, "mes");
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const ventas = etiquetas.map(k => mensual[k]);
-    const metas = etiquetas.map(k => {
-        const [mes, anio] = k.split("/").map(Number);
-        return metaMensualAplicable(new Date(anio, mes - 1, 1));
-    });
+    crearChartDoughnut(
+        "graficoCategoriasDashboard",
+        ["PARTICULAR", "RED", "EXCEDENTES"],
+        [resumen.particular, resumen.red, resumen.excedentes],
+        "Participación por categoría"
+    );
 
-    crearChartLine("ventasMensuales", etiquetas, [
-        {label:"Venta mensual",data:ventas,backgroundColor:"rgba(0,166,81,.16)",borderColor:"#00a651",borderWidth:4,fill:true,tension:.35},
-        {label:"Meta mensual",data:metas,borderColor:"#ef4444",borderWidth:3,borderDash:[8,6],pointRadius:0,fill:false}
+    const mensual = agruparMensual(DATASET_FILTRADO);
+    const labels = ordenarMeses(Object.keys(mensual));
+    const ventas = labels.map(k => mensual[k].venta);
+    const metas = labels.map(() => metaMensualTotal());
+
+    crearChartLine("graficoMensual", labels, [
+        {label:"Venta mensual", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
+        {label:"Meta mensual", data:metas, borderColor:"#ef4444", borderDash:[8,6], fill:false, pointRadius:0}
     ], "Ventas mensuales vs meta mensual");
-}
 
-function crearVelocimetroCumplimiento(ventaTotal, canvasId){
-    const canvas = $(canvasId);
-    if(!canvas || typeof Chart === "undefined") return;
-
-    const porcentajeReal = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
-    const porcentaje = Math.min(porcentajeReal, 100);
-    const restante = Math.max(100 - porcentaje, 0);
-    const color = colorPorPorcentaje(porcentajeReal);
-
-    if(canvasId === "velocimetroCumplimiento"){
-        setHtml("cumplimientoVisual", `${porcentajeReal.toFixed(1)}%`);
-        const el = $("cumplimientoVisual");
-        if(el) el.style.color = color;
-    }
-
-    destruirChart(canvasId);
-
-    const centerTextPlugin = {
-        id:`centerTextPlugin_${canvasId}`,
-        afterDraw(chart){
-            const { ctx, chartArea } = chart;
-            if(!chartArea) return;
-
-            const x = (chartArea.left + chartArea.right) / 2;
-            const y = (chartArea.top + chartArea.bottom) / 2;
-
-            ctx.save();
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = color;
-            ctx.font = "800 28px Segoe UI";
-            ctx.fillText(`${porcentajeReal.toFixed(1)}%`, x, y - 8);
-            ctx.fillStyle = "#334155";
-            ctx.font = "700 13px Segoe UI";
-            ctx.fillText(textoEstado(porcentajeReal).toUpperCase(), x, y + 22);
-            ctx.restore();
-        }
-    };
-
-    charts[canvasId] = new Chart(canvas, {
-        type:"doughnut",
-        data:{
-            labels:["Avance","Restante"],
-            datasets:[{data:[porcentaje,restante],backgroundColor:[color,"#e5e7eb"],borderWidth:0,cutout:"78%"}]
-        },
-        plugins:[centerTextPlugin],
-        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:"Cumplimiento de meta"}}}
-    });
-}
-
-function agruparCategorias(rows){
-    const obj = {};
-    rows.forEach(row => {
-        const k = row.categoria || "SIN CATEGORÍA";
-        obj[k] = (obj[k] || 0) + row.valor;
-    });
-    return obj;
-}
-
-function agruparServicios(rows){
-    const obj = {};
-    rows.forEach(row => {
-        const k = row.servicio || "SIN SERVICIO";
-        if(!obj[k]) obj[k] = {cantidad:0, valor:0};
-        obj[k].cantidad += 1;
-        obj[k].valor += row.valor;
-    });
-    return obj;
-}
-
-function agruparSedes(rows){
-    const obj = {};
-    rows.forEach(row => {
-        const k = row.sede || "SIN SEDE";
-        if(!obj[k]) obj[k] = {cantidad:0, valor:0};
-        obj[k].cantidad += 1;
-        obj[k].valor += row.valor;
-    });
-    return obj;
-}
-
-function agruparGestores(rows){
-    const obj = {};
-    rows.forEach(row => {
-        const nombre = row.gestor || "SIN GESTOR";
-        if(!obj[nombre]) obj[nombre] = {nombre, cantidad:0, valor:0};
-        obj[nombre].cantidad += 1;
-        obj[nombre].valor += row.valor;
-    });
-    return obj;
-}
-
-function agruparExcedentes(rows){
-    const obj = {};
-    rows.forEach(row => {
-        const nombre = normalizarTexto(row.servicio);
-        if(!nombre || nombre === "SOAT" || nombre === "PENSIONADO") return;
-
-        if(!obj[nombre]) obj[nombre] = {cantidad:0, valor:0};
-        obj[nombre].cantidad += 1;
-        obj[nombre].valor += row.valor;
-    });
-    return obj;
-}
-
-function crearTablaRanking(selector, ranking, totalGeneral, tipo){
-    const tbody = document.querySelector(selector);
-    if(!tbody) return;
-
-    if(ranking.length === 0){
-        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = ranking.map(([nombre, data]) => {
-        const cantidad = typeof data === "object" ? data.cantidad : "";
-        const valor = typeof data === "object" ? data.valor : data;
-        const p = totalGeneral > 0 ? (valor / totalGeneral) * 100 : 0;
-
-        if(tipo === "categoria"){
-            return `<tr><td>${nombre}</td><td>${formatMoney(valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
-        }
-
-        return `<tr><td>${nombre}</td><td>${cantidad}</td><td>${formatMoney(valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
-    }).join("");
-}
-
-function crearTablasPrincipales(rows, totalGeneral){
-    const categorias = Object.entries(agruparCategorias(rows)).sort((a,b) => b[1] - a[1]);
-    const servicios = Object.entries(agruparServicios(rows)).sort((a,b) => b[1].valor - a[1].valor);
-    const sedes = Object.entries(agruparSedes(rows)).sort((a,b) => b[1].valor - a[1].valor);
-    const excedentes = Object.entries(agruparExcedentes(rows)).sort((a,b) => b[1].valor - a[1].valor);
-    const gestores = Object.values(agruparGestores(rows)).sort((a,b) => b.valor - a.valor);
-
-    crearTablaRanking("#tablaCategoriasVista tbody", categorias, totalGeneral, "categoria");
-    crearTablaRanking("#tablaServiciosVista tbody", servicios, totalGeneral, "servicio");
-    crearTablaRanking("#tablaSedesVista tbody", sedes, totalGeneral, "sede");
-    crearTablaRanking("#tablaExcedentesVista tbody", excedentes, totalGeneral, "excedente");
-
-    const tbodyGestores = document.querySelector("#tablaGestoresVista tbody");
-    if(tbodyGestores){
-        tbodyGestores.innerHTML = gestores.length ? gestores.map(g => {
-            const p = totalGeneral > 0 ? (g.valor / totalGeneral) * 100 : 0;
-            return `<tr><td>${g.nombre}</td><td>${g.cantidad}</td><td>${formatMoney(g.valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
-        }).join("") : `<tr><td colspan="4">Sin registros</td></tr>`;
-    }
-
-    crearChartDoughnut("graficoCategoriasVista", categorias.map(([k]) => k), categorias.map(([,v]) => v), "Ventas por categoría");
-    crearChartBar("graficoServiciosVista", servicios.slice(0,12).map(([k]) => k), servicios.slice(0,12).map(([,v]) => v.valor), "Valor", "Servicios por valor", "rgba(245,158,11,.92)", true);
-    crearChartBar("graficoSedesVista", sedes.map(([k]) => k), sedes.map(([,v]) => v.valor), "Valor", "Ventas por sede", "rgba(6,182,212,.92)", true);
-    crearChartBar("rankingCompletoGestores", gestores.slice(0,15).map(g => g.nombre), gestores.slice(0,15).map(g => g.valor), "Valor", "Ranking gestores", "rgba(37,99,235,.92)", true);
-    crearChartBar("graficoExcedentes", excedentes.slice(0,12).map(([k]) => k), excedentes.slice(0,12).map(([,v]) => v.valor), "Valor", "Excedentes por valor", "rgba(245,158,11,.92)", true);
-
-    const mejorGestor = gestores[0];
-    setHtml("mejorGestor", mejorGestor ? mejorGestor.nombre : "-");
-    setHtml("ventaMejorGestor", mejorGestor ? formatMoney(mejorGestor.valor) : formatMoney(0));
-
-    const topServicio = servicios.sort((a,b) => b[1].cantidad - a[1].cantidad)[0];
-    setHtml("servicioTop", topServicio ? topServicio[0] : "-");
-    setHtml("cantidadServicioTop", topServicio ? topServicio[1].cantidad : "0");
-}
-
-function agruparPorPeriodo(rows, periodo){
-    const datos = {};
-
-    rows.forEach(row => {
-        if(!row.fecha) return;
-
-        let llave = "";
-        if(periodo === "dia") llave = fechaKey(row.fecha);
-        if(periodo === "semana") llave = semanaKey(row.fecha);
-        if(periodo === "mes") llave = mesKey(row.fecha);
-        if(periodo === "trimestre") llave = trimestreKey(row.fecha);
-        if(periodo === "semestre") llave = semestreKey(row.fecha);
-        if(periodo === "anio") llave = anioKey(row.fecha);
-
-        datos[llave] = (datos[llave] || 0) + row.valor;
-    });
-
-    return datos;
-}
-
-function renderizarVistasAdicionales(rows, resumen, metaInfo){
-    crearVistaVentas(rows);
-    crearVistaCumplimientos(rows);
-    crearVistaComparativos(metaInfo);
-    crearVistaTendencias(rows);
-    crearVistaMetas();
-    crearVelocimetroCumplimiento(resumen.total, "graficoTvCumplimiento");
-}
-
-function crearVistaVentas(rows){
-    const mensual = agruparPorPeriodo(rows, "mes");
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    crearChartBar("ventasAnuales", etiquetas, etiquetas.map(k => mensual[k]), "Ventas", "Ventas mensuales acumuladas");
-
-    const categorias = agruparCategorias(rows);
-    const labels = Object.keys(categorias);
-    crearChartDoughnut("ventasPorCategoriaVista", labels, labels.map(k => categorias[k]), "Participación por categoría");
-}
-
-function crearVistaCumplimientos(rows){
-    crearCumplimientoDiario(rows);
-    crearCumplimientoSemanal(rows);
-    crearCumplimientoMensual(rows);
-    crearCumplimientoTrimestral(rows);
-    crearCumplimientoSemestral(rows);
-    crearCumplimientoAnual(rows);
-}
-
-function llenarTablaCumplimiento(selector, etiquetas, metas, ventas){
-    const tbody = document.querySelector(selector);
-    if(!tbody) return;
-
-    if(etiquetas.length === 0){
-        tbody.innerHTML = `<tr><td colspan="5">Sin registros</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = etiquetas.map((etiqueta, index) => {
-        const meta = metas[index] || 0;
-        const venta = ventas[index] || 0;
-        const porcentaje = meta > 0 ? (venta / meta) * 100 : 0;
-
-        return `<tr><td>${etiqueta}</td><td>${formatMoney(meta)}</td><td>${formatMoney(venta)}</td><td>${porcentaje.toFixed(1)}%</td><td>${badgeEstado(porcentaje)}</td></tr>`;
-    }).join("");
-}
-
-function crearCumplimientoDiario(rows){
-    const diario = agruparPorPeriodo(rows, "dia");
-    const etiquetas = ordenarFechas(Object.keys(diario));
-    const ventas = etiquetas.map(k => diario[k]);
-    const metas = etiquetas.map(k => {
-        const fecha = new Date(`${k}T00:00:00`);
-        return metaMensualAplicable(fecha) / diasDelMes(fecha);
-    });
-
-    crearChartLine("graficoCumplimientoDiario", etiquetas, [
-        {label:"Venta diaria",data:ventas,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.14)",fill:true,tension:.3},
-        {label:"Meta diaria",data:metas,borderColor:"#ef4444",borderDash:[8,6],pointRadius:0,fill:false}
-    ], "Venta diaria vs meta diaria");
-
-    llenarTablaCumplimiento("#tablaCumplimientoDiario tbody", etiquetas, metas, ventas);
-}
-
-function crearCumplimientoSemanal(rows){
-    const semanal = agruparPorPeriodo(rows, "semana");
-    const etiquetas = Object.keys(semanal).sort();
-    const ventas = etiquetas.map(k => semanal[k]);
-    const metas = etiquetas.map(k => {
-        const [desde, hasta] = k.split(" a ");
-        return calcularMetaPorRango(desde, hasta).meta;
-    });
-
-    crearChartLine("graficoCumplimientoSemanal", etiquetas, [
-        {label:"Venta semanal",data:ventas,borderColor:"#2563eb",backgroundColor:"rgba(37,99,235,.14)",fill:true,tension:.3},
-        {label:"Meta semanal",data:metas,borderColor:"#ef4444",borderDash:[8,6],pointRadius:0,fill:false}
-    ], "Venta semanal vs meta semanal");
-
-    llenarTablaCumplimiento("#tablaCumplimientoSemanal tbody", etiquetas, metas, ventas);
-}
-
-function crearCumplimientoMensual(rows){
-    const mensual = agruparPorPeriodo(rows, "mes");
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const ventas = etiquetas.map(k => mensual[k]);
-    const metas = etiquetas.map(k => {
-        const [mes, anio] = k.split("/").map(Number);
-        return metaMensualAplicable(new Date(anio, mes - 1, 1));
-    });
-
-    crearChartLine("cumplimientoMensualGrafico", etiquetas, [
-        {label:"Venta mensual",data:ventas,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.14)",fill:true,tension:.3},
-        {label:"Meta mensual",data:metas,borderColor:"#ef4444",borderDash:[8,6],pointRadius:0,fill:false}
-    ], "Cumplimiento mensual");
-
-    llenarTablaCumplimiento("#tablaCumplimientoMensual tbody", etiquetas, metas, ventas);
-}
-
-function crearCumplimientoTrimestral(rows){
-    const datos = agruparPorPeriodo(rows, "trimestre");
-    const etiquetas = Object.keys(datos).sort();
-    const ventas = etiquetas.map(k => datos[k]);
-    const metas = etiquetas.map(() => META_TRIMESTRAL_BASE);
-
-    crearChartBar("graficoCumplimientoTrimestral", etiquetas, ventas, "Venta", "Cumplimiento trimestral", "rgba(124,58,237,.90)");
-    llenarTablaCumplimiento("#tablaCumplimientoTrimestral tbody", etiquetas, metas, ventas);
-}
-
-function crearCumplimientoSemestral(rows){
-    const datos = agruparPorPeriodo(rows, "semestre");
-    const etiquetas = Object.keys(datos).sort();
-    const ventas = etiquetas.map(k => datos[k]);
-    const metas = etiquetas.map(() => META_SEMESTRAL_BASE);
-
-    crearChartBar("graficoCumplimientoSemestral", etiquetas, ventas, "Venta", "Cumplimiento semestral", "rgba(37,99,235,.90)");
-    llenarTablaCumplimiento("#tablaCumplimientoSemestral tbody", etiquetas, metas, ventas);
-}
-
-function crearCumplimientoAnual(rows){
-    const datos = agruparPorPeriodo(rows, "anio");
-    const etiquetas = Object.keys(datos).sort();
-    const ventas = etiquetas.map(k => datos[k]);
-    const metas = etiquetas.map(() => META_ANUAL_BASE);
-
-    crearChartBar("cumplimientoAnualGrafico", etiquetas, ventas, "Venta", "Cumplimiento anual", "rgba(0,166,81,.90)");
-    llenarTablaCumplimiento("#tablaCumplimientoAnual tbody", etiquetas, metas, ventas);
-}
-
-function crearVistaComparativos(metaInfo){
-    const mensual = agruparPorPeriodo(DATASET_FILTRADO, "mes");
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const ventas = etiquetas.map(k => mensual[k]);
-    const metas = etiquetas.map(k => {
-        const [mes, anio] = k.split("/").map(Number);
-        return metaMensualAplicable(new Date(anio, mes - 1, 1));
-    });
-
-    crearChartLine("graficoComparativoMensual", etiquetas, [
-        {label:"Venta mensual",data:ventas,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.14)",fill:true,tension:.3},
-        {label:"Meta mensual",data:metas,borderColor:"#ef4444",borderDash:[8,6],pointRadius:0,fill:false}
-    ], "Comparativo mensual");
-
-    const dias = DIAS_RANGO_ACTUAL;
-    const inicioActual = metaInfo.inicio;
-    const finActual = metaInfo.fin;
-    const inicioAnterior = new Date(inicioActual);
-    inicioAnterior.setDate(inicioAnterior.getDate() - dias);
-    const finAnterior = new Date(inicioActual);
-    finAnterior.setDate(finAnterior.getDate() - 1);
-
-    const ventaActual = sumar(DATASET_FILTRADO);
-    const ventaAnterior = sumar(filtrarPorRangoConFiltros(inicioAnterior, finAnterior));
-    const diferencia = ventaActual - ventaAnterior;
-    const crecimiento = ventaAnterior > 0 ? (diferencia / ventaAnterior) * 100 : 0;
-
-    crearChartBar("graficoComparativoPeriodos", ["Periodo anterior", "Periodo actual"], [ventaAnterior, ventaActual], "Venta", "Actual vs anterior", "rgba(37,99,235,.90)");
-
-    const tbody = document.querySelector("#tablaComparativos tbody");
-    if(tbody){
-        tbody.innerHTML = `<tr><td>${fechaISO(inicioActual)} a ${fechaISO(finActual)}</td><td>${formatMoney(ventaActual)}</td><td>${formatMoney(ventaAnterior)}</td><td>${formatMoney(diferencia)}</td><td>${crecimiento.toFixed(1)}%</td></tr>`;
-    }
-}
-
-function crearVistaTendencias(rows){
-    const mensual = agruparPorPeriodo(rows, "mes");
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const valores = etiquetas.map(k => mensual[k]);
-
-    crearChartLine("graficoHistorico", etiquetas, [
-        {label:"Ventas históricas",data:valores,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.13)",fill:true,tension:.35}
-    ], "Serie histórica de ventas");
-}
-
-function crearVistaMetas(){
-    const etiquetas = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-    const metas = etiquetas.map((_, index) => metaMensualAplicable(new Date(new Date().getFullYear(), index, 1)) * (index + 1));
-
-    crearChartLine("graficoMetasAcumuladas", etiquetas, [
-        {label:"Meta acumulada",data:metas,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.14)",fill:true,tension:.25}
-    ], "Meta acumulada mensual");
-}
-
-function calcularPeriodo(tipo, refDate){
-    let inicio, fin, nombre;
-
-    if(tipo === "Diario"){inicio = inicioDia(refDate); fin = finDia(refDate); nombre = "Diario";}
-    if(tipo === "Semanal"){inicio = inicioSemana(refDate); fin = finSemana(refDate); nombre = "Semanal";}
-    if(tipo === "Mensual"){inicio = inicioMes(refDate); fin = finMes(refDate); nombre = "Mensual";}
-    if(tipo === "Trimestral"){inicio = inicioTrimestre(refDate); fin = finTrimestre(refDate); nombre = "Trimestral";}
-    if(tipo === "Semestral"){inicio = inicioSemestre(refDate); fin = finSemestre(refDate); nombre = "Semestral";}
-    if(tipo === "Anual"){inicio = inicioAnio(refDate); fin = finAnio(refDate); nombre = "Anual";}
-
-    const rows = filtrarPorRangoConFiltros(inicio, fin);
-    const venta = sumar(rows);
-    const meta = calcularMetaPorRango(inicio, fin).meta;
-    const cumplimiento = meta > 0 ? (venta / meta) * 100 : 0;
-    const faltante = Math.max(meta - venta, 0);
-    const diasPeriodo = diasEntre(inicio, fin);
-    const hoy = new Date();
-    const finAnalisis = hoy < fin ? hoy : fin;
-    const diasAnalizados = Math.max(diasEntre(inicio, finAnalisis), 1);
-    const proyeccion = (venta / diasAnalizados) * diasPeriodo;
-
-    return {nombre, meta, venta, cumplimiento, faltante, proyeccion};
-}
-
-function crearTablaConsolidada(){
     const tbody = document.querySelector("#tablaConsolidada tbody");
-    if(!tbody || !ULTIMA_META_INFO) return;
-
-    const ref = ULTIMA_META_INFO.fin;
-    const periodos = ["Diario","Semanal","Mensual","Trimestral","Semestral","Anual"].map(p => calcularPeriodo(p, ref));
-
-    tbody.innerHTML = periodos.map(p => `
-        <tr>
-            <td>${p.nombre}</td>
-            <td>${formatMoney(p.meta)}</td>
-            <td>${formatMoney(p.venta)}</td>
-            <td>${p.cumplimiento.toFixed(1)}%</td>
-            <td>${formatMoney(p.faltante)}</td>
-            <td>${formatMoney(p.proyeccion)}</td>
-            <td>${badgeEstado(p.cumplimiento)}</td>
-        </tr>
-    `).join("");
-}
-
-function crearAlertasGerenciales(rows, ventaTotal){
-    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
-    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
-    const calidad = calcularCalidadDatos();
-    const duplicados = obtenerDuplicados();
-    const alertas = [];
-
-    if(!API_STATUS.ok) alertas.push(`Diagnóstico API: ${API_STATUS.mensaje}. Revisar módulo Diagnóstico API.`);
-    if(rows.length === 0) alertas.push("No hay registros para el rango seleccionado.");
-    if(cumplimiento < 80) alertas.push(`Cumplimiento bajo: ${cumplimiento.toFixed(1)}%. Faltante: ${formatMoney(faltante)}.`);
-    if(cumplimiento >= 80 && cumplimiento < 100) alertas.push(`Cumplimiento en riesgo controlado: ${cumplimiento.toFixed(1)}%.`);
-    if(cumplimiento >= 100) alertas.push(`Meta cumplida: ${cumplimiento.toFixed(1)}%.`);
-
-    if(calidad.calidad < 90) alertas.push(`Calidad de datos por debajo del 90%: ${calidad.calidad.toFixed(1)}%.`);
-    if(duplicados.length > 0) alertas.push(`Duplicados detectados: ${duplicados.length}. Revisar auditoría.`);
-
-    const html = alertas.map(a => `<div class="alerta-item"><i class="fas fa-circle-exclamation"></i><span>${a}</span></div>`).join("");
-
-    setHtml("alertasGerenciales", html || "<p>Sin alertas por el momento.</p>");
-    setHtml("alertasGerencialesVista", html || "<p>Sin alertas por el momento.</p>");
-}
-
-function actualizarProyeccionesGerenciales(resumen, metaInfo){
-    const ventaTotal = resumen.total;
-    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
-
-    const hoy = new Date();
-    const diasAnalizados = Math.max(Math.min(DIAS_RANGO_ACTUAL, diasEntre(metaInfo.inicio, hoy)), 1);
-    const promedioDiarioReal = ventaTotal / diasAnalizados;
-
-    const proyMes = promedioDiarioReal * diasDelMes(metaInfo.fin);
-    const proyAnual = promedioDiarioReal * 365;
-    const valorDiarioNecesario = DIAS_RANGO_ACTUAL > 0 ? faltante / DIAS_RANGO_ACTUAL : 0;
-    const cumplimientoProyectadoAnual = META_ANUAL_BASE > 0 ? (proyAnual / META_ANUAL_BASE) * 100 : 0;
-
-    let riesgo = "BAJO";
-    let riesgoClase = "#16a34a";
-    if(cumplimientoProyectadoAnual < 80){riesgo = "ALTO"; riesgoClase = "#dc2626";}
-    else if(cumplimientoProyectadoAnual < 100){riesgo = "MEDIO"; riesgoClase = "#f59e0b";}
-
-    setHtml("proyPromedioDiario", formatMoney(promedioDiarioReal));
-    setHtml("proyMes", formatMoney(proyMes));
-    setHtml("proyAnual", formatMoney(proyAnual));
-    setHtml("riesgoProyectado", riesgo);
-    setHtml("valorDiarioNecesario", formatMoney(valorDiarioNecesario));
-
-    const riesgoEl = $("riesgoProyectado");
-    if(riesgoEl) riesgoEl.style.color = riesgoClase;
-
-    crearChartBar("graficoProyeccionAnual", ["Meta anual", "Proyección anual"], [META_ANUAL_BASE, proyAnual], "Valor", "Meta anual vs proyección anual");
-
-    const tbody = document.querySelector("#tablaProyecciones tbody");
     if(tbody){
+        const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
         tbody.innerHTML = `
-            <tr><td>Meta anual</td><td>${formatMoney(META_ANUAL_BASE)}</td><td>Objetivo general anual configurado.</td></tr>
-            <tr><td>Proyección mensual</td><td>${formatMoney(proyMes)}</td><td>Cierre mensual estimado con ritmo actual.</td></tr>
-            <tr><td>Proyección anual</td><td>${formatMoney(proyAnual)}</td><td>Estimación anualizada con promedio diario actual.</td></tr>
-            <tr><td>Cumplimiento anual proyectado</td><td>${cumplimientoProyectadoAnual.toFixed(1)}%</td><td>${textoEstado(cumplimientoProyectadoAnual)}</td></tr>
-            <tr><td>Valor diario necesario</td><td>${formatMoney(valorDiarioNecesario)}</td><td>Promedio requerido para cerrar el faltante.</td></tr>
+            <tr>
+                <td>Rango seleccionado</td>
+                <td>${formatMoney(META_RANGO_ACTUAL)}</td>
+                <td>${formatMoney(resumen.total)}</td>
+                <td>${cumplimiento.toFixed(1)}%</td>
+                <td>${formatMoney(Math.max(META_RANGO_ACTUAL - resumen.total, 0))}</td>
+                <td>${badgeEstado(cumplimiento)}</td>
+            </tr>
+            <tr>
+                <td>Mensual base</td>
+                <td>${formatMoney(metaMensualTotal())}</td>
+                <td>${formatMoney(resumen.total)}</td>
+                <td>${(metaMensualTotal() > 0 ? (resumen.total / metaMensualTotal()) * 100 : 0).toFixed(1)}%</td>
+                <td>${formatMoney(Math.max(metaMensualTotal() - resumen.total, 0))}</td>
+                <td>${badgeEstado(metaMensualTotal() > 0 ? (resumen.total / metaMensualTotal()) * 100 : 0)}</td>
+            </tr>
+            <tr>
+                <td>Anual</td>
+                <td>${formatMoney(metaMensualTotal() * 12)}</td>
+                <td>${formatMoney(resumen.total)}</td>
+                <td>${(metaMensualTotal() * 12 > 0 ? (resumen.total / (metaMensualTotal() * 12)) * 100 : 0).toFixed(1)}%</td>
+                <td>${formatMoney(Math.max((metaMensualTotal() * 12) - resumen.total, 0))}</td>
+                <td>${badgeEstado(metaMensualTotal() * 12 > 0 ? (resumen.total / (metaMensualTotal() * 12)) * 100 : 0)}</td>
+            </tr>
         `;
     }
 }
 
-function actualizarCierreGerencial(rows, resumen){
-    const ventaTotal = resumen.total;
-    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
-    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
-    const promedioDiarioMeta = META_RANGO_ACTUAL / Math.max(DIAS_RANGO_ACTUAL, 1);
-    const promedioDiarioReal = ventaTotal / Math.max(DIAS_RANGO_ACTUAL, 1);
+function renderCategorias(){
+    const categorias = agruparCategorias(DATASET_FILTRADO);
+    const total = sumar(DATASET_FILTRADO);
+    const orden = ["PARTICULAR","RED","EXCEDENTES","PLAN"];
 
-    let conclusion = "";
-    if(cumplimiento >= 100){
-        conclusion = `El desempeño es favorable. La meta se encuentra cumplida con avance de <strong>${cumplimiento.toFixed(1)}%</strong>.`;
-    }else if(cumplimiento >= 80){
-        conclusion = `El desempeño está en zona de riesgo controlado con avance de <strong>${cumplimiento.toFixed(1)}%</strong>. Faltante: <strong>${formatMoney(faltante)}</strong>.`;
-    }else{
-        conclusion = `El desempeño está por debajo del nivel esperado con avance de <strong>${cumplimiento.toFixed(1)}%</strong>. Brecha: <strong>${formatMoney(faltante)}</strong>.`;
-    }
+    const tbody = document.querySelector("#tablaCategoriasVista tbody");
+    if(tbody){
+        tbody.innerHTML = orden.map(cat => {
+            const data = categorias[cat] || {cantidad:0, valor:0};
+            const generaVenta = categoriaGeneraVenta(cat);
+            const meta = generaVenta ? metaCategoriaMensual(cat) * MESES_EQUIVALENTES_ACTUAL : 0;
+            const participacion = generaVenta && total > 0 ? (data.valor / total) * 100 : 0;
+            const cumplimiento = generaVenta && meta > 0 ? (data.valor / meta) * 100 : 0;
 
-    setHtml("conclusionGerencial", conclusion);
-
-    const plan = [];
-    if(cumplimiento < 80) plan.push({titulo:"Plan de choque comercial", texto:"Seguimiento diario a gestores, oportunidades activas y pendientes.", prioridad:"Alta"});
-    if(promedioDiarioReal < promedioDiarioMeta) plan.push({titulo:"Incrementar promedio diario", texto:`Promedio real: ${formatMoney(promedioDiarioReal)}. Meta diaria: ${formatMoney(promedioDiarioMeta)}.`, prioridad:"Alta"});
-    if(!API_STATUS.ok) plan.push({titulo:"Validación API", texto:"Corregir estructura, permisos o encabezados en Google Sheets/Apps Script.", prioridad:"Alta"});
-    plan.push({titulo:"Pareto 80/20", texto:"Revisar gestores, servicios y sedes que concentran mayor participación.", prioridad:"Media"});
-    plan.push({titulo:"Comparativo anual", texto:"Analizar crecimiento frente al año anterior.", prioridad:"Media"});
-    plan.push({titulo:"Reporte ejecutivo", texto:"Exportar PDF formal para comité.", prioridad:"Baja"});
-
-    const planBox = $("planAccionGerencial");
-    if(planBox){
-        planBox.innerHTML = plan.map(item => {
-            const clase = item.prioridad === "Alta" ? "prioridad-alta" : item.prioridad === "Media" ? "prioridad-media" : "prioridad-baja";
-            return `<div class="plan-card"><h4>${item.titulo}</h4><p>${item.texto}</p><p class="${clase}">Prioridad: ${item.prioridad}</p></div>`;
+            return `
+                <tr>
+                    <td><strong>${cat}</strong></td>
+                    <td>${generaVenta ? '<span class="badge badge-ok">Genera ventas</span>' : '<span class="badge badge-info">Solo cantidad</span>'}</td>
+                    <td>${data.cantidad}</td>
+                    <td>${generaVenta ? formatMoney(data.valor) : "-"}</td>
+                    <td>${generaVenta ? participacion.toFixed(1) + "%" : "-"}</td>
+                    <td>${generaVenta ? formatMoney(meta) : "-"}</td>
+                    <td>${generaVenta ? cumplimiento.toFixed(1) + "%" : "-"}</td>
+                </tr>
+            `;
         }).join("");
     }
 
-    actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta);
-}
-
-function actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta){
-    const tbody = document.querySelector("#tablaDecisionGerencial tbody");
-    if(!tbody) return;
-
-    const calidad = calcularCalidadDatos().calidad;
-    const estadoCumplimiento = cumplimiento >= 100 ? "Bueno" : cumplimiento >= 80 ? "Riesgo" : "Crítico";
-    const estadoPromedio = promedioDiarioReal >= promedioDiarioMeta ? "Bueno" : "Crítico";
-    const estadoDatos = calidad >= 95 ? "Bueno" : calidad >= 80 ? "Riesgo" : "Crítico";
-    const estadoApi = API_STATUS.ok ? "Bueno" : "Crítico";
-
-    tbody.innerHTML = `
-        <tr><td>Cumplimiento</td><td class="${claseEstado(estadoCumplimiento)}">${estadoCumplimiento}</td><td>Revisar avance y brecha.</td><td>${estadoCumplimiento === "Crítico" ? "Alta" : "Media"}</td></tr>
-        <tr><td>Promedio diario</td><td class="${claseEstado(estadoPromedio)}">${estadoPromedio}</td><td>Comparar promedio real contra requerido.</td><td>${estadoPromedio === "Crítico" ? "Alta" : "Media"}</td></tr>
-        <tr><td>Calidad de datos</td><td class="${claseEstado(estadoDatos)}">${estadoDatos}</td><td>Validar registros incompletos.</td><td>${estadoDatos === "Crítico" ? "Alta" : "Baja"}</td></tr>
-        <tr><td>Conexión API</td><td class="${claseEstado(estadoApi)}">${estadoApi}</td><td>Validar Apps Script, permisos y columnas.</td><td>${estadoApi === "Crítico" ? "Alta" : "Baja"}</td></tr>
-    `;
-}
-
-function claseEstado(estado){
-    if(estado === "Bueno") return "estado-bueno";
-    if(estado === "Riesgo") return "estado-riesgo";
-    return "estado-critico";
-}
-
-function calcularCalidadDatos(){
-    const totalApi = DATASET_NORMAL.length;
-    const fechasInvalidas = DATASET_NORMAL.filter(row => !row.fecha).length;
-    const valoresCero = DATASET_NORMAL.filter(row => row.valor === 0).length;
-    const sinGestor = DATASET_NORMAL.filter(row => !row.gestor).length;
-    const sinCategoria = DATASET_NORMAL.filter(row => !row.categoria).length;
-    const sinSede = DATASET_NORMAL.filter(row => !row.sede).length;
-
-    const errores = fechasInvalidas + valoresCero + sinGestor + sinCategoria + sinSede;
-    const calidad = totalApi > 0 ? Math.max(100 - ((errores / (totalApi * 5)) * 100), 0) : 0;
-
-    return {totalApi, fechasInvalidas, valoresCero, sinGestor, sinCategoria, sinSede, calidad};
-}
-
-function claveDuplicado(row){
-    const fecha = row.fecha ? fechaISO(row.fecha) : row.fechaTexto || "";
-    return `${fecha}|${normalizarTexto(row.gestor)}|${normalizarTexto(row.categoria)}|${normalizarTexto(row.servicio)}|${normalizarTexto(row.sede)}|${Math.round(row.valor)}`;
-}
-
-function obtenerDuplicados(){
-    const mapa = {};
-
-    DATASET_NORMAL.forEach(row => {
-        const key = claveDuplicado(row);
-        if(!mapa[key]) mapa[key] = [];
-        mapa[key].push(row);
-    });
-
-    return Object.values(mapa).filter(grupo => grupo.length > 1).flat();
-}
-
-function actualizarDiagnosticoAvanzado(){
-    const d = calcularCalidadDatos();
-
-    setHtml("diagEstadoApi", API_STATUS.mensaje);
-    setHtml("diagTotalApi", API_STATUS.registros || 0);
-    setHtml("diagTotalFiltrado", DATASET_FILTRADO.length);
-    setHtml("diagFechasInvalidas", d.fechasInvalidas);
-    setHtml("diagValoresCero", d.valoresCero);
-    setHtml("diagSinGestor", d.sinGestor);
-    setHtml("diagCalidad", `${d.calidad.toFixed(1)}%`);
-
-    const estadoApi = $("diagEstadoApi");
-    if(estadoApi) estadoApi.style.color = API_STATUS.ok ? "#16a34a" : "#dc2626";
-
-    const calidadEl = $("diagCalidad");
-    if(calidadEl) calidadEl.style.color = colorPorPorcentaje(d.calidad);
-
-    let texto = "";
-    if(!API_STATUS.ok) texto = `La API requiere revisión. Estado: ${API_STATUS.mensaje}.`;
-    else if(d.calidad >= 95) texto = "La calidad de datos es alta.";
-    else if(d.calidad >= 80) texto = "La calidad de datos es aceptable, pero requiere ajustes.";
-    else texto = "La calidad de datos requiere revisión prioritaria.";
-
-    setHtml("diagnosticoTexto", texto);
-
-    const tbodyColumnas = document.querySelector("#tablaColumnasApi tbody");
-    if(tbodyColumnas){
-        const requeridas = ["Fecha","Gestor","Tipo_Homenaje","Tipo_Excedente","Valor","Sede"];
-        tbodyColumnas.innerHTML = requeridas.map(col => {
-            const ok = API_STATUS.columnas.some(c => normalizarLlave(c) === normalizarLlave(col));
-            return `<tr><td>${col}</td><td>${ok ? '<span class="badge badge-ok">Detectada</span>' : '<span class="badge badge-danger">Faltante</span>'}</td></tr>`;
-        }).join("");
-    }
-
-    const tbody = document.querySelector("#tablaDiagnosticoDatos tbody");
-    if(!tbody) return;
-
-    const muestra = DATASET_NORMAL.slice(0, 50);
-    if(muestra.length === 0){
-        tbody.innerHTML = `<tr><td colspan="6">Sin registros</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = muestra.map(row => {
-        const correcto = row.fecha && row.valor > 0 && row.gestor && row.categoria;
-        return `<tr><td>${row.fechaTexto || "-"}</td><td>${row.gestor || "-"}</td><td>${row.categoria || "-"}</td><td>${row.servicio || "-"}</td><td>${formatMoney(row.valor)}</td><td>${correcto ? '<span class="badge badge-ok">Correcto</span>' : '<span class="badge badge-danger">Revisar</span>'}</td></tr>`;
-    }).join("");
-}
-
-function actualizarAuditoria(){
-    const d = calcularCalidadDatos();
-    const duplicados = obtenerDuplicados();
-
-    setHtml("audDuplicados", duplicados.length);
-    setHtml("audFechasInvalidas", d.fechasInvalidas);
-    setHtml("audValoresCero", d.valoresCero);
-    setHtml("audSinGestor", d.sinGestor);
-    setHtml("audSinCategoria", d.sinCategoria);
-    setHtml("audSinSede", d.sinSede);
-
-    let riesgo = "BAJO";
-    let riesgoColor = "#16a34a";
-
-    if(d.calidad < 80 || duplicados.length > 10 || !API_STATUS.ok){
-        riesgo = "ALTO";
-        riesgoColor = "#dc2626";
-    }else if(d.calidad < 95 || duplicados.length > 0){
-        riesgo = "MEDIO";
-        riesgoColor = "#f59e0b";
-    }
-
-    setHtml("audRiesgo", riesgo);
-    const audRiesgo = $("audRiesgo");
-    if(audRiesgo) audRiesgo.style.color = riesgoColor;
-
-    let texto = "La base de datos está en condiciones aceptables.";
-    if(riesgo === "MEDIO") texto = "Se recomienda revisar duplicados e inconsistencias antes de presentar.";
-    if(riesgo === "ALTO") texto = "La base requiere revisión prioritaria.";
-
-    setHtml("auditoriaTexto", texto);
-
-    const tbody = document.querySelector("#tablaAuditoria tbody");
-    if(!tbody) return;
-
-    const hallazgos = [];
-
-    DATASET_NORMAL.forEach(row => {
-        const faltantes = [];
-        if(!row.fecha) faltantes.push("Fecha inválida");
-        if(row.valor === 0) faltantes.push("Valor cero");
-        if(!row.gestor) faltantes.push("Sin gestor");
-        if(!row.categoria) faltantes.push("Sin categoría");
-        if(!row.sede) faltantes.push("Sin sede");
-
-        if(faltantes.length) hallazgos.push({row, hallazgo:faltantes.join(", ")});
-    });
-
-    duplicados.forEach(row => hallazgos.push({row, hallazgo:"Posible duplicado"}));
-
-    const muestra = hallazgos.slice(0, 80);
-
-    if(muestra.length === 0){
-        tbody.innerHTML = `<tr><td colspan="7">Sin hallazgos críticos</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = muestra.map(item => `
-        <tr>
-            <td>${item.row.fechaTexto || "-"}</td>
-            <td>${item.row.gestor || "-"}</td>
-            <td>${item.row.categoria || "-"}</td>
-            <td>${item.row.servicio || "-"}</td>
-            <td>${item.row.sede || "-"}</td>
-            <td>${formatMoney(item.row.valor)}</td>
-            <td>${item.hallazgo}</td>
-        </tr>
-    `).join("");
-}
-
-function metaAsignada(nombre, tipo, cantidadActivos){
-    const mapa = getMapaMetas(tipo);
-    const clave = normalizarTexto(nombre);
-    const configurada = mapa[clave];
-
-    if(configurada) return configurada * MESES_EQUIVALENTES_ACTUAL;
-
-    return cantidadActivos > 0 ? META_RANGO_ACTUAL / cantidadActivos : 0;
-}
-
-function actualizarMetasPorGestor(){
-    const gestores = Object.values(agruparGestores(DATASET_FILTRADO))
-        .sort((a,b) => b.valor - a.valor)
-        .filter(g => g.nombre && g.nombre !== "SIN GESTOR");
-
-    const cantidadGestores = gestores.length;
-
-    setHtml(
-        "textoMetasGestor",
-        `La meta del rango es <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. 
-        Si existe meta configurada por gestor se usa esa meta proporcional; si no, se distribuye entre gestores activos.`
+    crearChartDoughnut(
+        "graficoCategoriasVista",
+        ["PARTICULAR","RED","EXCEDENTES"],
+        [
+            categorias.PARTICULAR?.valor || 0,
+            categorias.RED?.valor || 0,
+            categorias.EXCEDENTES?.valor || 0
+        ],
+        "Ventas por categoría gerencial"
     );
+}
 
-    const tbody = document.querySelector("#tablaMetasGestor tbody");
+function renderGestores(){
+    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
+    const cantidadGestores = gestores.filter(g => g.nombre !== "SIN GESTOR").length;
+
+    const tbody = document.querySelector("#tablaGestoresVista tbody");
     if(tbody){
         if(gestores.length === 0){
-            tbody.innerHTML = `<tr><td colspan="6">Sin gestores activos</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7">Sin registros</td></tr>`;
         }else{
             tbody.innerHTML = gestores.map(g => {
-                const meta = metaAsignada(g.nombre, "metasGestor", cantidadGestores);
+                const metaConfig = metaGestorMensual(g.nombre);
+                const meta = metaConfig > 0 ? metaConfig * MESES_EQUIVALENTES_ACTUAL : (cantidadGestores > 0 ? META_RANGO_ACTUAL / cantidadGestores : 0);
                 const cumplimiento = meta > 0 ? (g.valor / meta) * 100 : 0;
                 const faltante = Math.max(meta - g.valor, 0);
 
-                return `<tr><td>${g.nombre}</td><td>${formatMoney(meta)}</td><td>${formatMoney(g.valor)}</td><td>${cumplimiento.toFixed(1)}%</td><td>${formatMoney(faltante)}</td><td>${badgeEstado(cumplimiento)}</td></tr>`;
+                return `
+                    <tr>
+                        <td>${g.nombre}</td>
+                        <td>${formatMoney(meta)}</td>
+                        <td>${g.cantidad}</td>
+                        <td>${formatMoney(g.valor)}</td>
+                        <td>${cumplimiento.toFixed(1)}%</td>
+                        <td>${formatMoney(faltante)}</td>
+                        <td>${badgeEstado(cumplimiento)}</td>
+                    </tr>
+                `;
             }).join("");
         }
     }
 
     crearChartBar(
-        "graficoMetasGestor",
-        gestores.map(g => g.nombre),
-        gestores.map(g => {
-            const meta = metaAsignada(g.nombre, "metasGestor", cantidadGestores);
-            return meta > 0 ? (g.valor / meta) * 100 : 0;
-        }),
-        "%",
-        "Cumplimiento por gestor",
-        "rgba(37,99,235,.92)",
+        "graficoGestores",
+        gestores.slice(0,15).map(g => g.nombre),
+        gestores.slice(0,15).map(g => g.valor),
+        "Ventas",
+        "Ranking de gestores",
         true
     );
 }
 
-function actualizarMetasAvanzadas(){
-    renderMetasGrupo("sede", agruparSedes(DATASET_FILTRADO), "metasSede", "#tablaMetasSede tbody", "graficoMetasSede", "Sede");
-    renderMetasGrupo("categoria", objetoCategoriaADetalle(agruparCategorias(DATASET_FILTRADO)), "metasCategoria", "#tablaMetasCategoria tbody", "graficoMetasCategoria", "Categoría");
-    renderMetasMes();
-}
+function renderExcedentes(){
+    const excedentes = Object.values(agruparExcedentes(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
+    const totalExcedentes = excedentes.reduce((acc,x) => acc + x.valor, 0);
+    const cantidad = excedentes.reduce((acc,x) => acc + x.cantidad, 0);
+    const metaExcedentes = metaCategoriaMensual("EXCEDENTES") * MESES_EQUIVALENTES_ACTUAL;
+    const cumplimiento = metaExcedentes > 0 ? (totalExcedentes / metaExcedentes) * 100 : 0;
 
-function objetoCategoriaADetalle(obj){
-    const out = {};
-    Object.entries(obj).forEach(([k,v]) => out[k] = {cantidad:0, valor:v});
-    return out;
-}
+    setHtml("vistaExcedentesValor", formatMoney(totalExcedentes));
+    setHtml("vistaExcedentesCantidad", cantidad);
+    setHtml("vistaExcedentesMeta", formatMoney(metaExcedentes));
+    setHtml("vistaExcedentesCumplimiento", cumplimiento.toFixed(1) + "%");
 
-function renderMetasGrupo(tipo, agrupado, storageKey, selector, graficoId, label){
-    const entries = Object.entries(agrupado).sort((a,b) => b[1].valor - a[1].valor);
-    const total = entries.length;
-
-    const tbody = document.querySelector(selector);
+    const tbody = document.querySelector("#tablaExcedentesVista tbody");
     if(tbody){
-        if(entries.length === 0){
-            tbody.innerHTML = `<tr><td colspan="5">Sin registros</td></tr>`;
+        if(excedentes.length === 0){
+            tbody.innerHTML = `<tr><td colspan="6">Sin excedentes registrados</td></tr>`;
         }else{
-            tbody.innerHTML = entries.map(([nombre, data]) => {
-                const meta = metaAsignada(nombre, storageKey, total);
-                const venta = data.valor;
-                const cumplimiento = meta > 0 ? (venta / meta) * 100 : 0;
-                return `<tr><td>${nombre}</td><td>${formatMoney(meta)}</td><td>${formatMoney(venta)}</td><td>${cumplimiento.toFixed(1)}%</td><td>${badgeEstado(cumplimiento)}</td></tr>`;
+            tbody.innerHTML = excedentes.map(item => {
+                const meta = metaExcedenteMensual(item.nombre) * MESES_EQUIVALENTES_ACTUAL;
+                const pct = meta > 0 ? (item.valor / meta) * 100 : 0;
+
+                return `
+                    <tr>
+                        <td>${item.nombre}</td>
+                        <td>${formatMoney(meta)}</td>
+                        <td>${item.cantidad}</td>
+                        <td>${formatMoney(item.valor)}</td>
+                        <td>${pct.toFixed(1)}%</td>
+                        <td>${badgeEstado(pct)}</td>
+                    </tr>
+                `;
             }).join("");
         }
     }
 
     crearChartBar(
-        graficoId,
-        entries.map(([nombre]) => nombre),
-        entries.map(([nombre, data]) => {
-            const meta = metaAsignada(nombre, storageKey, total);
-            return meta > 0 ? (data.valor / meta) * 100 : 0;
-        }),
-        "%",
-        `Cumplimiento por ${label}`,
-        "rgba(0,166,81,.92)",
+        "graficoExcedentes",
+        excedentes.slice(0,15).map(x => x.nombre),
+        excedentes.slice(0,15).map(x => x.valor),
+        "Ventas",
+        "Excedentes por valor",
         true
     );
 }
 
-function renderMetasMes(){
-    const mensual = agruparPorPeriodo(DATASET_FILTRADO, "mes");
-    const etiquetas = ordenarMeses(Object.keys(mensual));
-    const ventas = etiquetas.map(k => mensual[k]);
-    const metas = etiquetas.map(k => {
-        const [mes, anio] = k.split("/").map(Number);
-        return metaMensualAplicable(new Date(anio, mes - 1, 1));
-    });
+function renderMetas(){
+    setHtml("metaParticularVista", formatMoney(metaCategoriaMensual("PARTICULAR")));
+    setHtml("metaRedVista", formatMoney(metaCategoriaMensual("RED")));
+    setHtml("metaExcedentesVista", formatMoney(metaCategoriaMensual("EXCEDENTES")));
+    setHtml("metaMensualVista", formatMoney(metaMensualTotal()));
 
-    const tbody = document.querySelector("#tablaMetasMes tbody");
+    const categorias = agruparCategorias(DATASET_FILTRADO);
+    const tbody = document.querySelector("#tablaMetasCategoria tbody");
+
     if(tbody){
-        tbody.innerHTML = etiquetas.length ? etiquetas.map((k, i) => {
-            const cumplimiento = metas[i] > 0 ? (ventas[i] / metas[i]) * 100 : 0;
-            return `<tr><td>${k}</td><td>${formatMoney(metas[i])}</td><td>${formatMoney(ventas[i])}</td><td>${cumplimiento.toFixed(1)}%</td><td>${badgeEstado(cumplimiento)}</td></tr>`;
-        }).join("") : `<tr><td colspan="5">Sin registros</td></tr>`;
+        tbody.innerHTML = ["PARTICULAR","RED","EXCEDENTES"].map(cat => {
+            const venta = categorias[cat]?.valor || 0;
+            const meta = metaCategoriaMensual(cat) * MESES_EQUIVALENTES_ACTUAL;
+            const pct = meta > 0 ? (venta / meta) * 100 : 0;
+
+            return `
+                <tr>
+                    <td>${cat}</td>
+                    <td>${formatMoney(meta)}</td>
+                    <td>${formatMoney(venta)}</td>
+                    <td>${pct.toFixed(1)}%</td>
+                    <td>${badgeEstado(pct)}</td>
+                </tr>
+            `;
+        }).join("");
     }
 
-    crearChartLine("graficoMetasMes", etiquetas, [
-        {label:"Venta mensual",data:ventas,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.14)",fill:true,tension:.3},
-        {label:"Meta configurada",data:metas,borderColor:"#ef4444",borderDash:[8,6],pointRadius:0,fill:false}
-    ], "Meta mensual configurada vs venta");
+    const labels = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+    const metas = labels.map((_, index) => metaMensualTotal() * (index + 1));
+
+    crearChartLine("graficoMetas", labels, [
+        {label:"Meta acumulada", data:metas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.25}
+    ], "Meta acumulada anual");
 }
 
-function actualizarComparativoAnual(){
-    const f = obtenerRangoFechas();
+function renderCumplimientoMensual(){
+    const mensual = agruparMensual(DATASET_FILTRADO);
+    const labels = ordenarMeses(Object.keys(mensual));
+
+    const ventas = labels.map(k => mensual[k].venta);
+    const metas = labels.map(() => metaMensualTotal());
+
+    crearChartLine("graficoCumplimientoMensual", labels, [
+        {label:"Venta", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
+        {label:"Meta", data:metas, borderColor:"#ef4444", borderDash:[8,6], fill:false, pointRadius:0}
+    ], "Cumplimiento mensual");
+
+    const tbody = document.querySelector("#tablaCumplimientoMensual tbody");
+    if(tbody){
+        tbody.innerHTML = labels.length ? labels.map((k, i) => {
+            const venta = ventas[i];
+            const meta = metas[i];
+            const pct = meta > 0 ? (venta / meta) * 100 : 0;
+            const faltante = Math.max(meta - venta, 0);
+
+            return `
+                <tr>
+                    <td>${k}</td>
+                    <td>${formatMoney(meta)}</td>
+                    <td>${formatMoney(venta)}</td>
+                    <td>${pct.toFixed(1)}%</td>
+                    <td>${formatMoney(faltante)}</td>
+                    <td>${badgeEstado(pct)}</td>
+                </tr>
+            `;
+        }).join("") : `<tr><td colspan="6">Sin registros</td></tr>`;
+    }
+}
+
+function renderComparativoAnual(){
+    const f = obtenerFiltros();
     const fin = f.fechaFin ? new Date(`${f.fechaFin}T00:00:00`) : new Date();
     const anioActual = fin.getFullYear();
     const anioAnterior = anioActual - 1;
@@ -1708,15 +1247,15 @@ function actualizarComparativoAnual(){
     const meses = Array.from({length:12}, (_,i) => i + 1);
     const labels = meses.map(m => nombreMes(m));
 
-    const ventasActual = meses.map(m => sumar(DATASET_NORMAL.filter(r => r.fecha && r.fecha.getFullYear() === anioActual && r.fecha.getMonth() + 1 === m && coincideFiltrosNoFecha(r, obtenerRangoFechas()))));
-    const ventasAnterior = meses.map(m => sumar(DATASET_NORMAL.filter(r => r.fecha && r.fecha.getFullYear() === anioAnterior && r.fecha.getMonth() + 1 === m && coincideFiltrosNoFecha(r, obtenerRangoFechas()))));
+    const ventasActual = meses.map(m => sumar(DATASET_NORMAL.filter(r => r.fecha && r.fecha.getFullYear() === anioActual && r.fecha.getMonth() + 1 === m && coincideFiltrosNoFecha(r, f))));
+    const ventasAnterior = meses.map(m => sumar(DATASET_NORMAL.filter(r => r.fecha && r.fecha.getFullYear() === anioAnterior && r.fecha.getMonth() + 1 === m && coincideFiltrosNoFecha(r, f))));
 
-    crearChartLine("graficoYoYMensual", labels, [
-        {label:String(anioActual),data:ventasActual,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.14)",fill:true,tension:.3},
-        {label:String(anioAnterior),data:ventasAnterior,borderColor:"#2563eb",backgroundColor:"rgba(37,99,235,.10)",fill:true,tension:.3}
-    ], "Comparativo año actual vs anterior");
+    crearChartLine("graficoComparativoAnual", labels, [
+        {label:String(anioActual), data:ventasActual, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
+        {label:String(anioAnterior), data:ventasAnterior, borderColor:"#2563eb", backgroundColor:"rgba(37,99,235,.10)", fill:true, tension:.3}
+    ], "Año actual vs año anterior");
 
-    const tbody = document.querySelector("#tablaYoY tbody");
+    const tbody = document.querySelector("#tablaComparativoAnual tbody");
     if(tbody){
         tbody.innerHTML = labels.map((mes, i) => {
             const actual = ventasActual[i];
@@ -1724,144 +1263,166 @@ function actualizarComparativoAnual(){
             const diferencia = actual - anterior;
             const crecimiento = anterior > 0 ? (diferencia / anterior) * 100 : 0;
 
-            return `<tr><td>${mes}</td><td>${formatMoney(actual)}</td><td>${formatMoney(anterior)}</td><td>${formatMoney(diferencia)}</td><td>${crecimiento.toFixed(1)}%</td></tr>`;
+            return `
+                <tr>
+                    <td>${mes}</td>
+                    <td>${formatMoney(actual)}</td>
+                    <td>${formatMoney(anterior)}</td>
+                    <td>${formatMoney(diferencia)}</td>
+                    <td>${crecimiento.toFixed(1)}%</td>
+                </tr>
+            `;
         }).join("");
     }
 }
 
-function nombreMes(n){
-    return ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][Number(n) - 1] || String(n);
-}
+function renderPareto(){
+    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
+    const total = gestores.reduce((acc,g) => acc + g.valor, 0);
 
-function actualizarPareto(){
-    const total = sumar(DATASET_FILTRADO);
-    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).map(x => [x.nombre, x.valor]).sort((a,b)=>b[1]-a[1]);
-    const servicios = Object.entries(agruparServicios(DATASET_FILTRADO)).map(([k,v]) => [k, v.valor]).sort((a,b)=>b[1]-a[1]);
-    const sedes = Object.entries(agruparSedes(DATASET_FILTRADO)).map(([k,v]) => [k, v.valor]).sort((a,b)=>b[1]-a[1]);
-
-    renderParetoTabla("#tablaParetoGestores tbody", gestores, total);
-    renderParetoTabla("#tablaParetoServicios tbody", servicios, total);
-
-    crearChartPareto("graficoParetoGestores", gestores.slice(0,12), total, "Pareto gestores");
-    crearChartPareto("graficoParetoServicios", servicios.slice(0,12), total, "Pareto servicios");
-    crearChartPareto("graficoParetoSedes", sedes.slice(0,12), total, "Pareto sedes");
-
-    const principales = calcularParetoItems(gestores, total).filter(x => x.acumulado <= 80).length;
-    setHtml("textoPareto", `El análisis Pareto permite identificar los elementos que concentran la mayor parte de las ventas. En gestores, aproximadamente <strong>${principales}</strong> concentran la mayor proporción del resultado del rango seleccionado.`);
-}
-
-function calcularParetoItems(items, total){
     let acumulado = 0;
-    return items.map(([nombre, valor]) => {
-        const participacion = total > 0 ? (valor / total) * 100 : 0;
+    const data = gestores.map(g => {
+        const participacion = total > 0 ? (g.valor / total) * 100 : 0;
         acumulado += participacion;
-        return {nombre, valor, participacion, acumulado};
-    });
-}
 
-function renderParetoTabla(selector, items, total){
-    const tbody = document.querySelector(selector);
-    if(!tbody) return;
-
-    const data = calcularParetoItems(items, total);
-
-    if(data.length === 0){
-        tbody.innerHTML = `<tr><td colspan="5">Sin registros</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = data.map(item => `
-        <tr>
-            <td>${item.nombre}</td>
-            <td>${formatMoney(item.valor)}</td>
-            <td>${item.participacion.toFixed(1)}%</td>
-            <td>${item.acumulado.toFixed(1)}%</td>
-            <td>${item.acumulado <= 80 ? '<span class="badge badge-info">Pareto 80/20</span>' : '<span class="badge badge-warning">Complementario</span>'}</td>
-        </tr>
-    `).join("");
-}
-
-function crearChartPareto(id, items, total, titulo){
-    const labels = items.map(([k]) => k);
-    const valores = items.map(([,v]) => v);
-    const acumulados = calcularParetoItems(items, total).map(x => x.acumulado);
-
-    crearChartLine(id, labels, [
-        {label:"Valor",data:valores,borderColor:"#00a651",backgroundColor:"rgba(0,166,81,.14)",fill:true,tension:.3,yAxisID:"y"},
-        {label:"Acumulado %",data:acumulados,borderColor:"#ef4444",backgroundColor:"rgba(239,68,68,.10)",fill:false,tension:.3,yAxisID:"y1"}
-    ], titulo);
-
-    if(charts[id]){
-        charts[id].options.scales.y1 = {
-            beginAtZero:true,
-            position:"right",
-            max:100,
-            grid:{drawOnChartArea:false}
+        return {
+            nombre:g.nombre,
+            valor:g.valor,
+            participacion,
+            acumulado
         };
-        charts[id].update();
+    });
+
+    const principales = data.filter(x => x.acumulado <= 80).length;
+    setHtml("textoPareto", `El análisis Pareto identifica qué gestores concentran mayor parte de las ventas. En el rango actual, aproximadamente <strong>${principales}</strong> gestores concentran el resultado principal.`);
+
+    const tbody = document.querySelector("#tablaParetoGestores tbody");
+    if(tbody){
+        tbody.innerHTML = data.length ? data.map(item => `
+            <tr>
+                <td>${item.nombre}</td>
+                <td>${formatMoney(item.valor)}</td>
+                <td>${item.participacion.toFixed(1)}%</td>
+                <td>${item.acumulado.toFixed(1)}%</td>
+                <td>${item.acumulado <= 80 ? '<span class="badge badge-info">Pareto 80/20</span>' : '<span class="badge badge-warning">Complementario</span>'}</td>
+            </tr>
+        `).join("") : `<tr><td colspan="5">Sin registros</td></tr>`;
     }
+
+    crearChartBar(
+        "graficoParetoGestores",
+        data.slice(0,15).map(x => x.nombre),
+        data.slice(0,15).map(x => x.valor),
+        "Venta",
+        "Pareto por gestor",
+        true
+    );
 }
 
-function actualizarVistaMetas(metaInfo){
-    setHtml("vistaMetaDiaria", formatMoney(META_MENSUAL_BASE / 30.4375));
-    setHtml("vistaMetaSemanal", formatMoney(META_MENSUAL_BASE / 30.4375 * 7));
-    setHtml("vistaMetaMensual", formatMoney(META_MENSUAL_BASE));
-    setHtml("vistaMetaTrimestral", formatMoney(META_TRIMESTRAL_BASE));
-    setHtml("vistaMetaSemestral", formatMoney(META_SEMESTRAL_BASE));
-    setHtml("vistaMetaAnual", formatMoney(META_ANUAL_BASE));
-    setHtml("vistaMetaRango", formatMoney(metaInfo.meta));
-    setHtml("vistaMesesRango", metaInfo.mesesEquivalentes.toFixed(2));
+function calcularCalidadDatos(){
+    const total = DATASET_NORMAL.length;
+    const fechasInvalidas = DATASET_NORMAL.filter(r => !r.fecha).length;
+    const valoresCero = DATASET_NORMAL.filter(r => r.generaVenta && r.valorVenta === 0).length;
+    const sinGestor = DATASET_NORMAL.filter(r => !r.gestor).length;
+    const sinCategoria = DATASET_NORMAL.filter(r => !r.categoriaGerencial).length;
+
+    const errores = fechasInvalidas + valoresCero + sinGestor + sinCategoria;
+    const calidad = total > 0 ? Math.max(100 - ((errores / (total * 4)) * 100), 0) : 0;
+
+    return {
+        total,
+        fechasInvalidas,
+        valoresCero,
+        sinGestor,
+        sinCategoria,
+        calidad
+    };
 }
 
-function actualizarAdmin(totalOriginal, totalFiltrado, metaInfo){
-    setHtml("adminMetaMensual", formatMoney(META_MENSUAL_BASE));
-    setHtml("adminMetaGeneral", formatMoney(metaInfo.meta));
-    setHtml("adminUltimaActualizacion", new Date().toLocaleString("es-CO"));
-    setHtml("adminTotalRegistros", `${totalFiltrado.length} / ${totalOriginal.length}`);
+function renderDatos(){
+    const calidad = calcularCalidadDatos();
 
-    const f = obtenerRangoFechas();
-    let texto = `${f.fechaInicio || "inicio"} - ${f.fechaFin || "fin"}`;
-    if(f.gestor) texto += ` | Gestor: ${f.gestor}`;
-    if(f.categoria) texto += ` | Categoría: ${f.categoria}`;
-    if(f.servicio) texto += ` | Servicio: ${f.servicio}`;
-    if(f.sede) texto += ` | Sede: ${f.sede}`;
-    if(f.busqueda) texto += ` | Búsqueda: ${f.busqueda}`;
+    setHtml("diagEstadoApi", API_STATUS.mensaje);
+    setHtml("diagTotalApi", DATASET_API.length);
+    setHtml("diagManual", DATASET_MANUAL.length);
+    setHtml("diagFiltrados", DATASET_FILTRADO.length);
+    setHtml("diagFechasInvalidas", calidad.fechasInvalidas);
+    setHtml("diagValoresCero", calidad.valoresCero);
+    setHtml("diagCalidad", calidad.calidad.toFixed(1) + "%");
 
-    setHtml("adminRangoFechas", texto);
-}
+    const estadoApi = $("diagEstadoApi");
+    if(estadoApi) estadoApi.style.color = API_STATUS.ok ? "#16a34a" : "#dc2626";
 
-function actualizarBaseDatos(){
-    const d = calcularCalidadDatos();
+    const tbodyParams = document.querySelector("#tablaParametros tbody");
+    if(tbodyParams){
+        const rows = [];
 
-    setHtml("bdTotalApi", DATASET_API.length);
-    setHtml("bdTotalManual", DATASET_MANUAL.length);
-    setHtml("bdTotalFiltrados", DATASET_FILTRADO.length);
-    setHtml("bdValoresCero", d.valoresCero);
+        Object.entries(PARAMETROS.gestor).forEach(([k,v]) => rows.push(["GESTOR", k, v]));
+        Object.entries(PARAMETROS.categoria).forEach(([k,v]) => rows.push(["META_CATEGORIA", k, v]));
+        Object.entries(PARAMETROS.excedente).forEach(([k,v]) => rows.push(["META_EXCEDENTE", k, v]));
+
+        tbodyParams.innerHTML = rows.length ? rows.map(r => `
+            <tr>
+                <td>${r[0]}</td>
+                <td>${r[1]}</td>
+                <td>${formatMoney(r[2])}</td>
+            </tr>
+        `).join("") : `<tr><td colspan="3">No se detectaron parámetros</td></tr>`;
+    }
 
     const tbody = document.querySelector("#tablaBaseDatos tbody");
-    if(!tbody) return;
+    if(tbody){
+        const muestra = DATASET_FILTRADO.slice(0, 70);
 
-    const muestra = DATASET_FILTRADO.slice(0, 60);
-
-    if(muestra.length === 0){
-        tbody.innerHTML = `<tr><td colspan="7">Sin registros</td></tr>`;
-        return;
+        tbody.innerHTML = muestra.length ? muestra.map(row => `
+            <tr>
+                <td>${row.origen}</td>
+                <td>${row.fechaTexto || "-"}</td>
+                <td>${row.gestor || "-"}</td>
+                <td>${row.categoriaGerencial || "-"}</td>
+                <td>${row.servicio || "-"}</td>
+                <td>${row.sede || "-"}</td>
+                <td>${formatMoney(row.valorVenta)}</td>
+            </tr>
+        `).join("") : `<tr><td colspan="7">Sin registros</td></tr>`;
     }
-
-    tbody.innerHTML = muestra.map(row => `
-        <tr>
-            <td>${row.origen}</td>
-            <td>${row.fechaTexto || "-"}</td>
-            <td>${row.gestor || "-"}</td>
-            <td>${row.categoria || "-"}</td>
-            <td>${row.servicio || "-"}</td>
-            <td>${row.sede || "-"}</td>
-            <td>${formatMoney(row.valor)}</td>
-        </tr>
-    `).join("");
 }
 
-function actualizarRegistrosManuales(){
+function renderAlertas(resumen){
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
+    const alertas = [];
+
+    if(!API_STATUS.ok){
+        alertas.push(`Revisar conexión o estructura API: ${API_STATUS.mensaje}.`);
+    }
+
+    if(DATASET_FILTRADO.length === 0){
+        alertas.push("No hay registros para el rango seleccionado.");
+    }
+
+    if(cumplimiento < 80){
+        alertas.push(`Cumplimiento bajo: ${cumplimiento.toFixed(1)}%. Requiere plan de acción.`);
+    }else if(cumplimiento < 100){
+        alertas.push(`Cumplimiento en riesgo controlado: ${cumplimiento.toFixed(1)}%.`);
+    }else{
+        alertas.push(`Meta cumplida: ${cumplimiento.toFixed(1)}%.`);
+    }
+
+    if((PARAMETROS.categoria["PARTICULAR"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para PARTICULAR.");
+    if((PARAMETROS.categoria["RED"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para RED.");
+    if((PARAMETROS.categoria["EXCEDENTES"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para EXCEDENTES.");
+
+    const html = alertas.map(a => `
+        <div class="alerta-item">
+            <i class="fas fa-circle-exclamation"></i>
+            <span>${a}</span>
+        </div>
+    `).join("");
+
+    setHtml("alertasGerencialesVista", html || "<p>Sin alertas por el momento.</p>");
+}
+
+function renderRegistrosManuales(){
     const tbody = document.querySelector("#tablaRegistrosManuales tbody");
     if(!tbody) return;
 
@@ -1895,8 +1456,13 @@ function agregarRegistroManual(){
         Observacion:$("regObservacion")?.value || ""
     };
 
-    if(!item.Fecha || !item.Gestor || item.Valor <= 0){
-        toast("Fecha, gestor y valor son obligatorios.", "warning");
+    if(!item.Fecha || !item.Gestor || !item.Tipo_Homenaje){
+        toast("Fecha, gestor y categoría son obligatorios.", "warning");
+        return;
+    }
+
+    if(item.Tipo_Homenaje !== "PLAN" && item.Valor <= 0){
+        toast("Para Particular, Red o Excedentes el valor debe ser mayor a cero.", "warning");
         return;
     }
 
@@ -1904,9 +1470,9 @@ function agregarRegistroManual(){
     data.push(item);
     localStorage.setItem("registrosManuales", JSON.stringify(data));
 
-    ["regFecha","regGestor","regCategoria","regServicio","regSede","regValor","regObservacion"].forEach(id => setValue(id, ""));
+    ["regFecha","regGestor","regServicio","regSede","regValor","regObservacion"].forEach(id => setValue(id, ""));
+    setValue("regCategoria", "");
 
-    registrarBitacora("Registro manual", `Se agregó registro por ${formatMoney(item.Valor)}.`);
     toast("Registro manual agregado.");
     cargarDashboard();
 }
@@ -1915,7 +1481,7 @@ function eliminarRegistroManual(id){
     let data = JSON.parse(localStorage.getItem("registrosManuales") || "[]");
     data = data.filter(item => item.id !== id);
     localStorage.setItem("registrosManuales", JSON.stringify(data));
-    registrarBitacora("Registro manual", "Se eliminó un registro manual.");
+
     toast("Registro manual eliminado.");
     cargarDashboard();
 }
@@ -1927,130 +1493,22 @@ function eliminarTodosManuales(){
     if(!confirmar) return;
 
     localStorage.removeItem("registrosManuales");
-    registrarBitacora("Registro manual", "Se eliminaron todos los registros manuales.");
     toast("Registros manuales eliminados.");
     cargarDashboard();
 }
 
-function actualizarPruebas(){
-    const pruebas = [];
-    const resumen = ULTIMO_RESUMEN || {total:0};
-    const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
-    const calidad = calcularCalidadDatos();
-
-    pruebas.push(["Conexión API", API_STATUS.ok, API_STATUS.mensaje]);
-    pruebas.push(["Datos cargados", DATASET_NORMAL.length > 0, `${DATASET_NORMAL.length} registros totales`]);
-    pruebas.push(["Filtros activos", true, "Fecha, gestor, categoría, servicio, sede, año, mes y estado disponibles"]);
-    pruebas.push(["Cálculo de meta", META_RANGO_ACTUAL > 0, formatMoney(META_RANGO_ACTUAL)]);
-    pruebas.push(["Cumplimiento calculado", !isNaN(cumplimiento), `${cumplimiento.toFixed(1)}%`]);
-    pruebas.push(["Calidad de datos", calidad.calidad >= 80, `${calidad.calidad.toFixed(1)}%`]);
-    pruebas.push(["PDF disponible", typeof html2pdf !== "undefined", "Librería PDF cargada"]);
-    pruebas.push(["Excel disponible", typeof XLSX !== "undefined", "Librería XLSX cargada"]);
-    pruebas.push(["Registro manual", true, "Disponible con almacenamiento local"]);
-    pruebas.push(["Comparativo anual", true, "Módulo activo"]);
-    pruebas.push(["Pareto 80/20", true, "Módulo activo"]);
-
-    const aprobadas = pruebas.filter(p => p[1]).length;
-    setHtml("textoPruebas", `Pruebas aprobadas: <strong>${aprobadas}</strong> de <strong>${pruebas.length}</strong>.`);
-
-    const tbody = document.querySelector("#tablaPruebas tbody");
-    if(tbody){
-        tbody.innerHTML = pruebas.map(([nombre, ok, obs]) => `
-            <tr>
-                <td>${nombre}</td>
-                <td>${ok ? '<span class="badge badge-ok">Aprobada</span>' : '<span class="badge badge-danger">Revisar</span>'}</td>
-                <td>${obs}</td>
-            </tr>
-        `).join("");
-    }
-}
-
-function actualizarConfiguracion(){
-    setValue("configMetaMensual", META_MENSUAL_BASE);
-    setValue("configTitulo", localStorage.getItem("dashboardTitulo") || "General Report Jkfh");
-    setValue("configSubtitulo", localStorage.getItem("dashboardSubtitulo") || "Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo");
-    setValue("configEmpresa", localStorage.getItem("dashboardEmpresa") || "General Report");
-    setValue("configArea", localStorage.getItem("dashboardArea") || "Área de Homenajes");
-    setValue("configResponsable", localStorage.getItem("dashboardResponsable") || "George Korfan");
-    setValue("configLogoUrl", localStorage.getItem("dashboardLogoUrl") || "");
-    setValue("configAccessCode", ACCESS_CODE);
-    setValue("configEmails", localStorage.getItem("dashboardEmails") || "");
-    setValue("configAutoMinutos", AUTO_MINUTOS);
-
-    setValue("configMetasGestor", localStorage.getItem("metasGestor") || "");
-    setValue("configMetasSede", localStorage.getItem("metasSede") || "");
-    setValue("configMetasCategoria", localStorage.getItem("metasCategoria") || "");
-    setValue("configMetasMes", localStorage.getItem("metasMes") || "");
-
-    const titulo = localStorage.getItem("dashboardTitulo") || "General Report Jkfh";
-    const subtitulo = localStorage.getItem("dashboardSubtitulo") || "Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo";
-    const empresa = localStorage.getItem("dashboardEmpresa") || "General Report";
-    const logo = localStorage.getItem("dashboardLogoUrl") || "";
-
-    setHtml("tituloDashboard", titulo);
-    setHtml("subtituloDashboard", subtitulo);
-    setHtml("sidebarEmpresa", empresa);
-
-    ["logoTopbar","sidebarLogo"].forEach(id => {
-        const img = $(id);
-        if(img){
-            if(logo){
-                img.src = logo;
-                img.style.display = "block";
-            }else{
-                img.src = "";
-                img.style.display = "none";
-            }
-        }
-    });
-}
-
-function renderBitacora(){
-    const tbody = document.querySelector("#tablaBitacora tbody");
-    if(!tbody) return;
-
-    const data = JSON.parse(localStorage.getItem("dashboardBitacora") || "[]");
-
-    if(data.length === 0){
-        tbody.innerHTML = `<tr><td colspan="3">Sin acciones registradas</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = data.map(item => `<tr><td>${item.fecha}</td><td>${item.accion}</td><td>${item.detalle}</td></tr>`).join("");
-}
-
-function cambiarVista(seccion){
-    document.querySelectorAll(".menu-item").forEach(item => item.classList.remove("active"));
-    document.querySelectorAll(".vista").forEach(v => v.classList.remove("active-view"));
-
-    const itemMenu = document.querySelector(`.menu-item[data-seccion="${seccion}"]`);
-    if(itemMenu) itemMenu.classList.add("active");
-
-    const vista = $(seccion);
-    if(vista) vista.classList.add("active-view");
-
-    setTimeout(redimensionarGraficos, 180);
-}
-
-function redimensionarGraficos(){
-    Object.values(charts).forEach(chart => {
-        if(chart && typeof chart.resize === "function") chart.resize();
-    });
-}
-
-function generarReporteFormal(){
+function renderReporteFormal(){
     const reporte = $("reporteFormal");
     if(!reporte || !ULTIMO_RESUMEN || !ULTIMA_META_INFO) return;
-
-    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ULTIMO_RESUMEN.total / META_RANGO_ACTUAL) * 100 : 0;
-    const faltante = Math.max(META_RANGO_ACTUAL - ULTIMO_RESUMEN.total, 0);
-    const d = calcularCalidadDatos();
 
     const titulo = localStorage.getItem("dashboardTitulo") || "General Report Jkfh";
     const empresa = localStorage.getItem("dashboardEmpresa") || "General Report";
     const area = localStorage.getItem("dashboardArea") || "Área de Homenajes";
     const responsable = localStorage.getItem("dashboardResponsable") || "George Korfan";
     const logo = localStorage.getItem("dashboardLogoUrl") || "";
+
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ULTIMO_RESUMEN.total / META_RANGO_ACTUAL) * 100 : 0;
+    const faltante = Math.max(META_RANGO_ACTUAL - ULTIMO_RESUMEN.total, 0);
 
     reporte.innerHTML = `
         <div class="print-header">
@@ -2068,134 +1526,146 @@ function generarReporteFormal(){
         <p>Rango analizado: ${fechaISO(ULTIMA_META_INFO.inicio)} a ${fechaISO(ULTIMA_META_INFO.fin)}</p>
 
         <div class="print-grid">
-            <div class="print-kpi"><span>Meta del rango</span><strong>${formatMoney(META_RANGO_ACTUAL)}</strong></div>
-            <div class="print-kpi"><span>Venta real</span><strong>${formatMoney(ULTIMO_RESUMEN.total)}</strong></div>
+            <div class="print-kpi"><span>Meta</span><strong>${formatMoney(META_RANGO_ACTUAL)}</strong></div>
+            <div class="print-kpi"><span>Venta Real</span><strong>${formatMoney(ULTIMO_RESUMEN.total)}</strong></div>
             <div class="print-kpi"><span>Cumplimiento</span><strong>${cumplimiento.toFixed(1)}%</strong></div>
             <div class="print-kpi"><span>Faltante</span><strong>${formatMoney(faltante)}</strong></div>
         </div>
 
-        <h2>Resumen Ejecutivo</h2>
+        <h2>Resumen ejecutivo</h2>
         <p>
-            El rango seleccionado comprende ${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes.
-            La venta acumulada alcanza ${formatMoney(ULTIMO_RESUMEN.total)}, con cumplimiento del ${cumplimiento.toFixed(1)}%.
-            Estado general: ${textoEstado(cumplimiento)}.
+            Las ventas consideradas para cumplimiento corresponden a PARTICULAR, RED y EXCEDENTES.
+            PLAN solo se considera como cantidad atendida y no suma venta ni cumplimiento de meta.
         </p>
 
-        <h2>Indicadores de Control</h2>
+        <h2>Detalle por categoría</h2>
         <table>
-            <thead><tr><th>Indicador</th><th>Resultado</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Categoría</th>
+                    <th>Cantidad</th>
+                    <th>Venta</th>
+                    <th>Meta</th>
+                    <th>Cumplimiento</th>
+                </tr>
+            </thead>
             <tbody>
-                <tr><td>Meta mensual base</td><td>${formatMoney(META_MENSUAL_BASE)}</td></tr>
-                <tr><td>Meta anual</td><td>${formatMoney(META_ANUAL_BASE)}</td></tr>
-                <tr><td>Registros analizados</td><td>${DATASET_FILTRADO.length}</td></tr>
-                <tr><td>Registros API</td><td>${DATASET_API.length}</td></tr>
-                <tr><td>Registros manuales</td><td>${DATASET_MANUAL.length}</td></tr>
-                <tr><td>Calidad de datos</td><td>${d.calidad.toFixed(1)}%</td></tr>
-                <tr><td>Estado API</td><td>${API_STATUS.mensaje}</td></tr>
-                <tr><td>Duplicados detectados</td><td>${obtenerDuplicados().length}</td></tr>
+                ${["PARTICULAR","RED","EXCEDENTES","PLAN"].map(cat => {
+                    const data = agruparCategorias(DATASET_FILTRADO)[cat] || {cantidad:0, valor:0};
+                    const generaVenta = categoriaGeneraVenta(cat);
+                    const meta = generaVenta ? metaCategoriaMensual(cat) * MESES_EQUIVALENTES_ACTUAL : 0;
+                    const pct = generaVenta && meta > 0 ? (data.valor / meta) * 100 : 0;
+
+                    return `
+                        <tr>
+                            <td>${cat}</td>
+                            <td>${data.cantidad}</td>
+                            <td>${generaVenta ? formatMoney(data.valor) : "-"}</td>
+                            <td>${generaVenta ? formatMoney(meta) : "-"}</td>
+                            <td>${generaVenta ? pct.toFixed(1) + "%" : "-"}</td>
+                        </tr>
+                    `;
+                }).join("")}
             </tbody>
         </table>
-
-        <h2>Conclusión Gerencial</h2>
-        <p>${$("conclusionGerencial")?.innerText || ""}</p>
-
-        <h2>Recomendación</h2>
-        <p>Revisar el módulo de Pareto 80/20, el comparativo año actual vs anterior, las metas avanzadas y la auditoría de datos antes de presentar el informe definitivo.</p>
 
         <p style="margin-top:35px;"><strong>Firma responsable:</strong> ${responsable}</p>
     `;
 }
 
-function exportarExcel(){
-    if(typeof XLSX === "undefined") return;
+function exportarPDF(){
+    renderReporteFormal();
 
-    const hojaDatos = DATASET_FILTRADO.map(row => ({
-        Origen:row.origen || "",
-        Fecha:row.fechaTexto || "",
-        Gestor:row.gestor || "",
-        Categoria:row.categoria || "",
-        Servicio:row.servicio || "",
-        Sede:row.sede || "",
-        Valor:row.valor,
-        Observacion:row.observacion || ""
+    const elemento = $("reporteFormal");
+    if(!elemento || typeof html2pdf === "undefined"){
+        toast("No se pudo generar PDF. Verifica conexión a la librería.", "error");
+        return;
+    }
+
+    const opciones = {
+        margin:0.25,
+        filename:"reporte_gerencial_homenajes.pdf",
+        image:{type:"jpeg", quality:0.98},
+        html2canvas:{scale:2, useCORS:true},
+        jsPDF:{unit:"in", format:"a4", orientation:"portrait"}
+    };
+
+    html2pdf().set(opciones).from(elemento).save();
+    setHtml("estadoReporte", "PDF generado correctamente.");
+    toast("PDF generado correctamente.");
+}
+
+function exportarExcel(){
+    if(typeof XLSX === "undefined"){
+        toast("No se pudo generar Excel. Verifica conexión a la librería.", "error");
+        return;
+    }
+
+    const datos = DATASET_FILTRADO.map(row => ({
+        Origen:row.origen,
+        Fecha:row.fechaTexto,
+        Gestor:row.gestor,
+        Categoria_Original:row.categoria,
+        Categoria_Gerencial:row.categoriaGerencial,
+        Servicio:row.servicio,
+        Sede:row.sede,
+        Valor_Original:row.valorOriginal,
+        Valor_Venta:row.valorVenta,
+        Genera_Venta:row.generaVenta ? "SI" : "NO"
     }));
 
-    const resumen = calcularResumen(DATASET_FILTRADO);
-    const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
-    const d = calcularCalidadDatos();
-
-    const wsResumen = XLSX.utils.aoa_to_sheet([
+    const resumen = [
         ["Indicador", "Valor"],
-        ["Meta Mensual Base", META_MENSUAL_BASE],
-        ["Meta Trimestral", META_TRIMESTRAL_BASE],
-        ["Meta Semestral", META_SEMESTRAL_BASE],
-        ["Meta Anual", META_ANUAL_BASE],
-        ["Meta del Rango", META_RANGO_ACTUAL],
-        ["Meses Equivalentes", MESES_EQUIVALENTES_ACTUAL],
-        ["Ventas Totales", resumen.total],
-        ["Cumplimiento %", cumplimiento],
-        ["Faltante", Math.max(META_RANGO_ACTUAL - resumen.total, 0)],
-        ["Registros Filtrados", DATASET_FILTRADO.length],
+        ["Meta mensual", metaMensualTotal()],
+        ["Meta rango", META_RANGO_ACTUAL],
+        ["Venta rango", ULTIMO_RESUMEN?.total || 0],
+        ["Cumplimiento", META_RANGO_ACTUAL > 0 ? ((ULTIMO_RESUMEN?.total || 0) / META_RANGO_ACTUAL) * 100 : 0],
         ["Registros API", DATASET_API.length],
         ["Registros Manuales", DATASET_MANUAL.length],
-        ["Calidad de datos %", d.calidad],
-        ["Estado API", API_STATUS.mensaje],
-        ["Duplicados detectados", obtenerDuplicados().length]
-    ]);
+        ["Estado API", API_STATUS.mensaje]
+    ];
 
-    const wsDatos = XLSX.utils.json_to_sheet(hojaDatos);
+    const parametros = [];
+    Object.entries(PARAMETROS.gestor).forEach(([k,v]) => parametros.push({Tipo:"GESTOR", Nombre:k, Valor:v}));
+    Object.entries(PARAMETROS.categoria).forEach(([k,v]) => parametros.push({Tipo:"META_CATEGORIA", Nombre:k, Valor:v}));
+    Object.entries(PARAMETROS.excedente).forEach(([k,v]) => parametros.push({Tipo:"META_EXCEDENTE", Nombre:k, Valor:v}));
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen Ejecutivo");
-    XLSX.utils.book_append_sheet(wb, wsDatos, "Base Filtrada");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), "Resumen");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos), "Datos Filtrados");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(parametros), "Parametros");
 
-    XLSX.writeFile(wb, "dashboard_gerencial_homenajes.xlsx");
-    setHtml("estadoReporte", "Reporte Excel generado correctamente.");
+    XLSX.writeFile(wb, "dashboard_homenajes.xlsx");
+
+    setHtml("estadoReporte", "Excel generado correctamente.");
     toast("Excel generado correctamente.");
-    registrarBitacora("Exportación Excel", "Se generó archivo Excel.");
 }
 
 function exportarCSV(){
-    const headers = ["Origen","Fecha","Gestor","Categoria","Servicio","Sede","Valor","Observacion"];
-
-    const rows = DATASET_FILTRADO.map(r => [
-        r.origen || "",
-        r.fechaTexto || "",
-        r.gestor || "",
-        r.categoria || "",
-        r.servicio || "",
-        r.sede || "",
-        r.valor || 0,
-        r.observacion || ""
-    ]);
+    const headers = ["Origen","Fecha","Gestor","Categoria_Gerencial","Servicio","Sede","Valor_Venta"];
+    const rows = DATASET_FILTRADO.map(r => [r.origen, r.fechaTexto, r.gestor, r.categoriaGerencial, r.servicio, r.sede, r.valorVenta]);
 
     const csv = [headers, ...rows]
-        .map(row => row.map(cell => `"${String(cell).replace(/"/g,'""')}"`).join(","))
+        .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g,'""')}"`).join(","))
         .join("\n");
 
     descargarArchivo("dashboard_homenajes.csv", csv, "text/csv;charset=utf-8;");
+    setHtml("estadoReporte", "CSV generado correctamente.");
     toast("CSV generado correctamente.");
-    registrarBitacora("Exportación CSV", "Se generó archivo CSV.");
 }
 
 function exportarJSON(){
     const backup = {
         fecha:new Date().toISOString(),
-        configuracion:{
-            metaMensual:META_MENSUAL_BASE,
-            titulo:localStorage.getItem("dashboardTitulo") || "General Report Jkfh",
-            empresa:localStorage.getItem("dashboardEmpresa") || "",
-            area:localStorage.getItem("dashboardArea") || "",
-            responsable:localStorage.getItem("dashboardResponsable") || ""
-        },
+        parametros:PARAMETROS,
         apiStatus:API_STATUS,
         registrosFiltrados:DATASET_FILTRADO,
         registrosManuales:DATASET_MANUAL
     };
 
     descargarArchivo("backup_dashboard_homenajes.json", JSON.stringify(backup, null, 2), "application/json;charset=utf-8;");
-    toast("Backup JSON generado.");
-    registrarBitacora("Backup JSON", "Se generó copia de seguridad JSON.");
+    setHtml("estadoReporte", "Backup JSON generado correctamente.");
+    toast("Backup JSON generado correctamente.");
 }
 
 function descargarArchivo(nombre, contenido, tipo){
@@ -2212,46 +1682,64 @@ function descargarArchivo(nombre, contenido, tipo){
     URL.revokeObjectURL(url);
 }
 
-function exportarPDF(){
-    generarReporteFormal();
+function limpiarCache(){
+    const confirmar = confirm("¿Deseas limpiar configuraciones locales? No elimina los registros manuales.");
+    if(!confirmar) return;
 
-    const elemento = $("reporteFormal");
-    if(!elemento || typeof html2pdf === "undefined") return;
+    [
+        "dashboardTema",
+        "dashboardSidebar",
+        "dashboardTitulo",
+        "dashboardSubtitulo",
+        "dashboardEmpresa",
+        "dashboardArea",
+        "dashboardResponsable",
+        "dashboardLogoUrl",
+        "parametrosManual"
+    ].forEach(k => localStorage.removeItem(k));
 
-    const opciones = {
-        margin:0.25,
-        filename:"reporte_gerencial_homenajes.pdf",
-        image:{type:"jpeg", quality:0.98},
-        html2canvas:{scale:2, useCORS:true},
-        jsPDF:{unit:"in", format:"a4", orientation:"portrait"},
-        pagebreak:{mode:["css", "legacy"]}
-    };
-
-    html2pdf().set(opciones).from(elemento).save();
-    setHtml("estadoReporte", "Reporte PDF ejecutivo generado correctamente.");
-    toast("PDF generado correctamente.");
-    registrarBitacora("Exportación PDF", "Se generó reporte PDF ejecutivo.");
+    toast("Caché limpiado.");
+    setTimeout(() => location.reload(), 800);
 }
 
-function alternarTema(){
-    document.body.classList.toggle("dark-mode");
-    localStorage.setItem("dashboardTema", document.body.classList.contains("dark-mode") ? "dark" : "light");
-    setTimeout(redimensionarGraficos, 150);
-}
+function aplicarRangoRapido(rango){
+    const hoy = new Date();
+    let inicio = hoy;
+    let fin = hoy;
 
-function alternarSidebar(){
-    document.body.classList.toggle("sidebar-collapsed");
-    localStorage.setItem("dashboardSidebar", document.body.classList.contains("sidebar-collapsed") ? "collapsed" : "expanded");
-    setTimeout(redimensionarGraficos, 250);
-}
+    if(rango === "hoy"){
+        inicio = hoy;
+        fin = hoy;
+    }
 
-function pantallaCompleta(){
-    if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
-    else document.exitFullscreen?.();
+    if(rango === "mes"){
+        inicio = inicioMes(hoy);
+        fin = hoy;
+    }
+
+    if(rango === "trimestre"){
+        inicio = inicioTrimestre(hoy);
+        fin = hoy;
+    }
+
+    if(rango === "semestre"){
+        inicio = inicioSemestre(hoy);
+        fin = hoy;
+    }
+
+    if(rango === "anio"){
+        inicio = inicioAnio(hoy);
+        fin = hoy;
+    }
+
+    setValue("fechaInicio", fechaISO(inicio));
+    setValue("fechaFin", fechaISO(fin));
+    aplicarFiltrosYRender();
 }
 
 function limpiarFiltros(){
-    ["filtroGestor","filtroCategoria","filtroServicio","filtroSede","filtroAnio","filtroMes","filtroEstado"].forEach(id => setValue(id, ""));
+    ["filtroGestor","filtroServicio","filtroSede","filtroAnio","filtroMes"].forEach(id => setValue(id, ""));
+    setValue("filtroCategoria", "");
     setValue("busquedaGeneral", "");
     setValue("fechaInicio", "");
     setValue("fechaFin", "");
@@ -2260,120 +1748,39 @@ function limpiarFiltros(){
     toast("Filtros limpiados.");
 }
 
-function aplicarRangoRapido(rango){
-    const hoy = new Date();
-    let inicio = hoy;
-    let fin = hoy;
+function cambiarVista(seccion){
+    document.querySelectorAll(".menu-item").forEach(item => item.classList.remove("active"));
+    document.querySelectorAll(".vista").forEach(vista => vista.classList.remove("active-view"));
 
-    if(rango === "hoy"){inicio = hoy; fin = hoy;}
-    if(rango === "mes"){inicio = inicioMes(hoy); fin = hoy;}
-    if(rango === "trimestre"){inicio = inicioTrimestre(hoy); fin = hoy;}
-    if(rango === "semestre"){inicio = inicioSemestre(hoy); fin = hoy;}
-    if(rango === "anio"){inicio = inicioAnio(hoy); fin = hoy;}
+    const itemMenu = document.querySelector(`.menu-item[data-seccion="${seccion}"]`);
+    if(itemMenu) itemMenu.classList.add("active");
 
-    setValue("fechaInicio", fechaISO(inicio));
-    setValue("fechaFin", fechaISO(fin));
-    aplicarFiltrosYRender();
+    const vista = $(seccion);
+    if(vista) vista.classList.add("active-view");
+
+    setTimeout(redimensionarGraficos, 150);
 }
 
-function guardarMetaMensual(){
-    const nuevaMeta = toNumber($("configMetaMensual")?.value);
-
-    if(nuevaMeta <= 0){
-        toast("Ingrese una meta válida mayor a cero.", "warning");
-        return;
-    }
-
-    META_MENSUAL_BASE = nuevaMeta;
-    localStorage.setItem("metaMensualBase", String(nuevaMeta));
-    recalcularMetasBase();
-    aplicarFiltrosYRender();
-    toast("Meta mensual guardada correctamente.");
-    registrarBitacora("Cambio de meta", `Nueva meta mensual: ${formatMoney(nuevaMeta)}.`);
+function redimensionarGraficos(){
+    Object.values(charts).forEach(chart => {
+        if(chart && typeof chart.resize === "function") chart.resize();
+    });
 }
 
-function guardarConfigVisual(){
-    localStorage.setItem("dashboardTitulo", $("configTitulo")?.value || "General Report Jkfh");
-    localStorage.setItem("dashboardSubtitulo", $("configSubtitulo")?.value || "Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo");
-    localStorage.setItem("dashboardEmpresa", $("configEmpresa")?.value || "General Report");
-    localStorage.setItem("dashboardArea", $("configArea")?.value || "Área de Homenajes");
-    localStorage.setItem("dashboardResponsable", $("configResponsable")?.value || "George Korfan");
-    localStorage.setItem("dashboardLogoUrl", $("configLogoUrl")?.value || "");
-
-    actualizarConfiguracion();
-    generarReporteFormal();
-    toast("Identidad corporativa guardada.");
-    registrarBitacora("Identidad corporativa", "Se actualizó información visual y PDF.");
+function alternarSidebar(){
+    document.body.classList.toggle("sidebar-collapsed");
+    localStorage.setItem("dashboardSidebar", document.body.classList.contains("sidebar-collapsed") ? "collapsed" : "expanded");
+    setTimeout(redimensionarGraficos, 200);
 }
 
-function guardarAccessCode(){
-    const code = $("configAccessCode")?.value || "JKFH2026";
-    ACCESS_CODE = code;
-    localStorage.setItem("dashboardAccessCode", code);
-    localStorage.setItem("dashboardEmails", $("configEmails")?.value || "");
-    toast("Acceso visual actualizado.");
-    registrarBitacora("Acceso", "Se actualizó código y correos autorizados.");
+function alternarTema(){
+    document.body.classList.toggle("dark-mode");
+    localStorage.setItem("dashboardTema", document.body.classList.contains("dark-mode") ? "dark" : "light");
 }
 
-function guardarAuto(){
-    const minutos = Number($("configAutoMinutos")?.value) || 5;
-    AUTO_MINUTOS = minutos;
-    localStorage.setItem("dashboardAutoMinutos", String(minutos));
-    toast("Autoactualización guardada.");
-    registrarBitacora("Autoactualización", `Intervalo configurado: ${minutos} minutos.`);
-}
-
-function guardarMetasConfig(key, id){
-    localStorage.setItem(key, $(id)?.value || "");
-    aplicarFiltrosYRender();
-    toast("Metas guardadas correctamente.");
-    registrarBitacora("Metas avanzadas", `Se actualizó ${key}.`);
-}
-
-function alternarAuto(){
-    if(AUTO_TIMER){
-        clearInterval(AUTO_TIMER);
-        AUTO_TIMER = null;
-        toast("Autoactualización desactivada.");
-        registrarBitacora("Autoactualización", "Desactivada.");
-        return;
-    }
-
-    AUTO_TIMER = setInterval(cargarDashboard, AUTO_MINUTOS * 60 * 1000);
-    toast(`Autoactualización activada cada ${AUTO_MINUTOS} minutos.`);
-    registrarBitacora("Autoactualización", `Activada cada ${AUTO_MINUTOS} minutos.`);
-}
-
-function limpiarCache(){
-    const confirmar = confirm("¿Deseas limpiar caché local, preferencias, bitácora y configuraciones? No elimina registros manuales.");
-    if(!confirmar) return;
-
-    [
-        "dashboardTema",
-        "dashboardSidebar",
-        "dashboardBitacora",
-        "dashboardTitulo",
-        "dashboardSubtitulo",
-        "dashboardEmpresa",
-        "dashboardArea",
-        "dashboardResponsable",
-        "dashboardLogoUrl",
-        "dashboardAutoMinutos",
-        "dashboardEmails",
-        "metasGestor",
-        "metasSede",
-        "metasCategoria",
-        "metasMes"
-    ].forEach(k => localStorage.removeItem(k));
-
-    toast("Caché local limpiado.");
-    setTimeout(() => location.reload(), 800);
-}
-
-function aplicarPreferencias(){
-    if(localStorage.getItem("dashboardTema") === "dark") document.body.classList.add("dark-mode");
-    if(localStorage.getItem("dashboardSidebar") === "collapsed") document.body.classList.add("sidebar-collapsed");
-    actualizarConfiguracion();
+function pantallaCompleta(){
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
 }
 
 function validarAcceso(){
@@ -2401,7 +1808,6 @@ function ingresarDashboard(){
         sessionStorage.setItem("dashboardAutorizado", "1");
         $("accessPanel")?.classList.add("hidden");
         toast("Acceso permitido.");
-        registrarBitacora("Acceso", `Ingreso correcto: ${email || "sin correo configurado"}.`);
     }else{
         toast("Código o correo no autorizado.", "error");
     }
@@ -2409,11 +1815,95 @@ function ingresarDashboard(){
 
 function cerrarSesion(){
     sessionStorage.removeItem("dashboardAutorizado");
-    if($("accessCode")) $("accessCode").value = "";
-    if($("accessEmail")) $("accessEmail").value = "";
+    setValue("accessEmail", "");
+    setValue("accessCode", "");
     validarAcceso();
-    toast("Sesión cerrada.");
-    registrarBitacora("Salida", "Se cerró la sesión visual.");
+}
+
+function guardarMeta(){
+    const nuevaMeta = toNumber($("configMetaMensual")?.value);
+
+    if(nuevaMeta <= 0){
+        toast("Ingrese una meta válida.", "warning");
+        return;
+    }
+
+    META_MENSUAL_BASE = nuevaMeta;
+    localStorage.setItem("metaMensualBase", String(nuevaMeta));
+
+    procesarParametrosManuales();
+    aplicarFiltrosYRender();
+
+    toast("Meta guardada.");
+}
+
+function guardarIdentidad(){
+    localStorage.setItem("dashboardTitulo", $("configTitulo")?.value || "General Report Jkfh");
+    localStorage.setItem("dashboardSubtitulo", $("configSubtitulo")?.value || "Dashboard gerencial de homenajes, metas, categorías y excedentes");
+    localStorage.setItem("dashboardEmpresa", $("configEmpresa")?.value || "General Report");
+    localStorage.setItem("dashboardArea", $("configArea")?.value || "Área de Homenajes");
+    localStorage.setItem("dashboardResponsable", $("configResponsable")?.value || "George Korfan");
+    localStorage.setItem("dashboardLogoUrl", $("configLogoUrl")?.value || "");
+
+    actualizarConfiguracion();
+    renderReporteFormal();
+    toast("Identidad guardada.");
+}
+
+function guardarAcceso(){
+    ACCESS_CODE = $("configAccessCode")?.value || "JKFH2026";
+    localStorage.setItem("dashboardAccessCode", ACCESS_CODE);
+    localStorage.setItem("dashboardEmails", $("configEmails")?.value || "");
+
+    toast("Acceso guardado.");
+}
+
+function guardarParametrosManual(){
+    localStorage.setItem("parametrosManual", $("configMetasManual")?.value || "");
+    procesarParametros([]);
+    aplicarFiltrosYRender();
+
+    toast("Parámetros guardados.");
+}
+
+function actualizarConfiguracion(){
+    setValue("configMetaMensual", META_MENSUAL_BASE);
+    setValue("configTitulo", localStorage.getItem("dashboardTitulo") || "General Report Jkfh");
+    setValue("configSubtitulo", localStorage.getItem("dashboardSubtitulo") || "Dashboard gerencial de homenajes, metas, categorías y excedentes");
+    setValue("configEmpresa", localStorage.getItem("dashboardEmpresa") || "General Report");
+    setValue("configArea", localStorage.getItem("dashboardArea") || "Área de Homenajes");
+    setValue("configResponsable", localStorage.getItem("dashboardResponsable") || "George Korfan");
+    setValue("configLogoUrl", localStorage.getItem("dashboardLogoUrl") || "");
+    setValue("configAccessCode", ACCESS_CODE);
+    setValue("configEmails", localStorage.getItem("dashboardEmails") || "");
+    setValue("configMetasManual", localStorage.getItem("parametrosManual") || "");
+
+    const titulo = localStorage.getItem("dashboardTitulo") || "General Report Jkfh";
+    const subtitulo = localStorage.getItem("dashboardSubtitulo") || "Dashboard gerencial de homenajes, metas, categorías y excedentes";
+    const empresa = localStorage.getItem("dashboardEmpresa") || "General Report";
+    const logo = localStorage.getItem("dashboardLogoUrl") || "";
+
+    setHtml("tituloDashboard", titulo);
+    setHtml("subtituloDashboard", subtitulo);
+    setHtml("sidebarEmpresa", empresa);
+
+    ["logoTopbar","sidebarLogo"].forEach(id => {
+        const img = $(id);
+        if(!img) return;
+
+        if(logo){
+            img.src = logo;
+            img.style.display = "block";
+        }else{
+            img.src = "";
+            img.style.display = "none";
+        }
+    });
+}
+
+function aplicarPreferencias(){
+    if(localStorage.getItem("dashboardTema") === "dark") document.body.classList.add("dark-mode");
+    if(localStorage.getItem("dashboardSidebar") === "collapsed") document.body.classList.add("sidebar-collapsed");
 }
 
 document.querySelectorAll(".menu-item").forEach(item => {
@@ -2425,15 +1915,14 @@ document.querySelectorAll(".quick-btn").forEach(btn => {
 });
 
 $("btnFiltrar")?.addEventListener("click", aplicarFiltrosYRender);
-$("btnRecargar")?.addEventListener("click", cargarDashboard);
 $("btnLimpiar")?.addEventListener("click", limpiarFiltros);
+$("btnRecargar")?.addEventListener("click", cargarDashboard);
 $("btnPdf")?.addEventListener("click", exportarPDF);
 $("btnExcel")?.addEventListener("click", exportarExcel);
 $("btnTema")?.addEventListener("click", alternarTema);
 $("btnSidebar")?.addEventListener("click", alternarSidebar);
 $("btnFull")?.addEventListener("click", pantallaCompleta);
 $("btnLogout")?.addEventListener("click", cerrarSesion);
-$("btnAuto")?.addEventListener("click", alternarAuto);
 
 $("reporteExcelResumen")?.addEventListener("click", exportarExcel);
 $("reportePdfGeneral")?.addEventListener("click", exportarPDF);
@@ -2442,18 +1931,13 @@ $("reporteJson")?.addEventListener("click", exportarJSON);
 $("reporteRecargar")?.addEventListener("click", cargarDashboard);
 $("reporteLimpiarCache")?.addEventListener("click", limpiarCache);
 
-$("btnGuardarMeta")?.addEventListener("click", guardarMetaMensual);
-$("btnGuardarConfigVisual")?.addEventListener("click", guardarConfigVisual);
-$("btnGuardarAccess")?.addEventListener("click", guardarAccessCode);
-$("btnGuardarAuto")?.addEventListener("click", guardarAuto);
-
-$("btnGuardarMetasGestor")?.addEventListener("click", () => guardarMetasConfig("metasGestor", "configMetasGestor"));
-$("btnGuardarMetasSede")?.addEventListener("click", () => guardarMetasConfig("metasSede", "configMetasSede"));
-$("btnGuardarMetasCategoria")?.addEventListener("click", () => guardarMetasConfig("metasCategoria", "configMetasCategoria"));
-$("btnGuardarMetasMes")?.addEventListener("click", () => guardarMetasConfig("metasMes", "configMetasMes"));
-
 $("btnAgregarRegistro")?.addEventListener("click", agregarRegistroManual);
 $("btnEliminarManuales")?.addEventListener("click", eliminarTodosManuales);
+
+$("btnGuardarMeta")?.addEventListener("click", guardarMeta);
+$("btnGuardarConfigVisual")?.addEventListener("click", guardarIdentidad);
+$("btnGuardarAccess")?.addEventListener("click", guardarAcceso);
+$("btnGuardarParametrosManual")?.addEventListener("click", guardarParametrosManual);
 
 $("btnAccess")?.addEventListener("click", ingresarDashboard);
 $("accessCode")?.addEventListener("keyup", event => {
@@ -2470,15 +1954,13 @@ $("busquedaGeneral")?.addEventListener("keyup", event => {
     "filtroServicio",
     "filtroSede",
     "filtroAnio",
-    "filtroMes",
-    "filtroEstado"
+    "filtroMes"
 ].forEach(id => {
     $(id)?.addEventListener("change", aplicarFiltrosYRender);
 });
 
 aplicarPreferencias();
+actualizarConfiguracion();
 validarAcceso();
-recalcularMetasBase();
 establecerFechasPorDefecto();
-renderBitacora();
 cargarDashboard();
