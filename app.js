@@ -1,15 +1,20 @@
+console.log("APP.JS CARGADO CORRECTAMENTE");
+
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
-let META_GRUPAL = 0;
-let META_RED = 0;
-let META_PARTICULAR = 0;
-let META_EXCEDENTES = 0;
-let METAS_EXCEDENTES = {};
+const META_MENSUAL_BASE = 219133881;
+const META_TRIMESTRAL_BASE = META_MENSUAL_BASE * 3;
+const META_SEMESTRAL_BASE = META_MENSUAL_BASE * 6;
+const META_ANUAL_BASE = META_MENSUAL_BASE * 12;
+
+let META_RANGO_ACTUAL = 0;
+let MESES_EQUIVALENTES_ACTUAL = 0;
+let DIAS_RANGO_ACTUAL = 0;
 
 let DATASET = [];
 let DATASET_FILTRADO = [];
 
-let chartCumplimiento = null;
+let chartMetaReal = null;
 let chartIngresos = null;
 let chartMensual = null;
 let chartGestores = null;
@@ -20,13 +25,16 @@ let chartCumplimientoAnual = null;
 let chartRankingCompletoGestores = null;
 let chartExcedentes = null;
 let chartHistorico = null;
+let chartMetasAcumuladas = null;
 
 if (typeof Chart !== "undefined" && typeof ChartAnnotation !== "undefined") {
     Chart.register(ChartAnnotation);
 }
 
 function toNumber(valor) {
-    if (typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
+    if (typeof valor === "number") {
+        return Number.isFinite(valor) ? valor : 0;
+    }
 
     const texto = String(valor ?? "").trim();
     if (!texto) return 0;
@@ -49,22 +57,131 @@ function normalizarTexto(valor) {
     return String(valor ?? "").trim().toUpperCase();
 }
 
+function setHtml(id, valor) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = valor;
+}
+
+function getCampo(item, posibles) {
+    for (const campo of posibles) {
+        if (item[campo] !== undefined && item[campo] !== null && String(item[campo]).trim() !== "") {
+            return item[campo];
+        }
+    }
+    return "";
+}
+
+function getFechaItem(item) {
+    return getCampo(item, ["Fecha", "FECHA", "fecha", "Fecha_Homenaje", "FECHA_HOMENAJE"]);
+}
+
+function getValorItem(item) {
+    return getCampo(item, ["Valor", "VALOR", "valor", "Valor_Homenaje", "VALOR_HOMENAJE", "Total", "TOTAL"]);
+}
+
+function getGestorItem(item) {
+    return getCampo(item, ["Gestor", "GESTOR", "gestor", "Asesor", "ASESOR", "Vendedor", "VENDEDOR"]);
+}
+
+function getTipoHomenajeItem(item) {
+    return getCampo(item, ["Tipo_Homenaje", "TIPO_HOMENAJE", "Tipo Homenaje", "TIPO HOMENAJE", "Categoria", "CATEGORIA"]);
+}
+
+function getTipoExcedenteItem(item) {
+    return getCampo(item, ["Tipo_Excedente", "TIPO_EXCEDENTE", "Tipo Excedente", "TIPO EXCEDENTE", "Servicio", "SERVICIO", "Excedente", "EXCEDENTE"]);
+}
+
+function convertirArrayAObjetos(tabla) {
+    if (!Array.isArray(tabla) || tabla.length === 0) return [];
+
+    if (typeof tabla[0] === "object" && !Array.isArray(tabla[0])) {
+        return tabla;
+    }
+
+    if (Array.isArray(tabla[0])) {
+        const encabezados = tabla[0].map(h => String(h || "").trim());
+
+        return tabla.slice(1).map(fila => {
+            const obj = {};
+            encabezados.forEach((encabezado, index) => {
+                obj[encabezado] = fila[index];
+            });
+            return obj;
+        });
+    }
+
+    return [];
+}
+
+function obtenerHomenajesDesdeApi(json) {
+    if (Array.isArray(json.homenajes)) return convertirArrayAObjetos(json.homenajes);
+    if (Array.isArray(json.datos)) return convertirArrayAObjetos(json.datos);
+    if (Array.isArray(json.data)) return convertirArrayAObjetos(json.data);
+    if (Array.isArray(json.registros)) return convertirArrayAObjetos(json.registros);
+    if (Array.isArray(json)) return convertirArrayAObjetos(json);
+    return [];
+}
+
 function parseFecha(valor) {
     if (valor instanceof Date && !isNaN(valor.getTime())) return valor;
+
+    if (typeof valor === "number") {
+        if (valor > 20000) {
+            const fechaExcel = new Date(Math.round((valor - 25569) * 86400 * 1000));
+            return isNaN(fechaExcel.getTime()) ? null : fechaExcel;
+        }
+    }
+
     if (valor == null) return null;
 
     const texto = String(valor).trim();
     if (!texto) return null;
 
-    const dmy = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    const dmy = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
     if (dmy) {
         const [, dd, mm, yyyy] = dmy;
         const fecha = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
         return isNaN(fecha.getTime()) ? null : fecha;
     }
 
+    const ymd = texto.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (ymd) {
+        const [, yyyy, mm, dd] = ymd;
+        const fecha = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+        return isNaN(fecha.getTime()) ? null : fecha;
+    }
+
     const fechaIso = new Date(texto);
     return isNaN(fechaIso.getTime()) ? null : fechaIso;
+}
+
+function fechaISO(fecha) {
+    const yyyy = fecha.getFullYear();
+    const mm = String(fecha.getMonth() + 1).padStart(2, "0");
+    const dd = String(fecha.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+}
+
+function inicioDia(fecha) {
+    return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 0, 0, 0, 0);
+}
+
+function inicioMes(fecha) {
+    return new Date(fecha.getFullYear(), fecha.getMonth(), 1);
+}
+
+function finMes(fecha) {
+    return new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0);
+}
+
+function diasDelMes(fecha) {
+    return new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0).getDate();
+}
+
+function diasEntre(fechaInicio, fechaFin) {
+    const inicio = inicioDia(fechaInicio);
+    const fin = inicioDia(fechaFin);
+    return Math.floor((fin - inicio) / 86400000) + 1;
 }
 
 function mesKey(fecha) {
@@ -88,6 +205,86 @@ function obtenerRangoFechas() {
     };
 }
 
+function establecerFechasPorDefecto() {
+    const fechaInicio = document.getElementById("fechaInicio");
+    const fechaFin = document.getElementById("fechaFin");
+
+    if (!fechaInicio || !fechaFin) return;
+
+    if (!fechaInicio.value && !fechaFin.value) {
+        const hoy = new Date();
+        const enero = new Date(hoy.getFullYear(), 0, 1);
+
+        fechaInicio.value = fechaISO(enero);
+        fechaFin.value = fechaISO(hoy);
+    }
+}
+
+function calcularMetaPorRango(fechaInicioTexto, fechaFinTexto) {
+    let inicio = fechaInicioTexto ? new Date(`${fechaInicioTexto}T00:00:00`) : null;
+    let fin = fechaFinTexto ? new Date(`${fechaFinTexto}T23:59:59`) : null;
+
+    if (!inicio || isNaN(inicio.getTime())) {
+        const hoy = new Date();
+        inicio = new Date(hoy.getFullYear(), 0, 1);
+    }
+
+    if (!fin || isNaN(fin.getTime())) {
+        fin = new Date();
+    }
+
+    if (fin < inicio) {
+        const temp = inicio;
+        inicio = fin;
+        fin = temp;
+    }
+
+    let cursor = new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+    const limite = new Date(fin.getFullYear(), fin.getMonth(), 1);
+
+    let meta = 0;
+    let mesesEquivalentes = 0;
+    let detalleMeses = [];
+
+    while (cursor <= limite) {
+        const mesInicio = inicioMes(cursor);
+        const mesFin = finMes(cursor);
+
+        const desde = inicio > mesInicio ? inicioDia(inicio) : mesInicio;
+        const hasta = fin < mesFin ? inicioDia(fin) : mesFin;
+
+        const diasSeleccionados = diasEntre(desde, hasta);
+        const totalDiasMes = diasDelMes(cursor);
+
+        const factorMes = diasSeleccionados / totalDiasMes;
+        const metaMes = META_MENSUAL_BASE * factorMes;
+
+        meta += metaMes;
+        mesesEquivalentes += factorMes;
+
+        detalleMeses.push({
+            mes: mesKey(cursor),
+            diasSeleccionados,
+            totalDiasMes,
+            factorMes,
+            metaMes
+        });
+
+        cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
+    }
+
+    const diasRango = diasEntre(inicio, fin);
+
+    return {
+        inicio,
+        fin,
+        meta,
+        mesesEquivalentes,
+        diasRango,
+        detalleMeses
+    };
+}
+
 function filtrarDataset(homenajes) {
     const { fechaInicio, fechaFin, busqueda } = obtenerRangoFechas();
 
@@ -95,15 +292,13 @@ function filtrarDataset(homenajes) {
     const fin = fechaFin ? new Date(`${fechaFin}T23:59:59.999`) : new Date("2999-12-31T23:59:59.999");
 
     return homenajes.filter(item => {
-        const fecha = parseFecha(item.Fecha);
+        const fecha = parseFecha(getFechaItem(item));
         const cumpleFecha = fecha && fecha >= inicio && fecha <= fin;
 
         const textoBusqueda = normalizarTexto(`
-            ${item.Gestor || ""}
-            ${item.Tipo_Homenaje || ""}
-            ${item.Tipo_Excedente || ""}
-            ${item.Servicio || ""}
-            ${item.Categoria || ""}
+            ${getGestorItem(item)}
+            ${getTipoHomenajeItem(item)}
+            ${getTipoExcedenteItem(item)}
         `);
 
         const cumpleBusqueda = !busqueda || textoBusqueda.includes(busqueda);
@@ -119,15 +314,15 @@ function calcularResumen(homenajes) {
     let excedentes = 0;
 
     homenajes.forEach(item => {
-        const valor = toNumber(item.Valor);
+        const valor = toNumber(getValorItem(item));
         total += valor;
 
-        const tipo = normalizarTexto(item.Tipo_Homenaje);
-        const ex = normalizarTexto(item.Tipo_Excedente);
+        const tipo = normalizarTexto(getTipoHomenajeItem(item));
+        const excedente = normalizarTexto(getTipoExcedenteItem(item));
 
         if (tipo === "RED") red += valor;
-        if (tipo === "PARTICULAR") particular += valor;
-        if (ex && ex !== "SOAT" && ex !== "PENSIONADO") excedentes += valor;
+        else if (tipo === "PARTICULAR") particular += valor;
+        else if (excedente && excedente !== "SOAT" && excedente !== "PENSIONADO") excedentes += valor;
     });
 
     return { total, red, particular, excedentes };
@@ -139,6 +334,8 @@ function setEstadoApi(tipo, texto) {
 
     estado.className = `estado-api ${tipo}`;
     estado.innerHTML = `<i class="fas fa-circle"></i> ${texto}`;
+
+    setHtml("adminEstadoConexion", texto);
 }
 
 async function cargarDashboard() {
@@ -153,50 +350,39 @@ async function cargarDashboard() {
 
         const json = await response.json();
 
-        const parametros = Array.isArray(json.parametros) ? json.parametros : [];
-        const excedentesConfig = Array.isArray(json.excedentes) ? json.excedentes : [];
-        const homenajes = Array.isArray(json.homenajes) ? json.homenajes : [];
+        console.log("RESPUESTA API:", json);
+
+        const homenajes = obtenerHomenajesDesdeApi(json);
 
         DATASET = homenajes;
         DATASET_FILTRADO = filtrarDataset(DATASET);
-        METAS_EXCEDENTES = {};
 
-        excedentesConfig.forEach((fila, index) => {
-            if (index === 0) return;
-            const nombre = normalizarTexto(fila[0]);
-            const meta = toNumber(fila[1]);
-            if (nombre) METAS_EXCEDENTES[nombre] = meta;
-        });
+        const { fechaInicio, fechaFin } = obtenerRangoFechas();
+        const metaInfo = calcularMetaPorRango(fechaInicio, fechaFin);
 
-        parametros.forEach(fila => {
-            const clave = normalizarTexto(fila[0]);
-            const valor = normalizarTexto(fila[1]);
-
-            if (clave === "SEDE") META_GRUPAL = toNumber(fila[2]);
-            if (clave === "META_CATEGORIA" && valor === "RED") META_RED = toNumber(fila[2]);
-            if (clave === "META_CATEGORIA" && valor === "PARTICULAR") META_PARTICULAR = toNumber(fila[2]);
-            if (clave === "META_CATEGORIA" && valor === "EXCEDENTES") META_EXCEDENTES = toNumber(fila[2]);
-        });
+        META_RANGO_ACTUAL = metaInfo.meta;
+        MESES_EQUIVALENTES_ACTUAL = metaInfo.mesesEquivalentes;
+        DIAS_RANGO_ACTUAL = metaInfo.diasRango;
 
         const resumen = calcularResumen(DATASET_FILTRADO);
 
-        actualizarKPIs(resumen.total);
-        crearGraficoCumplimiento(resumen.red, resumen.particular, resumen.excedentes);
-        crearTablaCumplimiento(resumen.red, resumen.particular, resumen.excedentes);
-        crearTablaExcedentes(DATASET_FILTRADO);
-        llenarParticulares(DATASET_FILTRADO);
-        crearGraficoIngresos(resumen.red, resumen.particular, resumen.excedentes);
-        crearTopServicios(DATASET_FILTRADO);
-        crearRankingGestores(DATASET_FILTRADO);
+        actualizarKPIs(resumen, metaInfo);
+        crearResumenEjecutivo(DATASET_FILTRADO, resumen, metaInfo);
+        crearGraficoMetaReal(resumen.total, META_RANGO_ACTUAL);
+        crearGraficoIngresos(resumen);
         crearGraficoMensual(DATASET_FILTRADO);
-        crearGraficoGestores(DATASET_FILTRADO);
-        crearIndicadoresEjecutivos(DATASET_FILTRADO);
         crearVelocimetroCumplimiento(resumen.total);
-        crearSemaforoGerencial(resumen.red, resumen.particular, resumen.excedentes);
-        crearAlertasGerenciales(DATASET_FILTRADO);
+        crearTablaCumplimiento(resumen.total);
+        crearTablaCategorias(DATASET_FILTRADO, resumen.total);
+        crearTablaExcedentes(DATASET_FILTRADO, resumen.total);
+        crearTopServicios(DATASET_FILTRADO, resumen.total);
+        crearRankingGestores(DATASET_FILTRADO, resumen.total);
+        crearGraficoGestores(DATASET_FILTRADO);
+        crearSemaforoGerencial(resumen.total);
+        crearAlertasGerenciales(DATASET_FILTRADO, resumen.total);
         renderizarVistasAdicionales(DATASET_FILTRADO);
-        actualizarAdmin(DATASET, DATASET_FILTRADO);
-        crearResumenEjecutivo(DATASET_FILTRADO, resumen);
+        actualizarAdmin(DATASET, DATASET_FILTRADO, metaInfo);
+        actualizarVistaMetas(metaInfo);
 
         setEstadoApi("ok", "Conectado");
 
@@ -208,33 +394,11 @@ async function cargarDashboard() {
             alertasBox.innerHTML = `
                 <div class="alerta-item">
                     <i class="fas fa-triangle-exclamation"></i>
-                    <span>No fue posible cargar la información del dashboard. Verifica conexión, permisos del Apps Script o estructura de datos.</span>
+                    <span>No fue posible cargar la información. Verifica que app.js esté bien pegado, que el Apps Script esté publicado y que la API entregue datos.</span>
                 </div>
             `;
         }
     }
-}
-
-function actualizarKPIs(ventaTotal) {
-    const cumplimientoGeneral = META_GRUPAL > 0 ? (ventaTotal / META_GRUPAL) * 100 : 0;
-    const faltante = META_GRUPAL - ventaTotal;
-
-    const elementos = {
-        metaGrupal: formatMoney(META_GRUPAL),
-        ventas: formatMoney(ventaTotal),
-        cumplimiento: `${cumplimientoGeneral.toFixed(1)}%`,
-        faltante: formatMoney(faltante),
-        proyeccion: `${cumplimientoGeneral.toFixed(1)}%`,
-        ultimaActualizacion: new Date().toLocaleString("es-CO")
-    };
-
-    Object.keys(elementos).forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.innerHTML = elementos[id];
-    });
-
-    const cumplimientoEl = document.getElementById("cumplimiento");
-    if (cumplimientoEl) cumplimientoEl.style.color = colorPorPorcentaje(cumplimientoGeneral);
 }
 
 function colorPorPorcentaje(porcentaje) {
@@ -243,268 +407,141 @@ function colorPorPorcentaje(porcentaje) {
     return "#dc2626";
 }
 
+function textoEstado(porcentaje) {
+    if (porcentaje >= 100) return "Meta cumplida";
+    if (porcentaje >= 80) return "En riesgo controlado";
+    return "Bajo meta";
+}
+
 function badgeEstado(porcentaje) {
     if (porcentaje >= 100) return `<span class="badge badge-ok">Cumplido</span>`;
     if (porcentaje >= 80) return `<span class="badge badge-warning">En riesgo</span>`;
     return `<span class="badge badge-danger">Bajo meta</span>`;
 }
 
-function crearGraficoCumplimiento(ventaRed, ventaParticular, ventaExcedentes) {
-    const canvas = document.getElementById("ventasCategoria");
-    if (!canvas) return;
+function actualizarKPIs(resumen, metaInfo) {
+    const ventaTotal = resumen.total;
+    const cumplimientoGeneral = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
+    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
 
-    if (chartCumplimiento) chartCumplimiento.destroy();
+    const promedioDiarioMeta = DIAS_RANGO_ACTUAL > 0 ? META_RANGO_ACTUAL / DIAS_RANGO_ACTUAL : 0;
+    const promedioDiarioReal = DIAS_RANGO_ACTUAL > 0 ? ventaTotal / DIAS_RANGO_ACTUAL : 0;
 
-    chartCumplimiento = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: ["RED", "PARTICULAR", "EXCEDENTES"],
-            datasets: [
-                {
-                    label: "Meta",
-                    data: [META_RED, META_PARTICULAR, META_EXCEDENTES],
-                    backgroundColor: ["rgba(239,68,68,.72)", "rgba(37,99,235,.72)", "rgba(245,158,11,.72)"],
-                    borderRadius: 10
-                },
-                {
-                    label: "Real",
-                    data: [ventaRed, ventaParticular, ventaExcedentes],
-                    backgroundColor: ["rgba(22,163,74,.95)", "rgba(37,99,235,.95)", "rgba(245,158,11,.95)"],
-                    borderRadius: 10
-                }
-            ]
-        },
-        options: opcionesChartBasicas("Meta vs Real por Categoría")
-    });
+    const proyeccion = promedioDiarioReal * DIAS_RANGO_ACTUAL;
+    const ticketPromedio = DATASET_FILTRADO.length > 0 ? ventaTotal / DATASET_FILTRADO.length : 0;
+
+    setHtml("metaGrupal", formatMoney(META_RANGO_ACTUAL));
+    setHtml("ventas", formatMoney(ventaTotal));
+    setHtml("cumplimiento", `${cumplimientoGeneral.toFixed(1)}%`);
+    setHtml("faltante", formatMoney(faltante));
+    setHtml("proyeccion", formatMoney(proyeccion));
+    setHtml("metaMensual", formatMoney(META_MENSUAL_BASE));
+    setHtml("metaTrimestral", formatMoney(META_TRIMESTRAL_BASE));
+    setHtml("metaSemestral", formatMoney(META_SEMESTRAL_BASE));
+    setHtml("metaAnual", formatMoney(META_ANUAL_BASE));
+    setHtml("mesesEquivalentes", MESES_EQUIVALENTES_ACTUAL.toFixed(2));
+    setHtml("metaDiaria", formatMoney(promedioDiarioMeta));
+    setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
+    setHtml("totalRegistros", DATASET_FILTRADO.length);
+    setHtml("ticketPromedio", formatMoney(ticketPromedio));
+    setHtml("ultimaActualizacion", new Date().toLocaleString("es-CO"));
+    setHtml("estadoCumplimientoTexto", textoEstado(cumplimientoGeneral));
+
+    const desde = fechaISO(metaInfo.inicio);
+    const hasta = fechaISO(metaInfo.fin);
+    setHtml("metaRangoDetalle", `${desde} a ${hasta}`);
+
+    const cumplimientoEl = document.getElementById("cumplimiento");
+    if (cumplimientoEl) cumplimientoEl.style.color = colorPorPorcentaje(cumplimientoGeneral);
+}
+
+function crearResumenEjecutivo(homenajes, resumen, metaInfo) {
+    const el = document.getElementById("resumenEjecutivoTexto");
+    if (!el) return;
+
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
+    const faltante = Math.max(META_RANGO_ACTUAL - resumen.total, 0);
+
+    let estado = "por debajo de la meta establecida";
+    if (cumplimiento >= 100) estado = "con la meta cumplida";
+    else if (cumplimiento >= 80) estado = "cerca del cumplimiento esperado";
+
+    el.innerHTML = `
+        El rango seleccionado comprende <strong>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</strong>, 
+        con una meta calculada de <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. 
+        Las ventas acumuladas son <strong>${formatMoney(resumen.total)}</strong>, equivalentes al 
+        <strong>${cumplimiento.toFixed(1)}%</strong> de cumplimiento. 
+        Actualmente el resultado se encuentra <strong>${estado}</strong>. 
+        Faltante para cumplimiento: <strong>${formatMoney(faltante)}</strong>. 
+        Registros analizados: <strong>${homenajes.length}</strong>.
+    `;
 }
 
 function opcionesChartBasicas(titulo) {
     return {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            title: { display: true, text: titulo },
-            legend: { position: "top" }
+        responsive:true,
+        maintainAspectRatio:false,
+        plugins:{
+            title:{ display:true, text:titulo },
+            legend:{ position:"top" }
         },
-        scales: {
-            y: { beginAtZero: true, grid: { color: "rgba(148,163,184,.22)" } },
-            x: { grid: { display: false } }
+        scales:{
+            y:{ beginAtZero:true, grid:{ color:"rgba(148,163,184,.22)" } },
+            x:{ grid:{ display:false } }
         }
     };
 }
 
-function crearTablaCumplimiento(ventaRed, ventaParticular, ventaExcedentes) {
-    const tbody = document.querySelector("#tablaCumplimiento tbody");
-    if (!tbody) return;
+function crearGraficoMetaReal(ventaTotal, metaRango) {
+    const canvas = document.getElementById("graficoMetaReal");
+    if (!canvas) return;
 
-    tbody.innerHTML = "";
+    if (chartMetaReal) chartMetaReal.destroy();
 
-    const datos = [
-        { nombre: "RED", meta: META_RED, real: ventaRed },
-        { nombre: "PARTICULAR", meta: META_PARTICULAR, real: ventaParticular },
-        { nombre: "EXCEDENTES", meta: META_EXCEDENTES, real: ventaExcedentes }
-    ];
-
-    datos.forEach(item => {
-        const porcentaje = item.meta > 0 ? (item.real / item.meta) * 100 : 0;
-        tbody.innerHTML += `
-            <tr>
-                <td>${item.nombre}</td>
-                <td>${formatMoney(item.meta)}</td>
-                <td>${formatMoney(item.real)}</td>
-                <td>${porcentaje.toFixed(1)}%</td>
-                <td>${badgeEstado(porcentaje)}</td>
-            </tr>
-        `;
+    chartMetaReal = new Chart(canvas, {
+        type:"bar",
+        data:{
+            labels:["Meta del rango", "Venta real"],
+            datasets:[{
+                label:"Valor",
+                data:[metaRango, ventaTotal],
+                backgroundColor:["rgba(37,99,235,.85)", "rgba(0,166,81,.90)"],
+                borderRadius:12
+            }]
+        },
+        options:opcionesChartBasicas("Meta calculada vs venta real")
     });
 }
 
-function crearTablaExcedentes(homenajes) {
-    const tbody = document.querySelector("#tablaExcedentes tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    const reales = {};
-
-    homenajes.forEach(item => {
-        const excedente = normalizarTexto(item.Tipo_Excedente);
-        if (!excedente || excedente === "SOAT" || excedente === "PENSIONADO") return;
-
-        reales[excedente] = (reales[excedente] || 0) + toNumber(item.Valor);
-    });
-
-    const filas = Object.keys(METAS_EXCEDENTES);
-
-    if (filas.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5">Sin configuración de excedentes</td></tr>`;
-        return;
-    }
-
-    filas.forEach(nombre => {
-        const meta = toNumber(METAS_EXCEDENTES[nombre]);
-        const real = toNumber(reales[nombre]);
-        const porcentaje = meta > 0 ? (real / meta) * 100 : 0;
-
-        tbody.innerHTML += `
-            <tr>
-                <td>${nombre}</td>
-                <td>${formatMoney(meta)}</td>
-                <td>${formatMoney(real)}</td>
-                <td>${porcentaje.toFixed(1)}%</td>
-                <td>${badgeEstado(porcentaje)}</td>
-            </tr>
-        `;
-    });
-}
-
-function llenarParticulares(homenajes) {
-    const tbody = document.querySelector("#tablaParticulares tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    let soat = 0;
-    let pensionado = 0;
-    let planes = 0;
-
-    homenajes.forEach(item => {
-        const tipo = normalizarTexto(item.Tipo_Homenaje);
-        const excedente = normalizarTexto(item.Tipo_Excedente);
-        const cantidad = toNumber(item.Cantidad || 1);
-
-        if (tipo === "PLAN") planes += cantidad;
-        if (excedente === "SOAT") soat += cantidad;
-        if (excedente === "PENSIONADO") pensionado += cantidad;
-    });
-
-    const total = soat + pensionado + planes;
-    const datos = [["SOAT", soat], ["PENSIONADO", pensionado], ["PLANES", planes]];
-
-    if (total === 0) {
-        tbody.innerHTML = `<tr><td colspan="3">Sin registros</td></tr>`;
-        return;
-    }
-
-    datos.forEach(item => {
-        const porcentaje = total > 0 ? (item[1] / total) * 100 : 0;
-        tbody.innerHTML += `
-            <tr>
-                <td>${item[0]}</td>
-                <td>${item[1]}</td>
-                <td>${porcentaje.toFixed(1)}%</td>
-            </tr>
-        `;
-    });
-}
-
-function crearGraficoIngresos(ventaRed, ventaParticular, ventaExcedentes) {
+function crearGraficoIngresos(resumen) {
     const canvas = document.getElementById("composicionIngresos");
     if (!canvas) return;
 
     if (chartIngresos) chartIngresos.destroy();
 
     chartIngresos = new Chart(canvas, {
-        type: "doughnut",
-        data: {
-            labels: ["RED", "PARTICULAR", "EXCEDENTES"],
-            datasets: [{
-                data: [ventaRed, ventaParticular, ventaExcedentes],
-                backgroundColor: ["rgba(239,68,68,.95)", "rgba(37,99,235,.95)", "rgba(245,158,11,.95)"],
-                borderColor: "#ffffff",
-                borderWidth: 2
+        type:"doughnut",
+        data:{
+            labels:["RED", "PARTICULAR", "EXCEDENTES"],
+            datasets:[{
+                data:[resumen.red, resumen.particular, resumen.excedentes],
+                backgroundColor:[
+                    "rgba(239,68,68,.95)",
+                    "rgba(37,99,235,.95)",
+                    "rgba(245,158,11,.95)"
+                ],
+                borderColor:"#ffffff",
+                borderWidth:2
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: { display: true, text: "Composición de Ingresos" },
-                legend: { position: "top" }
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{
+                title:{ display:true, text:"Composición de ingresos" },
+                legend:{ position:"top" }
             }
         }
-    });
-}
-
-function crearTopServicios(homenajes) {
-    const tbody = document.querySelector("#tablaTopServicios tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    const servicios = {};
-
-    homenajes.forEach(item => {
-        const servicio = normalizarTexto(item.Tipo_Excedente);
-        if (!servicio || servicio === "SOAT" || servicio === "PENSIONADO") return;
-
-        if (!servicios[servicio]) servicios[servicio] = { cantidad: 0, valor: 0 };
-
-        servicios[servicio].cantidad += 1;
-        servicios[servicio].valor += toNumber(item.Valor);
-    });
-
-    const ranking = Object.entries(servicios)
-        .sort((a, b) => b[1].valor - a[1].valor)
-        .slice(0, 10);
-
-    if (ranking.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="3">Sin registros</td></tr>`;
-        return;
-    }
-
-    ranking.forEach(([nombre, data]) => {
-        tbody.innerHTML += `
-            <tr>
-                <td>${nombre}</td>
-                <td>${data.cantidad}</td>
-                <td>${formatMoney(data.valor)}</td>
-            </tr>
-        `;
-    });
-}
-
-function crearRankingGestores(homenajes) {
-    const tbody = document.querySelector("#tablaGestores tbody");
-    if (!tbody) return;
-
-    tbody.innerHTML = "";
-
-    const gestores = {};
-    const total = homenajes.reduce((acc, item) => acc + toNumber(item.Valor), 0);
-
-    homenajes.forEach(item => {
-        const nombre = String(item.Gestor || "").trim();
-        if (!nombre) return;
-
-        const llave = nombre.toUpperCase();
-
-        if (!gestores[llave]) {
-            gestores[llave] = { nombre, cantidad: 0, valor: 0 };
-        }
-
-        gestores[llave].cantidad += 1;
-        gestores[llave].valor += toNumber(item.Valor);
-    });
-
-    const ranking = Object.values(gestores).sort((a, b) => b.valor - a.valor);
-
-    if (ranking.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
-        return;
-    }
-
-    ranking.forEach(item => {
-        const participacion = total > 0 ? (item.valor / total) * 100 : 0;
-
-        tbody.innerHTML += `
-            <tr>
-                <td>${item.nombre}</td>
-                <td>${item.cantidad}</td>
-                <td>${formatMoney(item.valor)}</td>
-                <td>${participacion.toFixed(1)}%</td>
-            </tr>
-        `;
     });
 }
 
@@ -517,150 +554,72 @@ function crearGraficoMensual(homenajes) {
     const ventasMes = {};
 
     homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
+        const fecha = parseFecha(getFechaItem(item));
         if (!fecha) return;
 
         const llave = mesKey(fecha);
-        ventasMes[llave] = (ventasMes[llave] || 0) + toNumber(item.Valor);
+        ventasMes[llave] = (ventasMes[llave] || 0) + toNumber(getValorItem(item));
     });
 
     const etiquetas = ordenarMeses(Object.keys(ventasMes));
     const valores = etiquetas.map(clave => ventasMes[clave]);
+    const metas = etiquetas.map(() => META_MENSUAL_BASE);
 
     chartMensual = new Chart(canvas, {
-        type: "line",
-        data: {
-            labels: etiquetas,
-            datasets: [{
-                label: "Ventas Mensuales",
-                data: valores,
-                backgroundColor: "rgba(0,166,81,.16)",
-                borderColor: "#00a651",
-                borderWidth: 4,
-                pointBackgroundColor: "#00a651",
-                pointBorderColor: "#ffffff",
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                fill: true,
-                tension: .35
-            }]
+        type:"line",
+        data:{
+            labels:etiquetas,
+            datasets:[
+                {
+                    label:"Venta mensual",
+                    data:valores,
+                    backgroundColor:"rgba(0,166,81,.16)",
+                    borderColor:"#00a651",
+                    borderWidth:4,
+                    pointBackgroundColor:"#00a651",
+                    pointBorderColor:"#ffffff",
+                    pointBorderWidth:2,
+                    pointRadius:5,
+                    fill:true,
+                    tension:.35
+                },
+                {
+                    label:"Meta mensual base",
+                    data:metas,
+                    borderColor:"#ef4444",
+                    borderWidth:3,
+                    borderDash:[8,6],
+                    pointRadius:0,
+                    fill:false,
+                    tension:0
+                }
+            ]
         },
-        options: opcionesChartBasicas("Tendencia de Ventas Mensuales")
+        options:opcionesChartBasicas("Ventas mensuales vs meta mensual")
     });
-}
-
-function crearGraficoGestores(homenajes) {
-    const canvas = document.getElementById("graficoGestores");
-    if (!canvas) return;
-
-    if (chartGestores) chartGestores.destroy();
-
-    const gestores = {};
-
-    homenajes.forEach(item => {
-        const nombre = String(item.Gestor || "").trim();
-        if (!nombre) return;
-
-        const llave = nombre.toUpperCase();
-        if (!gestores[llave]) gestores[llave] = { nombre, valor: 0 };
-
-        gestores[llave].valor += toNumber(item.Valor);
-    });
-
-    const ranking = Object.values(gestores)
-        .sort((a, b) => b.valor - a.valor)
-        .slice(0, 10);
-
-    chartGestores = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: ranking.map(item => item.nombre),
-            datasets: [{
-                label: "Ventas",
-                data: ranking.map(item => item.valor),
-                backgroundColor: "rgba(37,99,235,.95)",
-                borderRadius: 10
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: "y",
-            plugins: {
-                title: { display: true, text: "Top 10 Gestores por Ventas" },
-                legend: { display: false }
-            },
-            scales: {
-                x: { beginAtZero: true, grid: { color: "rgba(148,163,184,.22)" } },
-                y: { grid: { display: false } }
-            }
-        }
-    });
-}
-
-function crearIndicadoresEjecutivos(homenajes) {
-    const gestores = {};
-    const servicios = {};
-    let ventaTotal = 0;
-
-    homenajes.forEach(item => {
-        const valor = toNumber(item.Valor);
-        ventaTotal += valor;
-
-        const gestor = String(item.Gestor || "").trim();
-        if (gestor) gestores[gestor] = (gestores[gestor] || 0) + valor;
-
-        const servicio = String(item.Tipo_Excedente || "").trim();
-        if (servicio) servicios[servicio] = (servicios[servicio] || 0) + 1;
-    });
-
-    const mejorGestor = Object.entries(gestores).sort((a, b) => b[1] - a[1])[0];
-    const servicioTop = Object.entries(servicios).sort((a, b) => b[1] - a[1])[0];
-
-    setHtml("mejorGestor", mejorGestor ? mejorGestor[0] : "-");
-    setHtml("ventaMejorGestor", mejorGestor ? formatMoney(mejorGestor[1]) : formatMoney(0));
-    setHtml("servicioTop", servicioTop ? servicioTop[0] : "-");
-    setHtml("cantidadServicioTop", servicioTop ? servicioTop[1] : "0");
-
-    const hoy = new Date();
-    const diasMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
-    const diaActual = hoy.getDate();
-    const diasRestantes = Math.max(diasMes - diaActual, 0);
-
-    const faltante = META_GRUPAL - ventaTotal;
-    const metaDiaria = diasRestantes > 0 ? faltante / diasRestantes : 0;
-    const proyeccionMes = diaActual > 0 ? (ventaTotal / diaActual) * diasMes : ventaTotal;
-
-    setHtml("metaDiaria", formatMoney(metaDiaria));
-    setHtml("proyeccionMes", formatMoney(proyeccionMes));
-}
-
-function setHtml(id, valor) {
-    const el = document.getElementById(id);
-    if (el) el.innerHTML = valor;
 }
 
 function crearVelocimetroCumplimiento(ventaTotal) {
     const canvas = document.getElementById("velocimetroCumplimiento");
     if (!canvas) return;
 
-    const porcentajeReal = META_GRUPAL > 0 ? (ventaTotal / META_GRUPAL) * 100 : 0;
+    const porcentajeReal = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
     const porcentaje = Math.min(porcentajeReal, 100);
     const restante = Math.max(100 - porcentaje, 0);
 
-    const etiqueta = porcentajeReal >= 100 ? "META CUMPLIDA" : porcentajeReal >= 80 ? "EN RIESGO" : "BAJO META";
+    const etiqueta = textoEstado(porcentajeReal).toUpperCase();
     const color = colorPorPorcentaje(porcentajeReal);
 
     const texto = document.getElementById("cumplimientoVisual");
     if (texto) {
-        texto.innerHTML = `${porcentajeReal.toFixed(1)}% - ${etiqueta}`;
+        texto.innerHTML = `${porcentajeReal.toFixed(1)}%`;
         texto.style.color = color;
     }
 
     if (chartCumplimientoVisual) chartCumplimientoVisual.destroy();
 
     const centerTextPlugin = {
-        id: "centerTextPlugin",
+        id:"centerTextPlugin",
         afterDraw(chart) {
             const { ctx, chartArea } = chart;
             if (!chartArea) return;
@@ -682,26 +641,282 @@ function crearVelocimetroCumplimiento(ventaTotal) {
     };
 
     chartCumplimientoVisual = new Chart(canvas, {
-        type: "doughnut",
-        data: {
-            labels: ["Avance", "Restante"],
-            datasets: [{
-                data: [porcentaje, restante],
-                backgroundColor: [color, "#e5e7eb"],
-                borderWidth: 0,
-                cutout: "78%"
+        type:"doughnut",
+        data:{
+            labels:["Avance", "Restante"],
+            datasets:[{
+                data:[porcentaje, restante],
+                backgroundColor:[color, "#e5e7eb"],
+                borderWidth:0,
+                cutout:"78%"
             }]
         },
-        plugins: [centerTextPlugin],
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                title: { display: true, text: "Cumplimiento Grupal" }
+        plugins:[centerTextPlugin],
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{
+                legend:{ display:false },
+                title:{ display:true, text:"Cumplimiento de meta del rango" }
             }
         }
     });
+}
+
+function crearTablaCumplimiento(ventaTotal) {
+    const tbody = document.querySelector("#tablaCumplimiento tbody");
+    if (!tbody) return;
+
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
+    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
+
+    tbody.innerHTML = `
+        <tr>
+            <td>Meta del rango seleccionado</td>
+            <td>${formatMoney(META_RANGO_ACTUAL)}</td>
+            <td>${formatMoney(ventaTotal)}</td>
+            <td>${cumplimiento.toFixed(1)}%</td>
+            <td>${formatMoney(faltante)}</td>
+            <td>${badgeEstado(cumplimiento)}</td>
+        </tr>
+    `;
+}
+
+function crearTablaCategorias(homenajes, totalGeneral) {
+    const tbody = document.querySelector("#tablaCategorias tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    const categorias = {};
+
+    homenajes.forEach(item => {
+        let categoria = normalizarTexto(getTipoHomenajeItem(item));
+        if (!categoria) categoria = "SIN CATEGORÍA";
+
+        categorias[categoria] = (categorias[categoria] || 0) + toNumber(getValorItem(item));
+    });
+
+    const ranking = Object.entries(categorias).sort((a, b) => b[1] - a[1]);
+
+    if (ranking.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3">Sin registros</td></tr>`;
+        return;
+    }
+
+    ranking.forEach(([nombre, valor]) => {
+        const participacion = totalGeneral > 0 ? (valor / totalGeneral) * 100 : 0;
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${nombre}</td>
+                <td>${formatMoney(valor)}</td>
+                <td>${participacion.toFixed(1)}%</td>
+            </tr>
+        `;
+    });
+}
+
+function crearTablaExcedentes(homenajes, totalGeneral) {
+    const tbody = document.querySelector("#tablaExcedentes tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    const excedentes = {};
+
+    homenajes.forEach(item => {
+        const nombre = normalizarTexto(getTipoExcedenteItem(item));
+        if (!nombre || nombre === "SOAT" || nombre === "PENSIONADO") return;
+
+        if (!excedentes[nombre]) {
+            excedentes[nombre] = { cantidad:0, valor:0 };
+        }
+
+        excedentes[nombre].cantidad += 1;
+        excedentes[nombre].valor += toNumber(getValorItem(item));
+    });
+
+    const ranking = Object.entries(excedentes).sort((a, b) => b[1].valor - a[1].valor);
+
+    if (ranking.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
+        return;
+    }
+
+    ranking.forEach(([nombre, data]) => {
+        const participacion = totalGeneral > 0 ? (data.valor / totalGeneral) * 100 : 0;
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${nombre}</td>
+                <td>${data.cantidad}</td>
+                <td>${formatMoney(data.valor)}</td>
+                <td>${participacion.toFixed(1)}%</td>
+            </tr>
+        `;
+    });
+}
+
+function crearTopServicios(homenajes, totalGeneral) {
+    const tbody = document.querySelector("#tablaTopServicios tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    const servicios = {};
+
+    homenajes.forEach(item => {
+        const servicio = normalizarTexto(getTipoExcedenteItem(item));
+        if (!servicio) return;
+
+        if (!servicios[servicio]) {
+            servicios[servicio] = { cantidad:0, valor:0 };
+        }
+
+        servicios[servicio].cantidad += 1;
+        servicios[servicio].valor += toNumber(getValorItem(item));
+    });
+
+    const ranking = Object.entries(servicios)
+        .sort((a, b) => b[1].valor - a[1].valor)
+        .slice(0, 10);
+
+    if (ranking.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
+        return;
+    }
+
+    ranking.forEach(([nombre, data]) => {
+        const participacion = totalGeneral > 0 ? (data.valor / totalGeneral) * 100 : 0;
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${nombre}</td>
+                <td>${data.cantidad}</td>
+                <td>${formatMoney(data.valor)}</td>
+                <td>${participacion.toFixed(1)}%</td>
+            </tr>
+        `;
+    });
+}
+
+function crearRankingGestores(homenajes, totalGeneral) {
+    const tbody = document.querySelector("#tablaGestores tbody");
+    if (!tbody) return;
+
+    tbody.innerHTML = "";
+
+    const gestores = {};
+
+    homenajes.forEach(item => {
+        const nombre = String(getGestorItem(item) || "").trim();
+        if (!nombre) return;
+
+        const llave = nombre.toUpperCase();
+
+        if (!gestores[llave]) {
+            gestores[llave] = { nombre, cantidad:0, valor:0 };
+        }
+
+        gestores[llave].cantidad += 1;
+        gestores[llave].valor += toNumber(getValorItem(item));
+    });
+
+    const ranking = Object.values(gestores).sort((a, b) => b.valor - a.valor);
+
+    if (ranking.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
+        setHtml("mejorGestor", "-");
+        setHtml("ventaMejorGestor", formatMoney(0));
+        return;
+    }
+
+    ranking.forEach(item => {
+        const participacion = totalGeneral > 0 ? (item.valor / totalGeneral) * 100 : 0;
+
+        tbody.innerHTML += `
+            <tr>
+                <td>${item.nombre}</td>
+                <td>${item.cantidad}</td>
+                <td>${formatMoney(item.valor)}</td>
+                <td>${participacion.toFixed(1)}%</td>
+            </tr>
+        `;
+    });
+
+    const mejorGestor = ranking[0];
+
+    setHtml("mejorGestor", mejorGestor.nombre);
+    setHtml("ventaMejorGestor", formatMoney(mejorGestor.valor));
+}
+
+function crearGraficoGestores(homenajes) {
+    const canvas = document.getElementById("graficoGestores");
+    if (!canvas) return;
+
+    if (chartGestores) chartGestores.destroy();
+
+    const gestores = {};
+
+    homenajes.forEach(item => {
+        const nombre = String(getGestorItem(item) || "").trim();
+        if (!nombre) return;
+
+        const llave = nombre.toUpperCase();
+
+        if (!gestores[llave]) {
+            gestores[llave] = { nombre, valor:0 };
+        }
+
+        gestores[llave].valor += toNumber(getValorItem(item));
+    });
+
+    const ranking = Object.values(gestores)
+        .sort((a, b) => b.valor - a.valor)
+        .slice(0, 10);
+
+    chartGestores = new Chart(canvas, {
+        type:"bar",
+        data:{
+            labels:ranking.map(item => item.nombre),
+            datasets:[{
+                label:"Ventas",
+                data:ranking.map(item => item.valor),
+                backgroundColor:"rgba(37,99,235,.95)",
+                borderRadius:10
+            }]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            indexAxis:"y",
+            plugins:{
+                title:{ display:true, text:"Top 10 gestores por ventas" },
+                legend:{ display:false }
+            },
+            scales:{
+                x:{ beginAtZero:true, grid:{ color:"rgba(148,163,184,.22)" } },
+                y:{ grid:{ display:false } }
+            }
+        }
+    });
+}
+
+function crearIndicadoresServicioTop(homenajes) {
+    const servicios = {};
+
+    homenajes.forEach(item => {
+        const servicio = String(getTipoExcedenteItem(item) || "").trim();
+        if (!servicio) return;
+
+        servicios[servicio] = (servicios[servicio] || 0) + 1;
+    });
+
+    const servicioTop = Object.entries(servicios).sort((a, b) => b[1] - a[1])[0];
+
+    setHtml("servicioTop", servicioTop ? servicioTop[0] : "-");
+    setHtml("cantidadServicioTop", servicioTop ? servicioTop[1] : "0");
 }
 
 function actualizarSemaforo(idEstado, idTexto, porcentaje, nombre) {
@@ -728,48 +943,48 @@ function actualizarSemaforo(idEstado, idTexto, porcentaje, nombre) {
     texto.innerHTML = `${nombre}: ${porcentaje.toFixed(1)}% - ${mensaje}`;
 }
 
-function crearSemaforoGerencial(ventaRed, ventaParticular, ventaExcedentes) {
-    actualizarSemaforo("semaforoRed", "semaforoRedTexto", META_RED > 0 ? (ventaRed / META_RED) * 100 : 0, "RED");
-    actualizarSemaforo("semaforoParticular", "semaforoParticularTexto", META_PARTICULAR > 0 ? (ventaParticular / META_PARTICULAR) * 100 : 0, "PARTICULAR");
-    actualizarSemaforo("semaforoExcedentes", "semaforoExcedentesTexto", META_EXCEDENTES > 0 ? (ventaExcedentes / META_EXCEDENTES) * 100 : 0, "EXCEDENTES");
+function crearSemaforoGerencial(ventaTotal) {
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
+
+    actualizarSemaforo("semaforoGeneral", "semaforoGeneralTexto", cumplimiento, "Cumplimiento general");
+    actualizarSemaforo("semaforoVenta", "semaforoVentaTexto", cumplimiento, "Venta real");
+    actualizarSemaforo("semaforoProyeccion", "semaforoProyeccionTexto", cumplimiento, "Proyección");
 }
 
-function crearAlertasGerenciales(homenajes) {
+function crearAlertasGerenciales(homenajes, ventaTotal) {
     const contenedor = document.getElementById("alertasGerenciales");
     if (!contenedor) return;
 
     const alertas = [];
-    const total = homenajes.reduce((acc, item) => acc + toNumber(item.Valor), 0);
-    const porcGrupo = META_GRUPAL > 0 ? (total / META_GRUPAL) * 100 : 0;
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
+    const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
 
     if (homenajes.length === 0) {
-        contenedor.innerHTML = `<p>No hay registros para el filtro seleccionado.</p>`;
+        contenedor.innerHTML = `
+            <div class="alerta-item">
+                <i class="fas fa-circle-exclamation"></i>
+                <span>No hay registros para el rango seleccionado. Verifica fechas, datos o conexión con Google Sheets.</span>
+            </div>
+        `;
         return;
     }
 
-    if (porcGrupo < 80) {
-        alertas.push(`El cumplimiento grupal está en ${porcGrupo.toFixed(1)}%, por debajo del nivel esperado.`);
+    if (cumplimiento < 80) {
+        alertas.push(`El cumplimiento está en ${cumplimiento.toFixed(1)}%, por debajo del nivel esperado. Faltante: ${formatMoney(faltante)}.`);
     }
 
-    if (porcGrupo >= 100) {
-        alertas.push(`La meta grupal se encuentra cumplida con un avance de ${porcGrupo.toFixed(1)}%.`);
+    if (cumplimiento >= 80 && cumplimiento < 100) {
+        alertas.push(`El cumplimiento está en zona de riesgo controlado con ${cumplimiento.toFixed(1)}%. Se recomienda reforzar cierre comercial.`);
     }
 
-    const gestores = {};
-    homenajes.forEach(item => {
-        const gestor = String(item.Gestor || "").trim();
-        if (!gestor) return;
-        gestores[gestor] = (gestores[gestor] || 0) + toNumber(item.Valor);
-    });
-
-    const mejorGestor = Object.entries(gestores).sort((a, b) => b[1] - a[1])[0];
-    if (mejorGestor && total > 0 && mejorGestor[1] / total > 0.35) {
-        alertas.push(`El gestor ${mejorGestor[0]} concentra más del 35% de las ventas filtradas.`);
+    if (cumplimiento >= 100) {
+        alertas.push(`Meta cumplida. El avance actual es de ${cumplimiento.toFixed(1)}%.`);
     }
 
-    if (alertas.length === 0) {
-        contenedor.innerHTML = `<p>Sin alertas por el momento.</p>`;
-        return;
+    const promedioDiarioNecesario = DIAS_RANGO_ACTUAL > 0 ? faltante / DIAS_RANGO_ACTUAL : 0;
+
+    if (faltante > 0) {
+        alertas.push(`Promedio diario necesario para cubrir el faltante del rango: ${formatMoney(promedioDiarioNecesario)}.`);
     }
 
     contenedor.innerHTML = alertas.map(a => `
@@ -780,26 +995,6 @@ function crearAlertasGerenciales(homenajes) {
     `).join("");
 }
 
-function crearResumenEjecutivo(homenajes, resumen) {
-    const el = document.getElementById("resumenEjecutivoTexto");
-    if (!el) return;
-
-    const cumplimiento = META_GRUPAL > 0 ? (resumen.total / META_GRUPAL) * 100 : 0;
-    const faltante = META_GRUPAL - resumen.total;
-
-    let estado = "por debajo de la meta";
-    if (cumplimiento >= 100) estado = "con la meta cumplida";
-    else if (cumplimiento >= 80) estado = "cerca del cumplimiento esperado";
-
-    el.innerHTML = `
-        El dashboard presenta ${homenajes.length} registros filtrados, con ventas acumuladas por 
-        <strong>${formatMoney(resumen.total)}</strong>, equivalentes al 
-        <strong>${cumplimiento.toFixed(1)}%</strong> de cumplimiento. 
-        El estado general se encuentra <strong>${estado}</strong>. 
-        Faltante estimado: <strong>${formatMoney(faltante)}</strong>.
-    `;
-}
-
 function crearGraficoVentasVista(homenajes) {
     const canvas = document.getElementById("ventasAnuales");
     if (!canvas) return;
@@ -807,55 +1002,74 @@ function crearGraficoVentasVista(homenajes) {
     if (chartVentasVista) chartVentasVista.destroy();
 
     const ventasMes = {};
+
     homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
+        const fecha = parseFecha(getFechaItem(item));
         if (!fecha) return;
 
         const llave = mesKey(fecha);
-        ventasMes[llave] = (ventasMes[llave] || 0) + toNumber(item.Valor);
+        ventasMes[llave] = (ventasMes[llave] || 0) + toNumber(getValorItem(item));
     });
 
     const etiquetas = ordenarMeses(Object.keys(ventasMes));
     const valores = etiquetas.map(k => ventasMes[k]);
 
     chartVentasVista = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: etiquetas,
-            datasets: [{
-                label: "Ventas",
-                data: valores,
-                backgroundColor: "rgba(0,166,81,.92)",
-                borderRadius: 10
+        type:"bar",
+        data:{
+            labels:etiquetas,
+            datasets:[{
+                label:"Ventas",
+                data:valores,
+                backgroundColor:"rgba(0,166,81,.92)",
+                borderRadius:10
             }]
         },
-        options: opcionesChartBasicas("Ventas Mensuales Acumuladas")
+        options:opcionesChartBasicas("Ventas mensuales acumuladas")
     });
 }
 
-function crearGraficoCategoriaVista(resumen) {
+function crearGraficoCategoriaVista(homenajes) {
     const canvas = document.getElementById("ventasPorCategoriaVista");
     if (!canvas) return;
 
     if (chartVentasCategoriaVista) chartVentasCategoriaVista.destroy();
 
+    const categorias = {};
+
+    homenajes.forEach(item => {
+        let categoria = normalizarTexto(getTipoHomenajeItem(item));
+        if (!categoria) categoria = "SIN CATEGORÍA";
+
+        categorias[categoria] = (categorias[categoria] || 0) + toNumber(getValorItem(item));
+    });
+
+    const labels = Object.keys(categorias);
+    const valores = labels.map(k => categorias[k]);
+
     chartVentasCategoriaVista = new Chart(canvas, {
-        type: "doughnut",
-        data: {
-            labels: ["RED", "PARTICULAR", "EXCEDENTES"],
-            datasets: [{
-                data: [resumen.red, resumen.particular, resumen.excedentes],
-                backgroundColor: ["rgba(239,68,68,.95)", "rgba(37,99,235,.95)", "rgba(245,158,11,.95)"],
-                borderColor: "#fff",
-                borderWidth: 2
+        type:"doughnut",
+        data:{
+            labels,
+            datasets:[{
+                data:valores,
+                backgroundColor:[
+                    "rgba(239,68,68,.95)",
+                    "rgba(37,99,235,.95)",
+                    "rgba(245,158,11,.95)",
+                    "rgba(124,58,237,.95)",
+                    "rgba(6,182,212,.95)"
+                ],
+                borderColor:"#fff",
+                borderWidth:2
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                title: { display: true, text: "Participación por Categoría" },
-                legend: { position: "top" }
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            plugins:{
+                title:{ display:true, text:"Participación por categoría" },
+                legend:{ position:"top" }
             }
         }
     });
@@ -868,44 +1082,44 @@ function crearGraficoCumplimientoAnual(homenajes) {
     if (chartCumplimientoAnual) chartCumplimientoAnual.destroy();
 
     const mensual = {};
+
     homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
+        const fecha = parseFecha(getFechaItem(item));
         if (!fecha) return;
 
         const llave = mesKey(fecha);
-        mensual[llave] = (mensual[llave] || 0) + toNumber(item.Valor);
+        mensual[llave] = (mensual[llave] || 0) + toNumber(getValorItem(item));
     });
 
     const etiquetas = ordenarMeses(Object.keys(mensual));
     const valores = etiquetas.map(k => mensual[k]);
-    const metaMensual = META_GRUPAL > 0 ? META_GRUPAL / 12 : 0;
-    const porcentaje = valores.map(v => metaMensual > 0 ? (v / metaMensual) * 100 : 0);
+    const porcentaje = valores.map(v => META_MENSUAL_BASE > 0 ? (v / META_MENSUAL_BASE) * 100 : 0);
 
     chartCumplimientoAnual = new Chart(canvas, {
-        type: "line",
-        data: {
-            labels: etiquetas,
-            datasets: [
+        type:"line",
+        data:{
+            labels:etiquetas,
+            datasets:[
                 {
-                    label: "% Cumplimiento mensual",
-                    data: porcentaje,
-                    borderColor: "#7c3aed",
-                    backgroundColor: "rgba(124,58,237,.13)",
-                    fill: true,
-                    tension: .3,
-                    pointRadius: 5
+                    label:"% Cumplimiento mensual",
+                    data:porcentaje,
+                    borderColor:"#7c3aed",
+                    backgroundColor:"rgba(124,58,237,.13)",
+                    fill:true,
+                    tension:.3,
+                    pointRadius:5
                 },
                 {
-                    label: "Meta 100%",
-                    data: etiquetas.map(() => 100),
-                    borderColor: "#ef4444",
-                    borderDash: [8, 6],
-                    fill: false,
-                    pointRadius: 0
+                    label:"Meta 100%",
+                    data:etiquetas.map(() => 100),
+                    borderColor:"#ef4444",
+                    borderDash:[8,6],
+                    fill:false,
+                    pointRadius:0
                 }
             ]
         },
-        options: opcionesChartBasicas("Cumplimiento Mensual vs Meta")
+        options:opcionesChartBasicas("Cumplimiento mensual contra meta base")
     });
 }
 
@@ -918,10 +1132,10 @@ function crearGraficoRankingCompletoGestores(homenajes) {
     const gestores = {};
 
     homenajes.forEach(item => {
-        const nombre = String(item.Gestor || "").trim();
+        const nombre = String(getGestorItem(item) || "").trim();
         if (!nombre) return;
 
-        gestores[nombre] = (gestores[nombre] || 0) + toNumber(item.Valor);
+        gestores[nombre] = (gestores[nombre] || 0) + toNumber(getValorItem(item));
     });
 
     const ranking = Object.entries(gestores)
@@ -929,24 +1143,24 @@ function crearGraficoRankingCompletoGestores(homenajes) {
         .slice(0, 15);
 
     chartRankingCompletoGestores = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: ranking.map(([nombre]) => nombre),
-            datasets: [{
-                label: "Valor vendido",
-                data: ranking.map(([, valor]) => valor),
-                backgroundColor: "rgba(37,99,235,.92)",
-                borderRadius: 10
+        type:"bar",
+        data:{
+            labels:ranking.map(([nombre]) => nombre),
+            datasets:[{
+                label:"Valor vendido",
+                data:ranking.map(([, valor]) => valor),
+                backgroundColor:"rgba(37,99,235,.92)",
+                borderRadius:10
             }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: "y",
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { beginAtZero: true },
-                y: { grid: { display: false } }
+        options:{
+            responsive:true,
+            maintainAspectRatio:false,
+            indexAxis:"y",
+            plugins:{ legend:{ display:false } },
+            scales:{
+                x:{ beginAtZero:true },
+                y:{ grid:{ display:false } }
             }
         }
     });
@@ -961,10 +1175,10 @@ function crearGraficoExcedentes(homenajes) {
     const excedentes = {};
 
     homenajes.forEach(item => {
-        const ex = normalizarTexto(item.Tipo_Excedente);
+        const ex = normalizarTexto(getTipoExcedenteItem(item));
         if (!ex || ex === "SOAT" || ex === "PENSIONADO") return;
 
-        excedentes[ex] = (excedentes[ex] || 0) + toNumber(item.Valor);
+        excedentes[ex] = (excedentes[ex] || 0) + toNumber(getValorItem(item));
     });
 
     const ranking = Object.entries(excedentes)
@@ -972,17 +1186,17 @@ function crearGraficoExcedentes(homenajes) {
         .slice(0, 12);
 
     chartExcedentes = new Chart(canvas, {
-        type: "bar",
-        data: {
-            labels: ranking.map(([nombre]) => nombre),
-            datasets: [{
-                label: "Excedentes",
-                data: ranking.map(([, valor]) => valor),
-                backgroundColor: "rgba(245,158,11,.92)",
-                borderRadius: 10
+        type:"bar",
+        data:{
+            labels:ranking.map(([nombre]) => nombre),
+            datasets:[{
+                label:"Excedentes",
+                data:ranking.map(([, valor]) => valor),
+                backgroundColor:"rgba(245,158,11,.92)",
+                borderRadius:10
             }]
         },
-        options: opcionesChartBasicas("Excedentes por Valor")
+        options:opcionesChartBasicas("Excedentes por valor")
     });
 }
 
@@ -995,48 +1209,115 @@ function crearGraficoHistorico(homenajes) {
     const mensual = {};
 
     homenajes.forEach(item => {
-        const fecha = parseFecha(item.Fecha);
+        const fecha = parseFecha(getFechaItem(item));
         if (!fecha) return;
 
         const llave = mesKey(fecha);
-        mensual[llave] = (mensual[llave] || 0) + toNumber(item.Valor);
+        mensual[llave] = (mensual[llave] || 0) + toNumber(getValorItem(item));
     });
 
     const etiquetas = ordenarMeses(Object.keys(mensual));
     const valores = etiquetas.map(k => mensual[k]);
 
     chartHistorico = new Chart(canvas, {
-        type: "line",
-        data: {
-            labels: etiquetas,
-            datasets: [{
-                label: "Ventas históricas",
-                data: valores,
-                borderColor: "#00a651",
-                backgroundColor: "rgba(0,166,81,.13)",
-                fill: true,
-                tension: .35,
-                pointRadius: 5,
-                pointBackgroundColor: "#00a651"
+        type:"line",
+        data:{
+            labels:etiquetas,
+            datasets:[{
+                label:"Ventas históricas",
+                data:valores,
+                borderColor:"#00a651",
+                backgroundColor:"rgba(0,166,81,.13)",
+                fill:true,
+                tension:.35,
+                pointRadius:5,
+                pointBackgroundColor:"#00a651"
             }]
         },
-        options: opcionesChartBasicas("Serie Histórica de Ventas")
+        options:opcionesChartBasicas("Serie histórica de ventas")
     });
 }
 
-function renderizarVistasAdicionales(homenajes) {
-    const resumen = calcularResumen(homenajes);
+function crearGraficoMetasAcumuladas() {
+    const canvas = document.getElementById("graficoMetasAcumuladas");
+    if (!canvas) return;
 
+    if (chartMetasAcumuladas) chartMetasAcumuladas.destroy();
+
+    const etiquetas = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre"
+    ];
+
+    const metas = etiquetas.map((_, index) => META_MENSUAL_BASE * (index + 1));
+
+    chartMetasAcumuladas = new Chart(canvas, {
+        type:"line",
+        data:{
+            labels:etiquetas,
+            datasets:[{
+                label:"Meta acumulada",
+                data:metas,
+                borderColor:"#00a651",
+                backgroundColor:"rgba(0,166,81,.14)",
+                fill:true,
+                tension:.25,
+                pointRadius:5
+            }]
+        },
+        options:opcionesChartBasicas("Meta acumulada mensual")
+    });
+}
+
+function crearIndicadoresServicioTop(homenajes) {
+    const servicios = {};
+
+    homenajes.forEach(item => {
+        const servicio = String(getTipoExcedenteItem(item) || "").trim();
+        if (!servicio) return;
+
+        servicios[servicio] = (servicios[servicio] || 0) + 1;
+    });
+
+    const servicioTop = Object.entries(servicios).sort((a, b) => b[1] - a[1])[0];
+
+    setHtml("servicioTop", servicioTop ? servicioTop[0] : "-");
+    setHtml("cantidadServicioTop", servicioTop ? servicioTop[1] : "0");
+}
+
+function renderizarVistasAdicionales(homenajes) {
+    crearIndicadoresServicioTop(homenajes);
     crearGraficoVentasVista(homenajes);
-    crearGraficoCategoriaVista(resumen);
+    crearGraficoCategoriaVista(homenajes);
     crearGraficoCumplimientoAnual(homenajes);
     crearGraficoRankingCompletoGestores(homenajes);
     crearGraficoExcedentes(homenajes);
     crearGraficoHistorico(homenajes);
+    crearGraficoMetasAcumuladas();
 }
 
-function actualizarAdmin(totalOriginal, totalFiltrado) {
-    setHtml("adminMetaGeneral", formatMoney(META_GRUPAL));
+function actualizarVistaMetas(metaInfo) {
+    setHtml("vistaMetaMensual", formatMoney(META_MENSUAL_BASE));
+    setHtml("vistaMetaTrimestral", formatMoney(META_TRIMESTRAL_BASE));
+    setHtml("vistaMetaSemestral", formatMoney(META_SEMESTRAL_BASE));
+    setHtml("vistaMetaAnual", formatMoney(META_ANUAL_BASE));
+    setHtml("vistaMetaRango", formatMoney(metaInfo.meta));
+    setHtml("vistaMesesRango", metaInfo.mesesEquivalentes.toFixed(2));
+}
+
+function actualizarAdmin(totalOriginal, totalFiltrado, metaInfo) {
+    setHtml("adminMetaMensual", formatMoney(META_MENSUAL_BASE));
+    setHtml("adminMetaGeneral", formatMoney(metaInfo.meta));
     setHtml("adminUltimaActualizacion", new Date().toLocaleString("es-CO"));
     setHtml("adminTotalRegistros", `${totalFiltrado.length} / ${totalOriginal.length}`);
 
@@ -1066,7 +1347,7 @@ function cambiarVista(seccion) {
 
 function redimensionarGraficos() {
     [
-        chartCumplimiento,
+        chartMetaReal,
         chartIngresos,
         chartMensual,
         chartGestores,
@@ -1076,7 +1357,8 @@ function redimensionarGraficos() {
         chartCumplimientoAnual,
         chartRankingCompletoGestores,
         chartExcedentes,
-        chartHistorico
+        chartHistorico,
+        chartMetasAcumuladas
     ].forEach(chart => {
         if (chart && typeof chart.resize === "function") chart.resize();
     });
@@ -1086,24 +1368,27 @@ function exportarExcel() {
     if (typeof XLSX === "undefined") return;
 
     const hojaDatos = DATASET_FILTRADO.map(item => ({
-        Fecha: item.Fecha || "",
-        Gestor: item.Gestor || "",
-        Tipo_Homenaje: item.Tipo_Homenaje || "",
-        Tipo_Excedente: item.Tipo_Excedente || "",
-        Cantidad: toNumber(item.Cantidad || 1),
-        Valor: toNumber(item.Valor)
+        Fecha: getFechaItem(item) || "",
+        Gestor: getGestorItem(item) || "",
+        Tipo_Homenaje: getTipoHomenajeItem(item) || "",
+        Tipo_Excedente: getTipoExcedenteItem(item) || "",
+        Valor: toNumber(getValorItem(item))
     }));
 
     const resumen = calcularResumen(DATASET_FILTRADO);
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
 
     const wsResumen = XLSX.utils.aoa_to_sheet([
         ["Indicador", "Valor"],
-        ["Meta Grupal", META_GRUPAL],
+        ["Meta Mensual Base", META_MENSUAL_BASE],
+        ["Meta Trimestral", META_TRIMESTRAL_BASE],
+        ["Meta Semestral", META_SEMESTRAL_BASE],
+        ["Meta Anual", META_ANUAL_BASE],
+        ["Meta del Rango", META_RANGO_ACTUAL],
+        ["Meses Equivalentes", MESES_EQUIVALENTES_ACTUAL],
         ["Ventas Totales", resumen.total],
-        ["Cumplimiento %", META_GRUPAL > 0 ? (resumen.total / META_GRUPAL) * 100 : 0],
-        ["Red", resumen.red],
-        ["Particular", resumen.particular],
-        ["Excedentes", resumen.excedentes],
+        ["Cumplimiento %", cumplimiento],
+        ["Faltante", Math.max(META_RANGO_ACTUAL - resumen.total, 0)],
         ["Registros Filtrados", DATASET_FILTRADO.length]
     ]);
 
@@ -1113,7 +1398,7 @@ function exportarExcel() {
     XLSX.utils.book_append_sheet(wb, wsResumen, "Resumen Ejecutivo");
     XLSX.utils.book_append_sheet(wb, wsDatos, "Base Filtrada");
 
-    XLSX.writeFile(wb, "dashboard_gerencial_4k.xlsx");
+    XLSX.writeFile(wb, "dashboard_gerencial_homenajes.xlsx");
 }
 
 function exportarPDF() {
@@ -1121,12 +1406,12 @@ function exportarPDF() {
     if (!elemento || typeof html2pdf === "undefined") return;
 
     const opciones = {
-        margin: 0.2,
-        filename: "dashboard_gerencial_4k.pdf",
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: "in", format: "a4", orientation: "landscape" },
-        pagebreak: { mode: ["css", "legacy"] }
+        margin:0.2,
+        filename:"dashboard_gerencial_homenajes.pdf",
+        image:{ type:"jpeg", quality:0.98 },
+        html2canvas:{ scale:2, useCORS:true },
+        jsPDF:{ unit:"in", format:"a4", orientation:"landscape" },
+        pagebreak:{ mode:["css", "legacy"] }
     };
 
     html2pdf().set(opciones).from(elemento).save();
@@ -1161,6 +1446,7 @@ function limpiarFiltros() {
     if (fechaFin) fechaFin.value = "";
     if (busqueda) busqueda.value = "";
 
+    establecerFechasPorDefecto();
     cargarDashboard();
 }
 
@@ -1190,4 +1476,5 @@ document.getElementById("busquedaGeneral")?.addEventListener("keyup", event => {
 });
 
 aplicarPreferencias();
+establecerFechasPorDefecto();
 cargarDashboard();
