@@ -3,6 +3,7 @@ console.log("APP.JS CARGADO CORRECTAMENTE");
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
 let META_MENSUAL_BASE = Number(localStorage.getItem("metaMensualBase")) || 219133881;
+let ACCESS_CODE = localStorage.getItem("dashboardAccessCode") || "JKFH2026";
 
 let META_TRIMESTRAL_BASE = META_MENSUAL_BASE * 3;
 let META_SEMESTRAL_BASE = META_MENSUAL_BASE * 6;
@@ -13,9 +14,12 @@ let MESES_EQUIVALENTES_ACTUAL = 0;
 let DIAS_RANGO_ACTUAL = 0;
 
 let DATASET = [];
+let DATASET_NORMAL = [];
 let DATASET_FILTRADO = [];
 
 let charts = {};
+let ULTIMO_RESUMEN = null;
+let ULTIMA_META_INFO = null;
 
 function destruirChart(id){
     if(charts[id]){
@@ -25,9 +29,7 @@ function destruirChart(id){
 }
 
 function toNumber(valor){
-    if(typeof valor === "number"){
-        return Number.isFinite(valor) ? valor : 0;
-    }
+    if(typeof valor === "number") return Number.isFinite(valor) ? valor : 0;
 
     const texto = String(valor ?? "").trim();
     if(!texto) return 0;
@@ -50,99 +52,76 @@ function normalizarTexto(valor){
     return String(valor ?? "").trim().toUpperCase();
 }
 
+function normalizarLlave(valor){
+    return String(valor ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "");
+}
+
 function setHtml(id, valor){
     const el = document.getElementById(id);
     if(el) el.innerHTML = valor;
 }
 
+function setValue(id, valor){
+    const el = document.getElementById(id);
+    if(el) el.value = valor;
+}
+
 function getCampo(item, posibles){
+    const mapa = {};
+    Object.keys(item || {}).forEach(k => mapa[normalizarLlave(k)] = item[k]);
+
     for(const campo of posibles){
-        if(item[campo] !== undefined && item[campo] !== null && String(item[campo]).trim() !== ""){
-            return item[campo];
+        const llave = normalizarLlave(campo);
+        if(mapa[llave] !== undefined && mapa[llave] !== null && String(mapa[llave]).trim() !== ""){
+            return mapa[llave];
         }
     }
+
     return "";
 }
 
 function getFechaItem(item){
-    return getCampo(item, [
-        "Fecha",
-        "FECHA",
-        "fecha",
-        "Fecha_Homenaje",
-        "FECHA_HOMENAJE",
-        "Fecha Homenaje",
-        "FECHA HOMENAJE"
-    ]);
+    return getCampo(item, ["Fecha","FECHA","fecha","Fecha_Homenaje","FECHA_HOMENAJE","Fecha Homenaje","FECHA HOMENAJE","Fecha Servicio","FECHA SERVICIO"]);
 }
 
 function getValorItem(item){
-    return getCampo(item, [
-        "Valor",
-        "VALOR",
-        "valor",
-        "Valor_Homenaje",
-        "VALOR_HOMENAJE",
-        "Valor Homenaje",
-        "VALOR HOMENAJE",
-        "Total",
-        "TOTAL"
-    ]);
+    return getCampo(item, ["Valor","VALOR","valor","Valor_Homenaje","VALOR_HOMENAJE","Valor Homenaje","VALOR HOMENAJE","Total","TOTAL","Venta","VENTA","Valor Total","VALOR TOTAL"]);
 }
 
 function getGestorItem(item){
-    return getCampo(item, [
-        "Gestor",
-        "GESTOR",
-        "gestor",
-        "Asesor",
-        "ASESOR",
-        "Vendedor",
-        "VENDEDOR"
-    ]);
+    return getCampo(item, ["Gestor","GESTOR","gestor","Asesor","ASESOR","Vendedor","VENDEDOR","Responsable","RESPONSABLE"]);
 }
 
 function getTipoHomenajeItem(item){
-    return getCampo(item, [
-        "Tipo_Homenaje",
-        "TIPO_HOMENAJE",
-        "Tipo Homenaje",
-        "TIPO HOMENAJE",
-        "Categoria",
-        "CATEGORIA",
-        "Categoría",
-        "CATEGORÍA"
-    ]);
+    return getCampo(item, ["Tipo_Homenaje","TIPO_HOMENAJE","Tipo Homenaje","TIPO HOMENAJE","Categoria","CATEGORIA","Categoría","CATEGORÍA","Tipo","TIPO"]);
 }
 
 function getTipoExcedenteItem(item){
-    return getCampo(item, [
-        "Tipo_Excedente",
-        "TIPO_EXCEDENTE",
-        "Tipo Excedente",
-        "TIPO EXCEDENTE",
-        "Servicio",
-        "SERVICIO",
-        "Excedente",
-        "EXCEDENTE"
-    ]);
+    return getCampo(item, ["Tipo_Excedente","TIPO_EXCEDENTE","Tipo Excedente","TIPO EXCEDENTE","Servicio","SERVICIO","Excedente","EXCEDENTE","Producto","PRODUCTO"]);
+}
+
+function getSedeItem(item){
+    return getCampo(item, ["Sede","SEDE","Ciudad","CIUDAD","Sucursal","SUCURSAL","Zona","ZONA"]);
+}
+
+function getObservacionItem(item){
+    return getCampo(item, ["Observacion","Observación","OBSERVACION","OBSERVACIÓN","Nota","NOTA","Detalle","DETALLE"]);
 }
 
 function convertirArrayAObjetos(tabla){
     if(!Array.isArray(tabla) || tabla.length === 0) return [];
 
-    if(typeof tabla[0] === "object" && !Array.isArray(tabla[0])){
-        return tabla;
-    }
+    if(typeof tabla[0] === "object" && !Array.isArray(tabla[0])) return tabla;
 
     if(Array.isArray(tabla[0])){
         const encabezados = tabla[0].map(h => String(h || "").trim());
-
         return tabla.slice(1).map(fila => {
             const obj = {};
-            encabezados.forEach((encabezado, index) => {
-                obj[encabezado] = fila[index];
-            });
+            encabezados.forEach((encabezado, index) => obj[encabezado] = fila[index]);
             return obj;
         });
     }
@@ -157,18 +136,15 @@ function obtenerHomenajesDesdeApi(json){
     if(Array.isArray(json.registros)) return convertirArrayAObjetos(json.registros);
     if(Array.isArray(json.result)) return convertirArrayAObjetos(json.result);
     if(Array.isArray(json)) return convertirArrayAObjetos(json);
-
     return [];
 }
 
 function parseFecha(valor){
     if(valor instanceof Date && !isNaN(valor.getTime())) return valor;
 
-    if(typeof valor === "number"){
-        if(valor > 20000){
-            const fechaExcel = new Date(Math.round((valor - 25569) * 86400 * 1000));
-            return isNaN(fechaExcel.getTime()) ? null : fechaExcel;
-        }
+    if(typeof valor === "number" && valor > 20000){
+        const fechaExcel = new Date(Math.round((valor - 25569) * 86400 * 1000));
+        return isNaN(fechaExcel.getTime()) ? null : fechaExcel;
     }
 
     if(valor == null) return null;
@@ -205,12 +181,55 @@ function inicioDia(fecha){
     return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 0, 0, 0, 0);
 }
 
+function finDia(fecha){
+    return new Date(fecha.getFullYear(), fecha.getMonth(), fecha.getDate(), 23, 59, 59, 999);
+}
+
 function inicioMes(fecha){
     return new Date(fecha.getFullYear(), fecha.getMonth(), 1);
 }
 
 function finMes(fecha){
     return new Date(fecha.getFullYear(), fecha.getMonth() + 1, 0);
+}
+
+function inicioSemana(fecha){
+    const f = inicioDia(fecha);
+    const dia = f.getDay() || 7;
+    f.setDate(f.getDate() - dia + 1);
+    return f;
+}
+
+function finSemana(fecha){
+    const f = inicioSemana(fecha);
+    f.setDate(f.getDate() + 6);
+    return finDia(f);
+}
+
+function inicioTrimestre(fecha){
+    const mes = Math.floor(fecha.getMonth() / 3) * 3;
+    return new Date(fecha.getFullYear(), mes, 1);
+}
+
+function finTrimestre(fecha){
+    const inicio = inicioTrimestre(fecha);
+    return new Date(inicio.getFullYear(), inicio.getMonth() + 3, 0);
+}
+
+function inicioSemestre(fecha){
+    return new Date(fecha.getFullYear(), fecha.getMonth() < 6 ? 0 : 6, 1);
+}
+
+function finSemestre(fecha){
+    return fecha.getMonth() < 6 ? new Date(fecha.getFullYear(), 6, 0) : new Date(fecha.getFullYear(), 12, 0);
+}
+
+function inicioAnio(fecha){
+    return new Date(fecha.getFullYear(), 0, 1);
+}
+
+function finAnio(fecha){
+    return new Date(fecha.getFullYear(), 11, 31);
 }
 
 function diasDelMes(fecha){
@@ -220,7 +239,7 @@ function diasDelMes(fecha){
 function diasEntre(fechaInicio, fechaFin){
     const inicio = inicioDia(fechaInicio);
     const fin = inicioDia(fechaFin);
-    return Math.floor((fin - inicio) / 86400000) + 1;
+    return Math.max(Math.floor((fin - inicio) / 86400000) + 1, 1);
 }
 
 function mesKey(fecha){
@@ -230,6 +249,12 @@ function mesKey(fecha){
 
 function fechaKey(fecha){
     return fechaISO(fecha);
+}
+
+function semanaKey(fecha){
+    const ini = inicioSemana(fecha);
+    const fin = finSemana(fecha);
+    return `${fechaISO(ini)} a ${fechaISO(fin)}`;
 }
 
 function trimestreKey(fecha){
@@ -258,29 +283,6 @@ function ordenarFechas(keys){
     return keys.sort((a, b) => new Date(a) - new Date(b));
 }
 
-function obtenerRangoFechas(){
-    return {
-        fechaInicio: document.getElementById("fechaInicio")?.value || "",
-        fechaFin: document.getElementById("fechaFin")?.value || "",
-        busqueda: normalizarTexto(document.getElementById("busquedaGeneral")?.value || "")
-    };
-}
-
-function establecerFechasPorDefecto(){
-    const fechaInicio = document.getElementById("fechaInicio");
-    const fechaFin = document.getElementById("fechaFin");
-
-    if(!fechaInicio || !fechaFin) return;
-
-    if(!fechaInicio.value && !fechaFin.value){
-        const hoy = new Date();
-        const enero = new Date(hoy.getFullYear(), 0, 1);
-
-        fechaInicio.value = fechaISO(enero);
-        fechaFin.value = fechaISO(hoy);
-    }
-}
-
 function recalcularMetasBase(){
     META_TRIMESTRAL_BASE = META_MENSUAL_BASE * 3;
     META_SEMESTRAL_BASE = META_MENSUAL_BASE * 6;
@@ -288,17 +290,15 @@ function recalcularMetasBase(){
 }
 
 function calcularMetaPorRango(fechaInicioTexto, fechaFinTexto){
-    let inicio = fechaInicioTexto ? new Date(`${fechaInicioTexto}T00:00:00`) : null;
-    let fin = fechaFinTexto ? new Date(`${fechaFinTexto}T23:59:59`) : null;
+    let inicio = typeof fechaInicioTexto === "string" ? new Date(`${fechaInicioTexto}T00:00:00`) : fechaInicioTexto;
+    let fin = typeof fechaFinTexto === "string" ? new Date(`${fechaFinTexto}T23:59:59`) : fechaFinTexto;
 
     if(!inicio || isNaN(inicio.getTime())){
         const hoy = new Date();
         inicio = new Date(hoy.getFullYear(), 0, 1);
     }
 
-    if(!fin || isNaN(fin.getTime())){
-        fin = new Date();
-    }
+    if(!fin || isNaN(fin.getTime())) fin = new Date();
 
     if(fin < inicio){
         const temp = inicio;
@@ -322,7 +322,6 @@ function calcularMetaPorRango(fechaInicioTexto, fechaFinTexto){
 
         const diasSeleccionados = diasEntre(desde, hasta);
         const totalDiasMes = diasDelMes(cursor);
-
         const factorMes = diasSeleccionados / totalDiasMes;
         const metaMes = META_MENSUAL_BASE * factorMes;
 
@@ -340,52 +339,129 @@ function calcularMetaPorRango(fechaInicioTexto, fechaFinTexto){
         cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
     }
 
-    const diasRango = diasEntre(inicio, fin);
-
     return {
         inicio,
         fin,
         meta,
         mesesEquivalentes,
-        diasRango,
+        diasRango: diasEntre(inicio, fin),
         detalleMeses
     };
 }
 
-function filtrarDataset(homenajes){
-    const { fechaInicio, fechaFin, busqueda } = obtenerRangoFechas();
+function normalizarRegistro(item){
+    const fecha = parseFecha(getFechaItem(item));
+    const valor = toNumber(getValorItem(item));
 
-    const inicio = fechaInicio ? new Date(`${fechaInicio}T00:00:00`) : new Date("1900-01-01T00:00:00");
-    const fin = fechaFin ? new Date(`${fechaFin}T23:59:59.999`) : new Date("2999-12-31T23:59:59.999");
+    return {
+        raw:item,
+        fecha,
+        fechaTexto:getFechaItem(item),
+        valor,
+        gestor:String(getGestorItem(item) || "").trim(),
+        categoria:String(getTipoHomenajeItem(item) || "").trim(),
+        servicio:String(getTipoExcedenteItem(item) || "").trim(),
+        sede:String(getSedeItem(item) || "").trim(),
+        observacion:String(getObservacionItem(item) || "").trim()
+    };
+}
 
-    return homenajes.filter(item => {
-        const fecha = parseFecha(getFechaItem(item));
-        const cumpleFecha = fecha && fecha >= inicio && fecha <= fin;
+function obtenerRangoFechas(){
+    return {
+        fechaInicio: document.getElementById("fechaInicio")?.value || "",
+        fechaFin: document.getElementById("fechaFin")?.value || "",
+        gestor: document.getElementById("filtroGestor")?.value || "",
+        categoria: document.getElementById("filtroCategoria")?.value || "",
+        servicio: document.getElementById("filtroServicio")?.value || "",
+        sede: document.getElementById("filtroSede")?.value || "",
+        anio: document.getElementById("filtroAnio")?.value || "",
+        mes: document.getElementById("filtroMes")?.value || "",
+        estado: document.getElementById("filtroEstado")?.value || "",
+        busqueda: normalizarTexto(document.getElementById("busquedaGeneral")?.value || "")
+    };
+}
 
-        const textoBusqueda = normalizarTexto(`
-            ${getGestorItem(item)}
-            ${getTipoHomenajeItem(item)}
-            ${getTipoExcedenteItem(item)}
-        `);
+function establecerFechasPorDefecto(){
+    const fechaInicio = document.getElementById("fechaInicio");
+    const fechaFin = document.getElementById("fechaFin");
 
-        const cumpleBusqueda = !busqueda || textoBusqueda.includes(busqueda);
+    if(!fechaInicio || !fechaFin) return;
 
-        return cumpleFecha && cumpleBusqueda;
+    if(!fechaInicio.value && !fechaFin.value){
+        const hoy = new Date();
+        const enero = new Date(hoy.getFullYear(), 0, 1);
+        fechaInicio.value = fechaISO(enero);
+        fechaFin.value = fechaISO(hoy);
+    }
+}
+
+function estadoRegistro(row){
+    if(!row.fecha) return "bajo";
+    const metaDiaria = META_MENSUAL_BASE / diasDelMes(row.fecha);
+    const porcentaje = metaDiaria > 0 ? (row.valor / metaDiaria) * 100 : 0;
+    if(porcentaje >= 100) return "cumplido";
+    if(porcentaje >= 80) return "riesgo";
+    return "bajo";
+}
+
+function coincideFiltrosNoFecha(row, f){
+    if(f.gestor && row.gestor !== f.gestor) return false;
+    if(f.categoria && row.categoria !== f.categoria) return false;
+    if(f.servicio && row.servicio !== f.servicio) return false;
+    if(f.sede && row.sede !== f.sede) return false;
+    if(f.estado && estadoRegistro(row) !== f.estado) return false;
+
+    if(f.busqueda){
+        const texto = normalizarTexto(`${row.gestor} ${row.categoria} ${row.servicio} ${row.sede} ${row.observacion}`);
+        if(!texto.includes(f.busqueda)) return false;
+    }
+
+    return true;
+}
+
+function filtrarDataset(){
+    const f = obtenerRangoFechas();
+
+    const inicio = f.fechaInicio ? new Date(`${f.fechaInicio}T00:00:00`) : new Date("1900-01-01T00:00:00");
+    const fin = f.fechaFin ? new Date(`${f.fechaFin}T23:59:59.999`) : new Date("2999-12-31T23:59:59.999");
+
+    return DATASET_NORMAL.filter(row => {
+        if(!row.fecha) return false;
+        if(row.fecha < inicio || row.fecha > fin) return false;
+
+        if(f.anio && row.fecha.getFullYear() !== Number(f.anio)) return false;
+        if(f.mes && row.fecha.getMonth() + 1 !== Number(f.mes)) return false;
+
+        return coincideFiltrosNoFecha(row, f);
     });
 }
 
-function calcularResumen(homenajes){
+function filtrarPorRangoConFiltros(inicio, fin){
+    const f = obtenerRangoFechas();
+
+    return DATASET_NORMAL.filter(row => {
+        if(!row.fecha) return false;
+        if(row.fecha < inicioDia(inicio) || row.fecha > finDia(fin)) return false;
+        return coincideFiltrosNoFecha(row, f);
+    });
+}
+
+function sumar(rows){
+    return rows.reduce((acc, row) => acc + toNumber(row.valor), 0);
+}
+
+function calcularResumen(rows){
     let total = 0;
     let red = 0;
     let particular = 0;
     let excedentes = 0;
 
-    homenajes.forEach(item => {
-        const valor = toNumber(getValorItem(item));
+    rows.forEach(row => {
+        const valor = toNumber(row.valor);
         total += valor;
 
-        const tipo = normalizarTexto(getTipoHomenajeItem(item));
-        const excedente = normalizarTexto(getTipoExcedenteItem(item));
+        const tipo = normalizarTexto(row.categoria);
+        const excedente = normalizarTexto(row.servicio);
 
         if(tipo === "RED") red += valor;
         else if(tipo === "PARTICULAR") particular += valor;
@@ -401,69 +477,119 @@ function setEstadoApi(tipo, texto){
 
     estado.className = `estado-api ${tipo}`;
     estado.innerHTML = `<i class="fas fa-circle"></i> ${texto}`;
-
     setHtml("adminEstadoConexion", texto);
+}
+
+function fillSelect(id, values){
+    const select = document.getElementById(id);
+    if(!select) return;
+
+    const actual = select.value;
+    const first = select.querySelector("option")?.outerHTML || `<option value="">Todos</option>`;
+
+    select.innerHTML = first;
+
+    [...new Set(values.filter(v => String(v || "").trim()))]
+        .sort((a,b) => String(a).localeCompare(String(b), "es"))
+        .forEach(v => {
+            const option = document.createElement("option");
+            option.value = v;
+            option.textContent = v;
+            select.appendChild(option);
+        });
+
+    select.value = actual;
+}
+
+function poblarFiltros(){
+    fillSelect("filtroGestor", DATASET_NORMAL.map(r => r.gestor));
+    fillSelect("filtroCategoria", DATASET_NORMAL.map(r => r.categoria));
+    fillSelect("filtroServicio", DATASET_NORMAL.map(r => r.servicio));
+    fillSelect("filtroSede", DATASET_NORMAL.map(r => r.sede));
+
+    const selectAnio = document.getElementById("filtroAnio");
+    if(selectAnio){
+        const actual = selectAnio.value;
+        selectAnio.innerHTML = `<option value="">Todos</option>`;
+
+        [...new Set(DATASET_NORMAL.filter(r => r.fecha).map(r => r.fecha.getFullYear()))]
+            .sort()
+            .forEach(y => {
+                const option = document.createElement("option");
+                option.value = y;
+                option.textContent = y;
+                selectAnio.appendChild(option);
+            });
+
+        selectAnio.value = actual;
+    }
 }
 
 async function cargarDashboard(){
     setEstadoApi("cargando", "Cargando...");
-
-    const alertasBox = document.getElementById("alertasGerenciales");
-    if(alertasBox) alertasBox.innerHTML = "<p>Cargando información...</p>";
 
     try{
         const response = await fetch(API_URL, { cache:"no-store" });
         if(!response.ok) throw new Error(`Error HTTP ${response.status}`);
 
         const json = await response.json();
-        console.log("RESPUESTA API:", json);
+        const datos = obtenerHomenajesDesdeApi(json);
 
-        const homenajes = obtenerHomenajesDesdeApi(json);
+        DATASET = datos;
+        DATASET_NORMAL = datos.map(normalizarRegistro);
 
-        DATASET = homenajes;
-        DATASET_FILTRADO = filtrarDataset(DATASET);
+        poblarFiltros();
 
-        const { fechaInicio, fechaFin } = obtenerRangoFechas();
-        const metaInfo = calcularMetaPorRango(fechaInicio, fechaFin);
+        DATASET_FILTRADO = filtrarDataset();
+
+        const f = obtenerRangoFechas();
+        const metaInfo = calcularMetaPorRango(f.fechaInicio, f.fechaFin);
+        const resumen = calcularResumen(DATASET_FILTRADO);
 
         META_RANGO_ACTUAL = metaInfo.meta;
         MESES_EQUIVALENTES_ACTUAL = metaInfo.mesesEquivalentes;
         DIAS_RANGO_ACTUAL = metaInfo.diasRango;
 
-        const resumen = calcularResumen(DATASET_FILTRADO);
+        ULTIMO_RESUMEN = resumen;
+        ULTIMA_META_INFO = metaInfo;
 
-        actualizarKPIs(resumen, metaInfo);
-        crearResumenEjecutivo(DATASET_FILTRADO, resumen, metaInfo);
-        crearGraficoMetaReal(resumen.total, META_RANGO_ACTUAL);
-        crearGraficoIngresos(resumen);
-        crearGraficoMensual(DATASET_FILTRADO);
-        crearVelocimetroCumplimiento(resumen.total, "velocimetroCumplimiento");
-        crearTablaCumplimiento(resumen.total);
-        crearTablasPrincipales(DATASET_FILTRADO, resumen.total);
-        crearSemaforoGerencial(resumen.total);
-        crearAlertasGerenciales(DATASET_FILTRADO, resumen.total);
-        renderizarVistasAdicionales(DATASET_FILTRADO, resumen, metaInfo);
-        ejecutarModulosFinales(DATASET_FILTRADO, resumen, metaInfo);
-        actualizarAdmin(DATASET, DATASET_FILTRADO, metaInfo);
-        actualizarVistaMetas(metaInfo);
-        actualizarBaseDatos();
-        actualizarConfiguracion();
-
+        renderTodo(resumen, metaInfo);
         setEstadoApi("ok", "Conectado");
 
     }catch(error){
         console.error("Error al cargar dashboard:", error);
         setEstadoApi("error", "Error API");
 
-        if(alertasBox){
-            alertasBox.innerHTML = `
-                <div class="alerta-item">
-                    <i class="fas fa-triangle-exclamation"></i>
-                    <span>No fue posible cargar la información. Verifica que app.js esté bien pegado, que el Apps Script esté publicado y que la API entregue datos.</span>
-                </div>
-            `;
-        }
+        const mensaje = `
+            <div class="alerta-item">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span>No fue posible cargar la información. Verifica Apps Script, permisos, publicación web y estructura del JSON.</span>
+            </div>
+        `;
+
+        setHtml("alertasGerenciales", mensaje);
+        setHtml("alertasGerencialesVista", mensaje);
     }
+}
+
+function renderTodo(resumen, metaInfo){
+    actualizarKPIs(resumen, metaInfo);
+    crearResumenEjecutivo(DATASET_FILTRADO, resumen, metaInfo);
+    crearGraficosDashboard(resumen);
+    crearTablasPrincipales(DATASET_FILTRADO, resumen.total);
+    crearTablaCumplimiento(resumen.total);
+    crearTablaConsolidada();
+    crearSemaforoGerencial(resumen.total);
+    crearAlertasGerenciales(DATASET_FILTRADO, resumen.total);
+    renderizarVistasAdicionales(DATASET_FILTRADO, resumen, metaInfo);
+    actualizarProyeccionesGerenciales(resumen, metaInfo);
+    actualizarCierreGerencial(DATASET_FILTRADO, resumen);
+    actualizarDiagnosticoAvanzado();
+    actualizarAdmin(DATASET_NORMAL, DATASET_FILTRADO, metaInfo);
+    actualizarVistaMetas(metaInfo);
+    actualizarBaseDatos();
+    actualizarConfiguracion();
+    generarReporteFormal();
 }
 
 function colorPorPorcentaje(porcentaje){
@@ -489,9 +615,8 @@ function actualizarKPIs(resumen, metaInfo){
     const cumplimientoGeneral = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
 
-    const promedioDiarioMeta = DIAS_RANGO_ACTUAL > 0 ? META_RANGO_ACTUAL / DIAS_RANGO_ACTUAL : 0;
-    const promedioDiarioReal = DIAS_RANGO_ACTUAL > 0 ? ventaTotal / DIAS_RANGO_ACTUAL : 0;
-
+    const diasAnalizados = Math.max(Math.min(DIAS_RANGO_ACTUAL, diasEntre(metaInfo.inicio, new Date())), 1);
+    const promedioDiarioReal = ventaTotal / diasAnalizados;
     const proyeccion = promedioDiarioReal * DIAS_RANGO_ACTUAL;
     const ticketPromedio = DATASET_FILTRADO.length > 0 ? ventaTotal / DATASET_FILTRADO.length : 0;
 
@@ -502,14 +627,13 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("proyeccion", formatMoney(proyeccion));
 
     setHtml("metaMensual", formatMoney(META_MENSUAL_BASE));
+    setHtml("metaSemanal", formatMoney(META_MENSUAL_BASE / 30.4375 * 7));
     setHtml("metaTrimestral", formatMoney(META_TRIMESTRAL_BASE));
     setHtml("metaSemestral", formatMoney(META_SEMESTRAL_BASE));
     setHtml("metaAnual", formatMoney(META_ANUAL_BASE));
 
     setHtml("mesesEquivalentes", MESES_EQUIVALENTES_ACTUAL.toFixed(2));
-    setHtml("metaDiaria", formatMoney(promedioDiarioMeta));
     setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
-
     setHtml("totalRegistros", DATASET_FILTRADO.length);
     setHtml("ticketPromedio", formatMoney(ticketPromedio));
     setHtml("ultimaActualizacion", new Date().toLocaleString("es-CO"));
@@ -520,9 +644,7 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("tvCumplimiento", `${cumplimientoGeneral.toFixed(1)}%`);
     setHtml("tvFaltante", formatMoney(faltante));
 
-    const desde = fechaISO(metaInfo.inicio);
-    const hasta = fechaISO(metaInfo.fin);
-    setHtml("metaRangoDetalle", `${desde} a ${hasta}`);
+    setHtml("metaRangoDetalle", `${fechaISO(metaInfo.inicio)} a ${fechaISO(metaInfo.fin)}`);
 
     const cumplimientoEl = document.getElementById("cumplimiento");
     if(cumplimientoEl) cumplimientoEl.style.color = colorPorPorcentaje(cumplimientoGeneral);
@@ -531,13 +653,13 @@ function actualizarKPIs(resumen, metaInfo){
     if(tvCumplimiento) tvCumplimiento.style.color = colorPorPorcentaje(cumplimientoGeneral);
 }
 
-function crearResumenEjecutivo(homenajes, resumen, metaInfo){
+function crearResumenEjecutivo(rows, resumen, metaInfo){
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - resumen.total, 0);
 
     let estado = "por debajo de la meta establecida";
     if(cumplimiento >= 100) estado = "con la meta cumplida";
-    else if(cumplimiento >= 80) estado = "cerca del cumplimiento esperado";
+    else if(cumplimiento >= 80) estado = "en zona de seguimiento preventivo";
 
     const texto = `
         El rango seleccionado comprende <strong>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</strong>, 
@@ -546,7 +668,7 @@ function crearResumenEjecutivo(homenajes, resumen, metaInfo){
         <strong>${cumplimiento.toFixed(1)}%</strong> de cumplimiento. 
         Actualmente el resultado se encuentra <strong>${estado}</strong>. 
         Faltante para cumplimiento: <strong>${formatMoney(faltante)}</strong>. 
-        Registros analizados: <strong>${homenajes.length}</strong>.
+        Registros analizados: <strong>${rows.length}</strong>.
     `;
 
     setHtml("resumenEjecutivoTexto", texto);
@@ -555,26 +677,10 @@ function crearResumenEjecutivo(homenajes, resumen, metaInfo){
     const tbody = document.querySelector("#tablaResumenGerencial tbody");
     if(tbody){
         tbody.innerHTML = `
-            <tr>
-                <td>Meta del rango</td>
-                <td>${formatMoney(META_RANGO_ACTUAL)}</td>
-                <td>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</td>
-            </tr>
-            <tr>
-                <td>Venta real</td>
-                <td>${formatMoney(resumen.total)}</td>
-                <td>${homenajes.length} registros analizados</td>
-            </tr>
-            <tr>
-                <td>Cumplimiento</td>
-                <td>${cumplimiento.toFixed(1)}%</td>
-                <td>${textoEstado(cumplimiento)}</td>
-            </tr>
-            <tr>
-                <td>Faltante</td>
-                <td>${formatMoney(faltante)}</td>
-                <td>Valor pendiente para cumplir la meta</td>
-            </tr>
+            <tr><td>Meta del rango</td><td>${formatMoney(META_RANGO_ACTUAL)}</td><td>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</td></tr>
+            <tr><td>Venta real</td><td>${formatMoney(resumen.total)}</td><td>${rows.length} registros analizados</td></tr>
+            <tr><td>Cumplimiento</td><td>${cumplimiento.toFixed(1)}%</td><td>${textoEstado(cumplimiento)}</td></tr>
+            <tr><td>Faltante</td><td>${formatMoney(faltante)}</td><td>Valor pendiente para cumplir la meta</td></tr>
         `;
     }
 }
@@ -594,7 +700,7 @@ function opcionesChartBasicas(titulo){
     };
 }
 
-function crearChartBar(idCanvas, labels, data, label, titulo, color = "rgba(0,166,81,.90)"){
+function crearChartBar(idCanvas, labels, data, label, titulo, color = "rgba(0,166,81,.90)", horizontal = false){
     const canvas = document.getElementById(idCanvas);
     if(!canvas) return;
 
@@ -611,7 +717,10 @@ function crearChartBar(idCanvas, labels, data, label, titulo, color = "rgba(0,16
                 borderRadius:10
             }]
         },
-        options:opcionesChartBasicas(titulo)
+        options:{
+            ...opcionesChartBasicas(titulo),
+            indexAxis: horizontal ? "y" : "x"
+        }
     });
 }
 
@@ -664,66 +773,30 @@ function crearChartDoughnut(idCanvas, labels, data, titulo){
     });
 }
 
+function crearGraficosDashboard(resumen){
+    crearGraficoMetaReal(resumen.total, META_RANGO_ACTUAL);
+    crearGraficoIngresos(resumen);
+    crearGraficoMensual(DATASET_FILTRADO);
+    crearVelocimetroCumplimiento(resumen.total, "velocimetroCumplimiento");
+}
+
 function crearGraficoMetaReal(ventaTotal, metaRango){
-    const canvas = document.getElementById("graficoMetaReal");
-    if(!canvas) return;
-
-    destruirChart("graficoMetaReal");
-
-    charts.graficoMetaReal = new Chart(canvas, {
-        type:"bar",
-        data:{
-            labels:["Meta del rango", "Venta real"],
-            datasets:[{
-                label:"Valor",
-                data:[metaRango, ventaTotal],
-                backgroundColor:["rgba(37,99,235,.85)", "rgba(0,166,81,.90)"],
-                borderRadius:12
-            }]
-        },
-        options:opcionesChartBasicas("Meta calculada vs venta real")
-    });
+    crearChartBar("graficoMetaReal", ["Meta del rango", "Venta real"], [metaRango, ventaTotal], "Valor", "Meta calculada vs venta real", "rgba(0,166,81,.90)");
 }
 
 function crearGraficoIngresos(resumen){
-    crearChartDoughnut(
-        "composicionIngresos",
-        ["RED", "PARTICULAR", "EXCEDENTES"],
-        [resumen.red, resumen.particular, resumen.excedentes],
-        "Composición de ingresos"
-    );
+    crearChartDoughnut("composicionIngresos", ["RED", "PARTICULAR", "EXCEDENTES"], [resumen.red, resumen.particular, resumen.excedentes], "Composición de ingresos");
 }
 
-function crearGraficoMensual(homenajes){
-    const mensual = agruparPorPeriodo(homenajes, "mes");
+function crearGraficoMensual(rows){
+    const mensual = agruparPorPeriodo(rows, "mes");
     const etiquetas = ordenarMeses(Object.keys(mensual));
     const ventas = etiquetas.map(k => mensual[k]);
     const metas = etiquetas.map(() => META_MENSUAL_BASE);
 
     crearChartLine("ventasMensuales", etiquetas, [
-        {
-            label:"Venta mensual",
-            data:ventas,
-            backgroundColor:"rgba(0,166,81,.16)",
-            borderColor:"#00a651",
-            borderWidth:4,
-            pointBackgroundColor:"#00a651",
-            pointBorderColor:"#ffffff",
-            pointBorderWidth:2,
-            pointRadius:5,
-            fill:true,
-            tension:.35
-        },
-        {
-            label:"Meta mensual base",
-            data:metas,
-            borderColor:"#ef4444",
-            borderWidth:3,
-            borderDash:[8,6],
-            pointRadius:0,
-            fill:false,
-            tension:0
-        }
+        { label:"Venta mensual", data:ventas, backgroundColor:"rgba(0,166,81,.16)", borderColor:"#00a651", borderWidth:4, fill:true, tension:.35 },
+        { label:"Meta mensual base", data:metas, borderColor:"#ef4444", borderWidth:3, borderDash:[8,6], pointRadius:0, fill:false }
     ], "Ventas mensuales vs meta mensual");
 }
 
@@ -734,7 +807,6 @@ function crearVelocimetroCumplimiento(ventaTotal, canvasId){
     const porcentajeReal = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
     const porcentaje = Math.min(porcentajeReal, 100);
     const restante = Math.max(100 - porcentaje, 0);
-
     const etiqueta = textoEstado(porcentajeReal).toUpperCase();
     const color = colorPorPorcentaje(porcentajeReal);
 
@@ -812,118 +884,101 @@ function crearTablaCumplimiento(ventaTotal){
     `;
 }
 
-function agruparCategorias(homenajes){
-    const categorias = {};
-
-    homenajes.forEach(item => {
-        let categoria = normalizarTexto(getTipoHomenajeItem(item));
-        if(!categoria) categoria = "SIN CATEGORÍA";
-        categorias[categoria] = (categorias[categoria] || 0) + toNumber(getValorItem(item));
+function agruparCategorias(rows){
+    const obj = {};
+    rows.forEach(row => {
+        const k = row.categoria || "SIN CATEGORÍA";
+        obj[k] = (obj[k] || 0) + row.valor;
     });
-
-    return categorias;
+    return obj;
 }
 
-function agruparServicios(homenajes){
-    const servicios = {};
-
-    homenajes.forEach(item => {
-        const servicio = normalizarTexto(getTipoExcedenteItem(item));
-        if(!servicio) return;
-
-        if(!servicios[servicio]){
-            servicios[servicio] = { cantidad:0, valor:0 };
-        }
-
-        servicios[servicio].cantidad += 1;
-        servicios[servicio].valor += toNumber(getValorItem(item));
+function agruparServicios(rows){
+    const obj = {};
+    rows.forEach(row => {
+        const k = row.servicio || "SIN SERVICIO";
+        if(!obj[k]) obj[k] = { cantidad:0, valor:0 };
+        obj[k].cantidad += 1;
+        obj[k].valor += row.valor;
     });
-
-    return servicios;
+    return obj;
 }
 
-function agruparGestores(homenajes){
-    const gestores = {};
-
-    homenajes.forEach(item => {
-        const nombre = String(getGestorItem(item) || "").trim();
-        if(!nombre) return;
-
-        const llave = nombre.toUpperCase();
-
-        if(!gestores[llave]){
-            gestores[llave] = { nombre, cantidad:0, valor:0 };
-        }
-
-        gestores[llave].cantidad += 1;
-        gestores[llave].valor += toNumber(getValorItem(item));
+function agruparSedes(rows){
+    const obj = {};
+    rows.forEach(row => {
+        const k = row.sede || "SIN SEDE";
+        if(!obj[k]) obj[k] = { cantidad:0, valor:0 };
+        obj[k].cantidad += 1;
+        obj[k].valor += row.valor;
     });
-
-    return gestores;
+    return obj;
 }
 
-function agruparExcedentes(homenajes){
-    const excedentes = {};
+function agruparGestores(rows){
+    const obj = {};
+    rows.forEach(row => {
+        const nombre = row.gestor || "SIN GESTOR";
+        if(!obj[nombre]) obj[nombre] = { nombre, cantidad:0, valor:0 };
+        obj[nombre].cantidad += 1;
+        obj[nombre].valor += row.valor;
+    });
+    return obj;
+}
 
-    homenajes.forEach(item => {
-        const nombre = normalizarTexto(getTipoExcedenteItem(item));
+function agruparExcedentes(rows){
+    const obj = {};
+    rows.forEach(row => {
+        const nombre = normalizarTexto(row.servicio);
         if(!nombre || nombre === "SOAT" || nombre === "PENSIONADO") return;
 
-        if(!excedentes[nombre]){
-            excedentes[nombre] = { cantidad:0, valor:0 };
-        }
-
-        excedentes[nombre].cantidad += 1;
-        excedentes[nombre].valor += toNumber(getValorItem(item));
+        if(!obj[nombre]) obj[nombre] = { cantidad:0, valor:0 };
+        obj[nombre].cantidad += 1;
+        obj[nombre].valor += row.valor;
     });
-
-    return excedentes;
+    return obj;
 }
 
-function crearTablasPrincipales(homenajes, totalGeneral){
-    crearTablaCategoriasGeneral(homenajes, totalGeneral, "#tablaCategorias tbody");
-    crearTablaCategoriasGeneral(homenajes, totalGeneral, "#tablaCategoriasVista tbody");
-    crearTablaServiciosGeneral(homenajes, totalGeneral, "#tablaTopServicios tbody", 10);
-    crearTablaServiciosGeneral(homenajes, totalGeneral, "#tablaServiciosVista tbody", 0);
-    crearTablaGestoresGeneral(homenajes, totalGeneral, "#tablaGestores tbody");
-    crearTablaGestoresGeneral(homenajes, totalGeneral, "#tablaGestoresVista tbody");
-    crearTablaExcedentesGeneral(homenajes, totalGeneral, "#tablaExcedentes tbody");
-    crearTablaExcedentesGeneral(homenajes, totalGeneral, "#tablaExcedentesVista tbody");
+function crearTablasPrincipales(rows, totalGeneral){
+    crearTablaCategoriasGeneral(rows, totalGeneral, "#tablaCategorias tbody");
+    crearTablaCategoriasGeneral(rows, totalGeneral, "#tablaCategoriasVista tbody");
+    crearTablaServiciosGeneral(rows, totalGeneral, "#tablaTopServicios tbody", 10);
+    crearTablaServiciosGeneral(rows, totalGeneral, "#tablaServiciosVista tbody", 0);
+    crearTablaGestoresGeneral(rows, totalGeneral, "#tablaGestores tbody");
+    crearTablaGestoresGeneral(rows, totalGeneral, "#tablaGestoresVista tbody");
+    crearTablaExcedentesGeneral(rows, totalGeneral, "#tablaExcedentes tbody");
+    crearTablaExcedentesGeneral(rows, totalGeneral, "#tablaExcedentesVista tbody");
+    crearTablaSedesGeneral(rows, totalGeneral, "#tablaSedesVista tbody");
 
-    const categorias = agruparCategorias(homenajes);
+    const categorias = agruparCategorias(rows);
     const catLabels = Object.keys(categorias);
     crearChartDoughnut("graficoCategoriasVista", catLabels, catLabels.map(k => categorias[k]), "Ventas por categoría");
 
-    const servicios = agruparServicios(homenajes);
+    const servicios = agruparServicios(rows);
     const serviciosRanking = Object.entries(servicios).sort((a,b) => b[1].valor - a[1].valor).slice(0, 12);
+    crearChartBar("graficoServiciosVista", serviciosRanking.map(([n]) => n), serviciosRanking.map(([, d]) => d.valor), "Valor vendido", "Servicios por valor vendido", "rgba(245,158,11,.92)", true);
 
-    crearChartBar(
-        "graficoServiciosVista",
-        serviciosRanking.map(([nombre]) => nombre),
-        serviciosRanking.map(([, data]) => data.valor),
-        "Valor vendido",
-        "Servicios por valor vendido",
-        "rgba(245,158,11,.92)"
-    );
+    const sedes = agruparSedes(rows);
+    const sedesRanking = Object.entries(sedes).sort((a,b) => b[1].valor - a[1].valor);
+    crearChartBar("graficoSedesVista", sedesRanking.map(([n]) => n), sedesRanking.map(([, d]) => d.valor), "Valor vendido", "Ventas por sede", "rgba(6,182,212,.92)", true);
 
-    const gestores = Object.values(agruparGestores(homenajes)).sort((a,b) => b.valor - a.valor);
+    const gestores = Object.values(agruparGestores(rows)).sort((a,b) => b.valor - a.valor);
     const mejorGestor = gestores[0];
 
     setHtml("mejorGestor", mejorGestor ? mejorGestor.nombre : "-");
     setHtml("ventaMejorGestor", mejorGestor ? formatMoney(mejorGestor.valor) : formatMoney(0));
 
-    const serviciosPorCantidad = Object.entries(servicios).sort((a,b) => b[1].cantidad - a[1].cantidad)[0];
+    const servicioTop = Object.entries(servicios).sort((a,b) => b[1].cantidad - a[1].cantidad)[0];
 
-    setHtml("servicioTop", serviciosPorCantidad ? serviciosPorCantidad[0] : "-");
-    setHtml("cantidadServicioTop", serviciosPorCantidad ? serviciosPorCantidad[1].cantidad : "0");
+    setHtml("servicioTop", servicioTop ? servicioTop[0] : "-");
+    setHtml("cantidadServicioTop", servicioTop ? servicioTop[1].cantidad : "0");
 }
 
-function crearTablaCategoriasGeneral(homenajes, totalGeneral, selector){
+function crearTablaCategoriasGeneral(rows, totalGeneral, selector){
     const tbody = document.querySelector(selector);
     if(!tbody) return;
 
-    const categorias = agruparCategorias(homenajes);
-    const ranking = Object.entries(categorias).sort((a,b) => b[1] - a[1]);
+    const ranking = Object.entries(agruparCategorias(rows)).sort((a,b) => b[1] - a[1]);
 
     if(ranking.length === 0){
         tbody.innerHTML = `<tr><td colspan="3">Sin registros</td></tr>`;
@@ -931,25 +986,16 @@ function crearTablaCategoriasGeneral(homenajes, totalGeneral, selector){
     }
 
     tbody.innerHTML = ranking.map(([nombre, valor]) => {
-        const participacion = totalGeneral > 0 ? (valor / totalGeneral) * 100 : 0;
-
-        return `
-            <tr>
-                <td>${nombre}</td>
-                <td>${formatMoney(valor)}</td>
-                <td>${participacion.toFixed(1)}%</td>
-            </tr>
-        `;
+        const p = totalGeneral > 0 ? (valor / totalGeneral) * 100 : 0;
+        return `<tr><td>${nombre}</td><td>${formatMoney(valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
     }).join("");
 }
 
-function crearTablaServiciosGeneral(homenajes, totalGeneral, selector, limite = 0){
+function crearTablaServiciosGeneral(rows, totalGeneral, selector, limite = 0){
     const tbody = document.querySelector(selector);
     if(!tbody) return;
 
-    const servicios = agruparServicios(homenajes);
-    let ranking = Object.entries(servicios).sort((a,b) => b[1].valor - a[1].valor);
-
+    let ranking = Object.entries(agruparServicios(rows)).sort((a,b) => b[1].valor - a[1].valor);
     if(limite > 0) ranking = ranking.slice(0, limite);
 
     if(ranking.length === 0){
@@ -958,49 +1004,16 @@ function crearTablaServiciosGeneral(homenajes, totalGeneral, selector, limite = 
     }
 
     tbody.innerHTML = ranking.map(([nombre, data]) => {
-        const participacion = totalGeneral > 0 ? (data.valor / totalGeneral) * 100 : 0;
-
-        return `
-            <tr>
-                <td>${nombre}</td>
-                <td>${data.cantidad}</td>
-                <td>${formatMoney(data.valor)}</td>
-                <td>${participacion.toFixed(1)}%</td>
-            </tr>
-        `;
+        const p = totalGeneral > 0 ? (data.valor / totalGeneral) * 100 : 0;
+        return `<tr><td>${nombre}</td><td>${data.cantidad}</td><td>${formatMoney(data.valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
     }).join("");
 }
 
-function crearTablaGestoresGeneral(homenajes, totalGeneral, selector){
+function crearTablaSedesGeneral(rows, totalGeneral, selector){
     const tbody = document.querySelector(selector);
     if(!tbody) return;
 
-    const ranking = Object.values(agruparGestores(homenajes)).sort((a,b) => b.valor - a.valor);
-
-    if(ranking.length === 0){
-        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
-        return;
-    }
-
-    tbody.innerHTML = ranking.map(item => {
-        const participacion = totalGeneral > 0 ? (item.valor / totalGeneral) * 100 : 0;
-
-        return `
-            <tr>
-                <td>${item.nombre}</td>
-                <td>${item.cantidad}</td>
-                <td>${formatMoney(item.valor)}</td>
-                <td>${participacion.toFixed(1)}%</td>
-            </tr>
-        `;
-    }).join("");
-}
-
-function crearTablaExcedentesGeneral(homenajes, totalGeneral, selector){
-    const tbody = document.querySelector(selector);
-    if(!tbody) return;
-
-    const ranking = Object.entries(agruparExcedentes(homenajes)).sort((a,b) => b[1].valor - a[1].valor);
+    const ranking = Object.entries(agruparSedes(rows)).sort((a,b) => b[1].valor - a[1].valor);
 
     if(ranking.length === 0){
         tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
@@ -1008,23 +1021,48 @@ function crearTablaExcedentesGeneral(homenajes, totalGeneral, selector){
     }
 
     tbody.innerHTML = ranking.map(([nombre, data]) => {
-        const participacion = totalGeneral > 0 ? (data.valor / totalGeneral) * 100 : 0;
+        const p = totalGeneral > 0 ? (data.valor / totalGeneral) * 100 : 0;
+        return `<tr><td>${nombre}</td><td>${data.cantidad}</td><td>${formatMoney(data.valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
+    }).join("");
+}
 
-        return `
-            <tr>
-                <td>${nombre}</td>
-                <td>${data.cantidad}</td>
-                <td>${formatMoney(data.valor)}</td>
-                <td>${participacion.toFixed(1)}%</td>
-            </tr>
-        `;
+function crearTablaGestoresGeneral(rows, totalGeneral, selector){
+    const tbody = document.querySelector(selector);
+    if(!tbody) return;
+
+    const ranking = Object.values(agruparGestores(rows)).sort((a,b) => b.valor - a.valor);
+
+    if(ranking.length === 0){
+        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = ranking.map(item => {
+        const p = totalGeneral > 0 ? (item.valor / totalGeneral) * 100 : 0;
+        return `<tr><td>${item.nombre}</td><td>${item.cantidad}</td><td>${formatMoney(item.valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
+    }).join("");
+}
+
+function crearTablaExcedentesGeneral(rows, totalGeneral, selector){
+    const tbody = document.querySelector(selector);
+    if(!tbody) return;
+
+    const ranking = Object.entries(agruparExcedentes(rows)).sort((a,b) => b[1].valor - a[1].valor);
+
+    if(ranking.length === 0){
+        tbody.innerHTML = `<tr><td colspan="4">Sin registros</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = ranking.map(([nombre, data]) => {
+        const p = totalGeneral > 0 ? (data.valor / totalGeneral) * 100 : 0;
+        return `<tr><td>${nombre}</td><td>${data.cantidad}</td><td>${formatMoney(data.valor)}</td><td>${p.toFixed(1)}%</td></tr>`;
     }).join("");
 }
 
 function actualizarSemaforo(idEstado, idTexto, porcentaje, nombre){
     const estado = document.getElementById(idEstado);
     const texto = document.getElementById(idTexto);
-
     if(!estado || !texto) return;
 
     let clase = "semaforo-danger";
@@ -1054,42 +1092,29 @@ function crearSemaforoGerencial(ventaTotal){
     actualizarSemaforo("semaforoProyeccion", "semaforoProyeccionTexto", cumplimiento, "Proyección");
 }
 
-function crearAlertasGerenciales(homenajes, ventaTotal){
-    const contenedor = document.getElementById("alertasGerenciales");
-    const contenedorVista = document.getElementById("alertasGerencialesVista");
-
+function crearAlertasGerenciales(rows, ventaTotal){
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
-
     const alertas = [];
 
-    if(homenajes.length === 0){
-        alertas.push("No hay registros para el rango seleccionado. Verifica fechas, datos o conexión con Google Sheets.");
+    if(rows.length === 0){
+        alertas.push("No hay registros para el rango seleccionado. Verifica filtros, fechas o conexión con Google Sheets.");
     }else{
-        if(cumplimiento < 80){
-            alertas.push(`El cumplimiento está en ${cumplimiento.toFixed(1)}%, por debajo del nivel esperado. Faltante: ${formatMoney(faltante)}.`);
-        }
-
-        if(cumplimiento >= 80 && cumplimiento < 100){
-            alertas.push(`El cumplimiento está en zona de riesgo controlado con ${cumplimiento.toFixed(1)}%. Se recomienda reforzar cierre comercial.`);
-        }
-
-        if(cumplimiento >= 100){
-            alertas.push(`Meta cumplida. El avance actual es de ${cumplimiento.toFixed(1)}%.`);
-        }
+        if(cumplimiento < 80) alertas.push(`Cumplimiento crítico: ${cumplimiento.toFixed(1)}%. Faltante: ${formatMoney(faltante)}.`);
+        if(cumplimiento >= 80 && cumplimiento < 100) alertas.push(`Cumplimiento en riesgo controlado: ${cumplimiento.toFixed(1)}%. Se requiere seguimiento diario.`);
+        if(cumplimiento >= 100) alertas.push(`Meta cumplida con avance de ${cumplimiento.toFixed(1)}%.`);
 
         const promedioDiarioNecesario = DIAS_RANGO_ACTUAL > 0 ? faltante / DIAS_RANGO_ACTUAL : 0;
+        if(faltante > 0) alertas.push(`Promedio diario necesario para cubrir el faltante: ${formatMoney(promedioDiarioNecesario)}.`);
 
-        if(faltante > 0){
-            alertas.push(`Promedio diario necesario para cubrir el faltante del rango: ${formatMoney(promedioDiarioNecesario)}.`);
-        }
-
-        const gestores = Object.values(agruparGestores(homenajes)).sort((a,b) => b.valor - a.valor);
+        const gestores = Object.values(agruparGestores(rows)).sort((a,b) => b.valor - a.valor);
         const mejorGestor = gestores[0];
-
         if(mejorGestor && ventaTotal > 0 && mejorGestor.valor / ventaTotal > 0.35){
             alertas.push(`El gestor ${mejorGestor.nombre} concentra más del 35% de las ventas del rango.`);
         }
+
+        const calidad = calcularCalidadDatos().calidad;
+        if(calidad < 90) alertas.push(`Calidad de datos por debajo del 90%. Revisar registros incompletos o mal digitados.`);
     }
 
     const html = alertas.map(a => `
@@ -1099,124 +1124,107 @@ function crearAlertasGerenciales(homenajes, ventaTotal){
         </div>
     `).join("");
 
-    if(contenedor) contenedor.innerHTML = html || "<p>Sin alertas por el momento.</p>";
-    if(contenedorVista) contenedorVista.innerHTML = html || "<p>Sin alertas por el momento.</p>";
+    setHtml("alertasGerenciales", html || "<p>Sin alertas por el momento.</p>");
+    setHtml("alertasGerencialesVista", html || "<p>Sin alertas por el momento.</p>");
 }
 
-function agruparPorPeriodo(homenajes, periodo){
+function agruparPorPeriodo(rows, periodo){
     const datos = {};
 
-    homenajes.forEach(item => {
-        const fecha = parseFecha(getFechaItem(item));
-        if(!fecha) return;
+    rows.forEach(row => {
+        if(!row.fecha) return;
 
         let llave = "";
+        if(periodo === "dia") llave = fechaKey(row.fecha);
+        if(periodo === "semana") llave = semanaKey(row.fecha);
+        if(periodo === "mes") llave = mesKey(row.fecha);
+        if(periodo === "trimestre") llave = trimestreKey(row.fecha);
+        if(periodo === "semestre") llave = semestreKey(row.fecha);
+        if(periodo === "anio") llave = anioKey(row.fecha);
 
-        if(periodo === "dia") llave = fechaKey(fecha);
-        if(periodo === "mes") llave = mesKey(fecha);
-        if(periodo === "trimestre") llave = trimestreKey(fecha);
-        if(periodo === "semestre") llave = semestreKey(fecha);
-        if(periodo === "anio") llave = anioKey(fecha);
-
-        datos[llave] = (datos[llave] || 0) + toNumber(getValorItem(item));
+        datos[llave] = (datos[llave] || 0) + row.valor;
     });
 
     return datos;
 }
 
-function renderizarVistasAdicionales(homenajes, resumen, metaInfo){
-    crearVistaVentas(homenajes);
-    crearVistaCumplimientos(homenajes);
-    crearVistaGestores(homenajes);
-    crearVistaExcedentes(homenajes);
-    crearVistaComparativos(homenajes);
-    crearVistaTendencias(homenajes);
+function renderizarVistasAdicionales(rows, resumen, metaInfo){
+    crearVistaVentas(rows);
+    crearVistaCumplimientos(rows);
+    crearVistaGestores(rows);
+    crearVistaExcedentes(rows);
+    crearVistaComparativos(rows, metaInfo);
+    crearVistaTendencias(rows);
     crearVistaMetas();
     crearVelocimetroCumplimiento(resumen.total, "graficoTvCumplimiento");
 }
 
-function crearVistaVentas(homenajes){
-    const mensual = agruparPorPeriodo(homenajes, "mes");
+function crearVistaVentas(rows){
+    const mensual = agruparPorPeriodo(rows, "mes");
     const etiquetas = ordenarMeses(Object.keys(mensual));
-    const valores = etiquetas.map(k => mensual[k]);
+    crearChartBar("ventasAnuales", etiquetas, etiquetas.map(k => mensual[k]), "Ventas", "Ventas mensuales acumuladas");
 
-    crearChartBar("ventasAnuales", etiquetas, valores, "Ventas", "Ventas mensuales acumuladas");
-
-    const categorias = agruparCategorias(homenajes);
+    const categorias = agruparCategorias(rows);
     const labels = Object.keys(categorias);
     crearChartDoughnut("ventasPorCategoriaVista", labels, labels.map(k => categorias[k]), "Participación por categoría");
 }
 
-function crearVistaCumplimientos(homenajes){
-    crearCumplimientoDiario(homenajes);
-    crearCumplimientoMensual(homenajes);
-    crearCumplimientoTrimestral(homenajes);
-    crearCumplimientoSemestral(homenajes);
-    crearCumplimientoAnual(homenajes);
+function crearVistaCumplimientos(rows){
+    crearCumplimientoDiario(rows);
+    crearCumplimientoSemanal(rows);
+    crearCumplimientoMensual(rows);
+    crearCumplimientoTrimestral(rows);
+    crearCumplimientoSemestral(rows);
+    crearCumplimientoAnual(rows);
 }
 
-function crearCumplimientoDiario(homenajes){
-    const diario = agruparPorPeriodo(homenajes, "dia");
+function crearCumplimientoDiario(rows){
+    const diario = agruparPorPeriodo(rows, "dia");
     const etiquetas = ordenarFechas(Object.keys(diario));
     const ventas = etiquetas.map(k => diario[k]);
-
-    const metas = etiquetas.map(k => {
-        const fecha = new Date(`${k}T00:00:00`);
-        return META_MENSUAL_BASE / diasDelMes(fecha);
-    });
+    const metas = etiquetas.map(k => META_MENSUAL_BASE / diasDelMes(new Date(`${k}T00:00:00`)));
 
     crearChartLine("graficoCumplimientoDiario", etiquetas, [
-        {
-            label:"Venta diaria",
-            data:ventas,
-            borderColor:"#00a651",
-            backgroundColor:"rgba(0,166,81,.14)",
-            fill:true,
-            tension:.3
-        },
-        {
-            label:"Meta diaria",
-            data:metas,
-            borderColor:"#ef4444",
-            borderDash:[8,6],
-            pointRadius:0,
-            fill:false
-        }
+        { label:"Venta diaria", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.14)", fill:true, tension:.3 },
+        { label:"Meta diaria", data:metas, borderColor:"#ef4444", borderDash:[8,6], pointRadius:0, fill:false }
     ], "Venta diaria vs meta diaria");
 
     llenarTablaCumplimiento("#tablaCumplimientoDiario tbody", etiquetas, metas, ventas);
 }
 
-function crearCumplimientoMensual(homenajes){
-    const mensual = agruparPorPeriodo(homenajes, "mes");
+function crearCumplimientoSemanal(rows){
+    const semanal = agruparPorPeriodo(rows, "semana");
+    const etiquetas = Object.keys(semanal).sort();
+    const ventas = etiquetas.map(k => semanal[k]);
+    const metas = etiquetas.map(k => {
+        const [desde, hasta] = k.split(" a ");
+        return calcularMetaPorRango(desde, hasta).meta;
+    });
+
+    crearChartLine("graficoCumplimientoSemanal", etiquetas, [
+        { label:"Venta semanal", data:ventas, borderColor:"#2563eb", backgroundColor:"rgba(37,99,235,.14)", fill:true, tension:.3 },
+        { label:"Meta semanal", data:metas, borderColor:"#ef4444", borderDash:[8,6], pointRadius:0, fill:false }
+    ], "Venta semanal vs meta semanal");
+
+    llenarTablaCumplimiento("#tablaCumplimientoSemanal tbody", etiquetas, metas, ventas);
+}
+
+function crearCumplimientoMensual(rows){
+    const mensual = agruparPorPeriodo(rows, "mes");
     const etiquetas = ordenarMeses(Object.keys(mensual));
     const ventas = etiquetas.map(k => mensual[k]);
     const metas = etiquetas.map(() => META_MENSUAL_BASE);
 
     crearChartLine("cumplimientoMensualGrafico", etiquetas, [
-        {
-            label:"Venta mensual",
-            data:ventas,
-            borderColor:"#00a651",
-            backgroundColor:"rgba(0,166,81,.14)",
-            fill:true,
-            tension:.3
-        },
-        {
-            label:"Meta mensual",
-            data:metas,
-            borderColor:"#ef4444",
-            borderDash:[8,6],
-            pointRadius:0,
-            fill:false
-        }
+        { label:"Venta mensual", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.14)", fill:true, tension:.3 },
+        { label:"Meta mensual", data:metas, borderColor:"#ef4444", borderDash:[8,6], pointRadius:0, fill:false }
     ], "Cumplimiento mensual");
 
     llenarTablaCumplimiento("#tablaCumplimientoMensual tbody", etiquetas, metas, ventas);
 }
 
-function crearCumplimientoTrimestral(homenajes){
-    const datos = agruparPorPeriodo(homenajes, "trimestre");
+function crearCumplimientoTrimestral(rows){
+    const datos = agruparPorPeriodo(rows, "trimestre");
     const etiquetas = Object.keys(datos).sort();
     const ventas = etiquetas.map(k => datos[k]);
     const metas = etiquetas.map(() => META_TRIMESTRAL_BASE);
@@ -1225,8 +1233,8 @@ function crearCumplimientoTrimestral(homenajes){
     llenarTablaCumplimiento("#tablaCumplimientoTrimestral tbody", etiquetas, metas, ventas);
 }
 
-function crearCumplimientoSemestral(homenajes){
-    const datos = agruparPorPeriodo(homenajes, "semestre");
+function crearCumplimientoSemestral(rows){
+    const datos = agruparPorPeriodo(rows, "semestre");
     const etiquetas = Object.keys(datos).sort();
     const ventas = etiquetas.map(k => datos[k]);
     const metas = etiquetas.map(() => META_SEMESTRAL_BASE);
@@ -1235,8 +1243,8 @@ function crearCumplimientoSemestral(homenajes){
     llenarTablaCumplimiento("#tablaCumplimientoSemestral tbody", etiquetas, metas, ventas);
 }
 
-function crearCumplimientoAnual(homenajes){
-    const datos = agruparPorPeriodo(homenajes, "anio");
+function crearCumplimientoAnual(rows){
+    const datos = agruparPorPeriodo(rows, "anio");
     const etiquetas = Object.keys(datos).sort();
     const ventas = etiquetas.map(k => datos[k]);
     const metas = etiquetas.map(() => META_ANUAL_BASE);
@@ -1271,159 +1279,163 @@ function llenarTablaCumplimiento(selector, etiquetas, metas, ventas){
     }).join("");
 }
 
-function crearVistaGestores(homenajes){
-    const gestores = Object.values(agruparGestores(homenajes))
-        .sort((a,b) => b.valor - a.valor)
-        .slice(0, 15);
-
-    crearChartBar(
-        "rankingCompletoGestores",
-        gestores.map(item => item.nombre),
-        gestores.map(item => item.valor),
-        "Valor vendido",
-        "Ranking completo de gestores",
-        "rgba(37,99,235,.92)"
-    );
+function crearVistaGestores(rows){
+    const gestores = Object.values(agruparGestores(rows)).sort((a,b) => b.valor - a.valor).slice(0, 15);
+    crearChartBar("rankingCompletoGestores", gestores.map(i => i.nombre), gestores.map(i => i.valor), "Valor vendido", "Ranking completo de gestores", "rgba(37,99,235,.92)", true);
 }
 
-function crearVistaExcedentes(homenajes){
-    const ranking = Object.entries(agruparExcedentes(homenajes))
-        .sort((a,b) => b[1].valor - a[1].valor)
-        .slice(0, 12);
-
-    crearChartBar(
-        "graficoExcedentes",
-        ranking.map(([nombre]) => nombre),
-        ranking.map(([, data]) => data.valor),
-        "Excedentes",
-        "Excedentes por valor",
-        "rgba(245,158,11,.92)"
-    );
+function crearVistaExcedentes(rows){
+    const ranking = Object.entries(agruparExcedentes(rows)).sort((a,b) => b[1].valor - a[1].valor).slice(0, 12);
+    crearChartBar("graficoExcedentes", ranking.map(([n]) => n), ranking.map(([, d]) => d.valor), "Excedentes", "Excedentes por valor", "rgba(245,158,11,.92)", true);
 }
 
-function crearVistaComparativos(homenajes){
-    const mensual = agruparPorPeriodo(homenajes, "mes");
+function crearVistaComparativos(rows, metaInfo){
+    const mensual = agruparPorPeriodo(rows, "mes");
     const etiquetas = ordenarMeses(Object.keys(mensual));
     const ventas = etiquetas.map(k => mensual[k]);
     const metas = etiquetas.map(() => META_MENSUAL_BASE);
 
     crearChartLine("graficoComparativoMensual", etiquetas, [
-        {
-            label:"Venta mensual",
-            data:ventas,
-            borderColor:"#00a651",
-            backgroundColor:"rgba(0,166,81,.14)",
-            fill:true,
-            tension:.3
-        },
-        {
-            label:"Meta mensual",
-            data:metas,
-            borderColor:"#ef4444",
-            borderDash:[8,6],
-            pointRadius:0,
-            fill:false
-        }
+        { label:"Venta mensual", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.14)", fill:true, tension:.3 },
+        { label:"Meta mensual", data:metas, borderColor:"#ef4444", borderDash:[8,6], pointRadius:0, fill:false }
     ], "Comparativo mensual");
 
+    const dias = DIAS_RANGO_ACTUAL;
+    const inicioActual = metaInfo.inicio;
+    const finActual = metaInfo.fin;
+    const inicioAnterior = new Date(inicioActual);
+    inicioAnterior.setDate(inicioAnterior.getDate() - dias);
+    const finAnterior = new Date(inicioActual);
+    finAnterior.setDate(finAnterior.getDate() - 1);
+
+    const ventaActual = sumar(DATASET_FILTRADO);
+    const ventaAnterior = sumar(filtrarPorRangoConFiltros(inicioAnterior, finAnterior));
+    const diferencia = ventaActual - ventaAnterior;
+    const crecimiento = ventaAnterior > 0 ? (diferencia / ventaAnterior) * 100 : 0;
+
+    crearChartBar("graficoComparativoPeriodos", ["Periodo anterior", "Periodo actual"], [ventaAnterior, ventaActual], "Venta", "Actual vs anterior", "rgba(37,99,235,.90)");
+
     const tbody = document.querySelector("#tablaComparativos tbody");
-
     if(tbody){
-        if(etiquetas.length === 0){
-            tbody.innerHTML = `<tr><td colspan="5">Sin registros</td></tr>`;
-            return;
-        }
-
-        tbody.innerHTML = etiquetas.map((etiqueta, index) => {
-            const venta = ventas[index];
-            const meta = metas[index];
-            const cumplimiento = meta > 0 ? (venta / meta) * 100 : 0;
-            const diferencia = venta - meta;
-
-            return `
-                <tr>
-                    <td>${etiqueta}</td>
-                    <td>${formatMoney(venta)}</td>
-                    <td>${formatMoney(meta)}</td>
-                    <td>${cumplimiento.toFixed(1)}%</td>
-                    <td>${formatMoney(diferencia)}</td>
-                </tr>
-            `;
-        }).join("");
+        tbody.innerHTML = `
+            <tr>
+                <td>${fechaISO(inicioActual)} a ${fechaISO(finActual)}</td>
+                <td>${formatMoney(ventaActual)}</td>
+                <td>${formatMoney(ventaAnterior)}</td>
+                <td>${formatMoney(diferencia)}</td>
+                <td>${crecimiento.toFixed(1)}%</td>
+            </tr>
+        `;
     }
 }
 
-function crearVistaTendencias(homenajes){
-    const mensual = agruparPorPeriodo(homenajes, "mes");
+function crearVistaTendencias(rows){
+    const mensual = agruparPorPeriodo(rows, "mes");
     const etiquetas = ordenarMeses(Object.keys(mensual));
     const valores = etiquetas.map(k => mensual[k]);
 
     crearChartLine("graficoHistorico", etiquetas, [
-        {
-            label:"Ventas históricas",
-            data:valores,
-            borderColor:"#00a651",
-            backgroundColor:"rgba(0,166,81,.13)",
-            fill:true,
-            tension:.35,
-            pointRadius:5,
-            pointBackgroundColor:"#00a651"
-        }
+        { label:"Ventas históricas", data:valores, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.13)", fill:true, tension:.35 }
     ], "Serie histórica de ventas");
 }
 
 function crearVistaMetas(){
-    const etiquetas = [
-        "Enero",
-        "Febrero",
-        "Marzo",
-        "Abril",
-        "Mayo",
-        "Junio",
-        "Julio",
-        "Agosto",
-        "Septiembre",
-        "Octubre",
-        "Noviembre",
-        "Diciembre"
-    ];
-
+    const etiquetas = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
     const metas = etiquetas.map((_, index) => META_MENSUAL_BASE * (index + 1));
 
     crearChartLine("graficoMetasAcumuladas", etiquetas, [
-        {
-            label:"Meta acumulada",
-            data:metas,
-            borderColor:"#00a651",
-            backgroundColor:"rgba(0,166,81,.14)",
-            fill:true,
-            tension:.25,
-            pointRadius:5
-        }
+        { label:"Meta acumulada", data:metas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.14)", fill:true, tension:.25 }
     ], "Meta acumulada mensual");
 }
 
-function ejecutarModulosFinales(homenajes, resumen, metaInfo){
-    actualizarProyeccionesGerenciales(homenajes, resumen, metaInfo);
-    actualizarCierreGerencial(homenajes, resumen, metaInfo);
-    actualizarDiagnosticoAvanzado(homenajes);
+function calcularPeriodo(tipo, refDate){
+    let inicio, fin, nombre;
+
+    if(tipo === "Diario"){
+        inicio = inicioDia(refDate);
+        fin = finDia(refDate);
+        nombre = "Diario";
+    }
+
+    if(tipo === "Semanal"){
+        inicio = inicioSemana(refDate);
+        fin = finSemana(refDate);
+        nombre = "Semanal";
+    }
+
+    if(tipo === "Mensual"){
+        inicio = inicioMes(refDate);
+        fin = finMes(refDate);
+        nombre = "Mensual";
+    }
+
+    if(tipo === "Trimestral"){
+        inicio = inicioTrimestre(refDate);
+        fin = finTrimestre(refDate);
+        nombre = "Trimestral";
+    }
+
+    if(tipo === "Semestral"){
+        inicio = inicioSemestre(refDate);
+        fin = finSemestre(refDate);
+        nombre = "Semestral";
+    }
+
+    if(tipo === "Anual"){
+        inicio = inicioAnio(refDate);
+        fin = finAnio(refDate);
+        nombre = "Anual";
+    }
+
+    const rows = filtrarPorRangoConFiltros(inicio, fin);
+    const venta = sumar(rows);
+    const meta = calcularMetaPorRango(inicio, fin).meta;
+    const cumplimiento = meta > 0 ? (venta / meta) * 100 : 0;
+    const faltante = Math.max(meta - venta, 0);
+    const diasPeriodo = diasEntre(inicio, fin);
+    const hoy = new Date();
+    const finAnalisis = hoy < fin ? hoy : fin;
+    const diasAnalizados = Math.max(diasEntre(inicio, finAnalisis), 1);
+    const proyeccion = (venta / diasAnalizados) * diasPeriodo;
+
+    return { nombre, meta, venta, cumplimiento, faltante, proyeccion };
 }
 
-function actualizarProyeccionesGerenciales(homenajes, resumen, metaInfo){
+function crearTablaConsolidada(){
+    const tbody = document.querySelector("#tablaConsolidada tbody");
+    if(!tbody || !ULTIMA_META_INFO) return;
+
+    const ref = ULTIMA_META_INFO.fin;
+    const periodos = ["Diario","Semanal","Mensual","Trimestral","Semestral","Anual"].map(p => calcularPeriodo(p, ref));
+
+    tbody.innerHTML = periodos.map(p => `
+        <tr>
+            <td>${p.nombre}</td>
+            <td>${formatMoney(p.meta)}</td>
+            <td>${formatMoney(p.venta)}</td>
+            <td>${p.cumplimiento.toFixed(1)}%</td>
+            <td>${formatMoney(p.faltante)}</td>
+            <td>${formatMoney(p.proyeccion)}</td>
+            <td>${badgeEstado(p.cumplimiento)}</td>
+        </tr>
+    `).join("");
+}
+
+function actualizarProyeccionesGerenciales(resumen, metaInfo){
     const ventaTotal = resumen.total;
     const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
 
-    const diasRango = Math.max(DIAS_RANGO_ACTUAL, 1);
-    const promedioDiarioReal = ventaTotal / diasRango;
-    const proyeccionRango = promedioDiarioReal * diasRango;
-    const proyeccionAnual = promedioDiarioReal * 365;
+    const hoy = new Date();
+    const diasAnalizados = Math.max(Math.min(DIAS_RANGO_ACTUAL, diasEntre(metaInfo.inicio, hoy)), 1);
+    const promedioDiarioReal = ventaTotal / diasAnalizados;
 
-    const valorDiarioNecesario = diasRango > 0 ? faltante / diasRango : 0;
-    const cumplimientoProyectadoAnual = META_ANUAL_BASE > 0 ? (proyeccionAnual / META_ANUAL_BASE) * 100 : 0;
+    const proyMes = promedioDiarioReal * diasDelMes(metaInfo.fin);
+    const proyAnual = promedioDiarioReal * 365;
+    const valorDiarioNecesario = DIAS_RANGO_ACTUAL > 0 ? faltante / DIAS_RANGO_ACTUAL : 0;
+    const cumplimientoProyectadoAnual = META_ANUAL_BASE > 0 ? (proyAnual / META_ANUAL_BASE) * 100 : 0;
 
     let riesgo = "BAJO";
     let riesgoClase = "#16a34a";
-
     if(cumplimientoProyectadoAnual < 80){
         riesgo = "ALTO";
         riesgoClase = "#dc2626";
@@ -1433,74 +1445,29 @@ function actualizarProyeccionesGerenciales(homenajes, resumen, metaInfo){
     }
 
     setHtml("proyPromedioDiario", formatMoney(promedioDiarioReal));
-    setHtml("proyRango", formatMoney(proyeccionRango));
-    setHtml("proyAnual", formatMoney(proyeccionAnual));
+    setHtml("proyMes", formatMoney(proyMes));
+    setHtml("proyAnual", formatMoney(proyAnual));
     setHtml("riesgoProyectado", riesgo);
     setHtml("valorDiarioNecesario", formatMoney(valorDiarioNecesario));
 
     const riesgoEl = document.getElementById("riesgoProyectado");
     if(riesgoEl) riesgoEl.style.color = riesgoClase;
 
-    crearGraficoProyeccionAnual(proyeccionAnual);
+    crearChartBar("graficoProyeccionAnual", ["Meta anual", "Proyección anual"], [META_ANUAL_BASE, proyAnual], "Valor", "Meta anual vs proyección anual", "rgba(0,166,81,.90)");
 
     const tbody = document.querySelector("#tablaProyecciones tbody");
-
     if(tbody){
         tbody.innerHTML = `
-            <tr>
-                <td>Meta anual</td>
-                <td>${formatMoney(META_ANUAL_BASE)}</td>
-                <td>Objetivo general anual configurado.</td>
-            </tr>
-            <tr>
-                <td>Proyección anual</td>
-                <td>${formatMoney(proyeccionAnual)}</td>
-                <td>Estimación con base en el ritmo diario del rango filtrado.</td>
-            </tr>
-            <tr>
-                <td>Cumplimiento proyectado anual</td>
-                <td>${cumplimientoProyectadoAnual.toFixed(1)}%</td>
-                <td>${textoEstado(cumplimientoProyectadoAnual)}</td>
-            </tr>
-            <tr>
-                <td>Faltante del rango</td>
-                <td>${formatMoney(faltante)}</td>
-                <td>Valor pendiente para cumplir la meta seleccionada.</td>
-            </tr>
-            <tr>
-                <td>Valor diario necesario</td>
-                <td>${formatMoney(valorDiarioNecesario)}</td>
-                <td>Promedio requerido para cubrir el faltante del rango.</td>
-            </tr>
+            <tr><td>Meta anual</td><td>${formatMoney(META_ANUAL_BASE)}</td><td>Objetivo general anual configurado.</td></tr>
+            <tr><td>Proyección mensual</td><td>${formatMoney(proyMes)}</td><td>Estimación de cierre mensual con ritmo actual.</td></tr>
+            <tr><td>Proyección anual</td><td>${formatMoney(proyAnual)}</td><td>Estimación anualizada con promedio diario actual.</td></tr>
+            <tr><td>Cumplimiento proyectado anual</td><td>${cumplimientoProyectadoAnual.toFixed(1)}%</td><td>${textoEstado(cumplimientoProyectadoAnual)}</td></tr>
+            <tr><td>Valor diario necesario</td><td>${formatMoney(valorDiarioNecesario)}</td><td>Promedio requerido para cubrir el faltante del rango.</td></tr>
         `;
     }
 }
 
-function crearGraficoProyeccionAnual(proyeccionAnual){
-    const canvas = document.getElementById("graficoProyeccionAnual");
-    if(!canvas) return;
-
-    destruirChart("graficoProyeccionAnual");
-
-    charts.graficoProyeccionAnual = new Chart(canvas, {
-        type:"bar",
-        data:{
-            labels:["Meta anual", "Proyección anual"],
-            datasets:[{
-                label:"Valor",
-                data:[META_ANUAL_BASE, proyeccionAnual],
-                backgroundColor:[
-                    "rgba(37,99,235,.90)",
-                    "rgba(0,166,81,.90)"
-                ],
-                borderRadius:12
-            }]
-        },
-        options:opcionesChartBasicas("Meta anual vs proyección anual")
-    });
-}
-
-function actualizarCierreGerencial(homenajes, resumen, metaInfo){
+function actualizarCierreGerencial(rows, resumen){
     const ventaTotal = resumen.total;
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
@@ -1510,27 +1477,11 @@ function actualizarCierreGerencial(homenajes, resumen, metaInfo){
     let conclusion = "";
 
     if(cumplimiento >= 100){
-        conclusion = `
-            El desempeño del rango seleccionado es favorable. La meta se encuentra cumplida con un avance de 
-            <strong>${cumplimiento.toFixed(1)}%</strong>, superando la meta calculada de 
-            <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. Se recomienda mantener el ritmo comercial, 
-            fortalecer los servicios de mayor participación y documentar las prácticas exitosas del periodo.
-        `;
+        conclusion = `El desempeño del rango seleccionado es favorable. La meta se encuentra cumplida con un avance de <strong>${cumplimiento.toFixed(1)}%</strong>, superando la meta calculada de <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>.`;
     }else if(cumplimiento >= 80){
-        conclusion = `
-            El desempeño del rango seleccionado se encuentra en zona de riesgo controlado con un avance de 
-            <strong>${cumplimiento.toFixed(1)}%</strong>. La venta acumulada es de 
-            <strong>${formatMoney(ventaTotal)}</strong> frente a una meta de 
-            <strong>${formatMoney(META_RANGO_ACTUAL)}</strong>. Se requiere reforzar el seguimiento diario 
-            para cerrar el faltante de <strong>${formatMoney(faltante)}</strong>.
-        `;
+        conclusion = `El desempeño se encuentra en zona de riesgo controlado con avance de <strong>${cumplimiento.toFixed(1)}%</strong>. Se requiere reforzar seguimiento para cerrar el faltante de <strong>${formatMoney(faltante)}</strong>.`;
     }else{
-        conclusion = `
-            El desempeño del rango seleccionado se encuentra por debajo del nivel esperado, con un avance de 
-            <strong>${cumplimiento.toFixed(1)}%</strong>. La brecha frente a la meta es de 
-            <strong>${formatMoney(faltante)}</strong>. Se recomienda activar un plan de choque comercial, 
-            seguimiento por gestor y revisión de servicios con baja rotación.
-        `;
+        conclusion = `El desempeño está por debajo del nivel esperado, con avance de <strong>${cumplimiento.toFixed(1)}%</strong>. La brecha frente a la meta es de <strong>${formatMoney(faltante)}</strong>.`;
     }
 
     setHtml("conclusionGerencial", conclusion);
@@ -1538,95 +1489,42 @@ function actualizarCierreGerencial(homenajes, resumen, metaInfo){
     const plan = [];
 
     if(cumplimiento < 80){
-        plan.push({
-            titulo:"Plan de choque comercial",
-            texto:"Realizar seguimiento diario a gestores, priorizar oportunidades activas y revisar casos pendientes de cierre.",
-            prioridad:"Alta"
-        });
+        plan.push({ titulo:"Plan de choque comercial", texto:"Seguimiento diario a gestores, priorización de oportunidades activas y revisión de pendientes.", prioridad:"Alta" });
     }
 
     if(promedioDiarioReal < promedioDiarioMeta){
-        plan.push({
-            titulo:"Incrementar promedio diario",
-            texto:`El promedio diario real es ${formatMoney(promedioDiarioReal)}, por debajo de la meta diaria de ${formatMoney(promedioDiarioMeta)}.`,
-            prioridad:"Alta"
-        });
+        plan.push({ titulo:"Incrementar promedio diario", texto:`Promedio real: ${formatMoney(promedioDiarioReal)}. Meta diaria requerida: ${formatMoney(promedioDiarioMeta)}.`, prioridad:"Alta" });
     }
 
-    plan.push({
-        titulo:"Revisión de categorías",
-        texto:"Identificar las categorías con mayor participación y fortalecer las de menor rendimiento.",
-        prioridad:"Media"
-    });
-
-    plan.push({
-        titulo:"Seguimiento por gestor",
-        texto:"Revisar ranking, concentración de ventas y asignar metas de recuperación por responsable.",
-        prioridad:"Media"
-    });
-
-    plan.push({
-        titulo:"Reporte a gerencia",
-        texto:"Exportar PDF y Excel del dashboard para revisión en comité gerencial.",
-        prioridad:"Baja"
-    });
+    plan.push({ titulo:"Revisión por categoría", texto:"Identificar categorías fuertes y fortalecer líneas de baja participación.", prioridad:"Media" });
+    plan.push({ titulo:"Seguimiento por gestor", texto:"Revisar ranking, concentración de ventas y asignar metas de recuperación.", prioridad:"Media" });
+    plan.push({ titulo:"Reporte a gerencia", texto:"Exportar PDF formal y Excel para comité gerencial.", prioridad:"Baja" });
 
     const planBox = document.getElementById("planAccionGerencial");
-
     if(planBox){
         planBox.innerHTML = plan.map(item => {
-            const clase =
-                item.prioridad === "Alta" ? "prioridad-alta" :
-                item.prioridad === "Media" ? "prioridad-media" :
-                "prioridad-baja";
-
-            return `
-                <div class="plan-card">
-                    <h4>${item.titulo}</h4>
-                    <p>${item.texto}</p>
-                    <p class="${clase}">Prioridad: ${item.prioridad}</p>
-                </div>
-            `;
+            const clase = item.prioridad === "Alta" ? "prioridad-alta" : item.prioridad === "Media" ? "prioridad-media" : "prioridad-baja";
+            return `<div class="plan-card"><h4>${item.titulo}</h4><p>${item.texto}</p><p class="${clase}">Prioridad: ${item.prioridad}</p></div>`;
         }).join("");
     }
 
-    actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta, homenajes);
+    actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta, rows);
 }
 
-function actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta, homenajes){
+function actualizarMatrizDecision(cumplimiento, promedioDiarioReal, promedioDiarioMeta, rows){
     const tbody = document.querySelector("#tablaDecisionGerencial tbody");
     if(!tbody) return;
 
-    const estadoCumplimiento =
-        cumplimiento >= 100 ? "Bueno" :
-        cumplimiento >= 80 ? "Riesgo" :
-        "Crítico";
+    const calidad = calcularCalidadDatos().calidad;
 
-    const estadoPromedio =
-        promedioDiarioReal >= promedioDiarioMeta ? "Bueno" : "Crítico";
-
-    const estadoDatos =
-        homenajes.length > 0 ? "Bueno" : "Crítico";
+    const estadoCumplimiento = cumplimiento >= 100 ? "Bueno" : cumplimiento >= 80 ? "Riesgo" : "Crítico";
+    const estadoPromedio = promedioDiarioReal >= promedioDiarioMeta ? "Bueno" : "Crítico";
+    const estadoDatos = calidad >= 95 ? "Bueno" : calidad >= 80 ? "Riesgo" : "Crítico";
 
     tbody.innerHTML = `
-        <tr>
-            <td>Cumplimiento de meta</td>
-            <td class="${claseEstado(estadoCumplimiento)}">${estadoCumplimiento}</td>
-            <td>Revisar avance contra meta y activar acciones según brecha.</td>
-            <td>${estadoCumplimiento === "Crítico" ? "Alta" : "Media"}</td>
-        </tr>
-        <tr>
-            <td>Promedio diario</td>
-            <td class="${claseEstado(estadoPromedio)}">${estadoPromedio}</td>
-            <td>Comparar promedio real contra promedio requerido.</td>
-            <td>${estadoPromedio === "Crítico" ? "Alta" : "Media"}</td>
-        </tr>
-        <tr>
-            <td>Calidad de datos</td>
-            <td class="${claseEstado(estadoDatos)}">${estadoDatos}</td>
-            <td>Validar que la API entregue registros con fecha, valor, gestor y categoría.</td>
-            <td>${estadoDatos === "Crítico" ? "Alta" : "Baja"}</td>
-        </tr>
+        <tr><td>Cumplimiento de meta</td><td class="${claseEstado(estadoCumplimiento)}">${estadoCumplimiento}</td><td>Revisar avance contra meta y activar acciones según brecha.</td><td>${estadoCumplimiento === "Crítico" ? "Alta" : "Media"}</td></tr>
+        <tr><td>Promedio diario</td><td class="${claseEstado(estadoPromedio)}">${estadoPromedio}</td><td>Comparar promedio real contra promedio requerido.</td><td>${estadoPromedio === "Crítico" ? "Alta" : "Media"}</td></tr>
+        <tr><td>Calidad de datos</td><td class="${claseEstado(estadoDatos)}">${estadoDatos}</td><td>Validar registros con fecha, valor, gestor, categoría y sede.</td><td>${estadoDatos === "Crítico" ? "Alta" : "Baja"}</td></tr>
     `;
 }
 
@@ -1636,69 +1534,60 @@ function claseEstado(estado){
     return "estado-critico";
 }
 
+function calcularCalidadDatos(){
+    const totalApi = DATASET_NORMAL.length;
+    const fechasInvalidas = DATASET_NORMAL.filter(row => !row.fecha).length;
+    const valoresCero = DATASET_NORMAL.filter(row => row.valor === 0).length;
+    const sinGestor = DATASET_NORMAL.filter(row => !row.gestor).length;
+    const sinCategoria = DATASET_NORMAL.filter(row => !row.categoria).length;
+    const sinSede = DATASET_NORMAL.filter(row => !row.sede).length;
+
+    const errores = fechasInvalidas + valoresCero + sinGestor + sinCategoria + sinSede;
+    const calidad = totalApi > 0 ? Math.max(100 - ((errores / (totalApi * 5)) * 100), 0) : 0;
+
+    return { totalApi, fechasInvalidas, valoresCero, sinGestor, sinCategoria, sinSede, calidad };
+}
+
 function actualizarDiagnosticoAvanzado(){
-    const totalApi = DATASET.length;
-    const totalFiltrado = DATASET_FILTRADO.length;
+    const d = calcularCalidadDatos();
 
-    const fechasInvalidas = DATASET.filter(item => !parseFecha(getFechaItem(item))).length;
-    const valoresCero = DATASET.filter(item => toNumber(getValorItem(item)) === 0).length;
-    const sinGestor = DATASET.filter(item => !String(getGestorItem(item) || "").trim()).length;
-    const sinCategoria = DATASET.filter(item => !String(getTipoHomenajeItem(item) || "").trim()).length;
-
-    const errores = fechasInvalidas + valoresCero + sinGestor + sinCategoria;
-    const calidad = totalApi > 0 ? Math.max(100 - ((errores / (totalApi * 4)) * 100), 0) : 0;
-
-    setHtml("diagTotalApi", totalApi);
-    setHtml("diagTotalFiltrado", totalFiltrado);
-    setHtml("diagFechasInvalidas", fechasInvalidas);
-    setHtml("diagValoresCero", valoresCero);
-    setHtml("diagSinGestor", sinGestor);
-    setHtml("diagSinCategoria", sinCategoria);
-    setHtml("diagCalidad", `${calidad.toFixed(1)}%`);
+    setHtml("diagTotalApi", d.totalApi);
+    setHtml("diagTotalFiltrado", DATASET_FILTRADO.length);
+    setHtml("diagFechasInvalidas", d.fechasInvalidas);
+    setHtml("diagValoresCero", d.valoresCero);
+    setHtml("diagSinGestor", d.sinGestor);
+    setHtml("diagSinCategoria", d.sinCategoria);
+    setHtml("diagCalidad", `${d.calidad.toFixed(1)}%`);
 
     const calidadEl = document.getElementById("diagCalidad");
-    if(calidadEl) calidadEl.style.color = colorPorPorcentaje(calidad);
+    if(calidadEl) calidadEl.style.color = colorPorPorcentaje(d.calidad);
 
     let texto = "";
-
-    if(totalApi === 0){
-        texto = "No se están recibiendo registros desde la API. Verifica Apps Script, permisos de publicación y estructura del JSON.";
-    }else if(calidad >= 95){
-        texto = "La calidad de datos es alta. La información recibida es suficiente para análisis gerencial.";
-    }else if(calidad >= 80){
-        texto = "La calidad de datos es aceptable, pero existen registros que deben corregirse para mejorar la precisión del dashboard.";
-    }else{
-        texto = "La calidad de datos requiere revisión. Hay inconsistencias que pueden afectar metas, ventas, gráficos y reportes.";
-    }
+    if(d.totalApi === 0) texto = "No se están recibiendo registros desde la API. Verifica Apps Script, permisos y estructura del JSON.";
+    else if(d.calidad >= 95) texto = "La calidad de datos es alta. La información recibida es suficiente para análisis gerencial.";
+    else if(d.calidad >= 80) texto = "La calidad de datos es aceptable, pero existen registros que deben corregirse.";
+    else texto = "La calidad de datos requiere revisión. Hay inconsistencias que pueden afectar metas, ventas y reportes.";
 
     setHtml("diagnosticoTexto", texto);
 
     const tbody = document.querySelector("#tablaDiagnosticoDatos tbody");
-
     if(tbody){
-        const muestra = DATASET.slice(0, 50);
+        const muestra = DATASET_NORMAL.slice(0, 50);
 
         if(muestra.length === 0){
             tbody.innerHTML = `<tr><td colspan="6">Sin registros recibidos desde la API</td></tr>`;
             return;
         }
 
-        tbody.innerHTML = muestra.map(item => {
-            const fecha = getFechaItem(item);
-            const gestor = getGestorItem(item);
-            const categoria = getTipoHomenajeItem(item);
-            const servicio = getTipoExcedenteItem(item);
-            const valor = toNumber(getValorItem(item));
-
-            const correcto = parseFecha(fecha) && valor > 0 && gestor && categoria;
-
+        tbody.innerHTML = muestra.map(row => {
+            const correcto = row.fecha && row.valor > 0 && row.gestor && row.categoria;
             return `
                 <tr>
-                    <td>${fecha || "-"}</td>
-                    <td>${gestor || "-"}</td>
-                    <td>${categoria || "-"}</td>
-                    <td>${servicio || "-"}</td>
-                    <td>${formatMoney(valor)}</td>
+                    <td>${row.fechaTexto || "-"}</td>
+                    <td>${row.gestor || "-"}</td>
+                    <td>${row.categoria || "-"}</td>
+                    <td>${row.servicio || "-"}</td>
+                    <td>${formatMoney(row.valor)}</td>
                     <td>${correcto ? '<span class="badge badge-ok">Correcto</span>' : '<span class="badge badge-danger">Revisar</span>'}</td>
                 </tr>
             `;
@@ -1707,6 +1596,8 @@ function actualizarDiagnosticoAvanzado(){
 }
 
 function actualizarVistaMetas(metaInfo){
+    setHtml("vistaMetaDiaria", formatMoney(META_MENSUAL_BASE / 30.4375));
+    setHtml("vistaMetaSemanal", formatMoney(META_MENSUAL_BASE / 30.4375 * 7));
     setHtml("vistaMetaMensual", formatMoney(META_MENSUAL_BASE));
     setHtml("vistaMetaTrimestral", formatMoney(META_TRIMESTRAL_BASE));
     setHtml("vistaMetaSemestral", formatMoney(META_SEMESTRAL_BASE));
@@ -1721,25 +1612,25 @@ function actualizarAdmin(totalOriginal, totalFiltrado, metaInfo){
     setHtml("adminUltimaActualizacion", new Date().toLocaleString("es-CO"));
     setHtml("adminTotalRegistros", `${totalFiltrado.length} / ${totalOriginal.length}`);
 
-    const { fechaInicio, fechaFin, busqueda } = obtenerRangoFechas();
+    const f = obtenerRangoFechas();
 
-    let texto = "Sin filtro";
-    if(fechaInicio || fechaFin || busqueda){
-        texto = `${fechaInicio || "inicio"} - ${fechaFin || "fin"}`;
-        if(busqueda) texto += ` | Búsqueda: ${busqueda}`;
-    }
+    let texto = `${f.fechaInicio || "inicio"} - ${f.fechaFin || "fin"}`;
+    if(f.gestor) texto += ` | Gestor: ${f.gestor}`;
+    if(f.categoria) texto += ` | Categoría: ${f.categoria}`;
+    if(f.servicio) texto += ` | Servicio: ${f.servicio}`;
+    if(f.sede) texto += ` | Sede: ${f.sede}`;
+    if(f.busqueda) texto += ` | Búsqueda: ${f.busqueda}`;
 
     setHtml("adminRangoFechas", texto);
 }
 
 function actualizarBaseDatos(){
-    const fechasInvalidas = DATASET.filter(item => !parseFecha(getFechaItem(item))).length;
-    const valoresCero = DATASET.filter(item => toNumber(getValorItem(item)) === 0).length;
+    const d = calcularCalidadDatos();
 
-    setHtml("bdTotalApi", DATASET.length);
+    setHtml("bdTotalApi", DATASET_NORMAL.length);
     setHtml("bdTotalFiltrados", DATASET_FILTRADO.length);
-    setHtml("bdFechasInvalidas", fechasInvalidas);
-    setHtml("bdValoresCero", valoresCero);
+    setHtml("bdFechasInvalidas", d.fechasInvalidas);
+    setHtml("bdValoresCero", d.valoresCero);
 
     const tbody = document.querySelector("#tablaBaseDatos tbody");
     if(!tbody) return;
@@ -1747,24 +1638,30 @@ function actualizarBaseDatos(){
     const muestra = DATASET_FILTRADO.slice(0, 50);
 
     if(muestra.length === 0){
-        tbody.innerHTML = `<tr><td colspan="5">Sin registros</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6">Sin registros</td></tr>`;
         return;
     }
 
-    tbody.innerHTML = muestra.map(item => `
+    tbody.innerHTML = muestra.map(row => `
         <tr>
-            <td>${getFechaItem(item) || "-"}</td>
-            <td>${getGestorItem(item) || "-"}</td>
-            <td>${getTipoHomenajeItem(item) || "-"}</td>
-            <td>${getTipoExcedenteItem(item) || "-"}</td>
-            <td>${formatMoney(getValorItem(item))}</td>
+            <td>${row.fechaTexto || "-"}</td>
+            <td>${row.gestor || "-"}</td>
+            <td>${row.categoria || "-"}</td>
+            <td>${row.servicio || "-"}</td>
+            <td>${row.sede || "-"}</td>
+            <td>${formatMoney(row.valor)}</td>
         </tr>
     `).join("");
 }
 
 function actualizarConfiguracion(){
-    const input = document.getElementById("configMetaMensual");
-    if(input) input.value = META_MENSUAL_BASE;
+    setValue("configMetaMensual", META_MENSUAL_BASE);
+    setValue("configTitulo", localStorage.getItem("dashboardTitulo") || "General Report Jkfh");
+    setValue("configSubtitulo", localStorage.getItem("dashboardSubtitulo") || "Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo");
+    setValue("configAccessCode", ACCESS_CODE);
+
+    setHtml("tituloDashboard", localStorage.getItem("dashboardTitulo") || "General Report Jkfh");
+    setHtml("subtituloDashboard", localStorage.getItem("dashboardSubtitulo") || "Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo");
 }
 
 function cambiarVista(seccion){
@@ -1782,25 +1679,74 @@ function cambiarVista(seccion){
 
 function redimensionarGraficos(){
     Object.values(charts).forEach(chart => {
-        if(chart && typeof chart.resize === "function"){
-            chart.resize();
-        }
+        if(chart && typeof chart.resize === "function") chart.resize();
     });
+}
+
+function generarReporteFormal(){
+    const reporte = document.getElementById("reporteFormal");
+    if(!reporte || !ULTIMO_RESUMEN || !ULTIMA_META_INFO) return;
+
+    const cumplimiento = META_RANGO_ACTUAL > 0 ? (ULTIMO_RESUMEN.total / META_RANGO_ACTUAL) * 100 : 0;
+    const faltante = Math.max(META_RANGO_ACTUAL - ULTIMO_RESUMEN.total, 0);
+    const d = calcularCalidadDatos();
+
+    reporte.innerHTML = `
+        <h1>${localStorage.getItem("dashboardTitulo") || "General Report Jkfh"}</h1>
+        <p><strong>Reporte gerencial formal</strong></p>
+        <p>Fecha de generación: ${new Date().toLocaleString("es-CO")}</p>
+        <p>Rango analizado: ${fechaISO(ULTIMA_META_INFO.inicio)} a ${fechaISO(ULTIMA_META_INFO.fin)}</p>
+
+        <div class="print-grid">
+            <div class="print-kpi"><span>Meta del rango</span><strong>${formatMoney(META_RANGO_ACTUAL)}</strong></div>
+            <div class="print-kpi"><span>Venta real</span><strong>${formatMoney(ULTIMO_RESUMEN.total)}</strong></div>
+            <div class="print-kpi"><span>Cumplimiento</span><strong>${cumplimiento.toFixed(1)}%</strong></div>
+            <div class="print-kpi"><span>Faltante</span><strong>${formatMoney(faltante)}</strong></div>
+        </div>
+
+        <h2>Resumen Ejecutivo</h2>
+        <p>
+            El rango seleccionado comprende ${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes. 
+            La venta acumulada alcanza ${formatMoney(ULTIMO_RESUMEN.total)}, con un cumplimiento del ${cumplimiento.toFixed(1)}%.
+            Estado general: ${textoEstado(cumplimiento)}.
+        </p>
+
+        <h2>Tabla Gerencial Consolidada</h2>
+        <table>
+            <thead>
+                <tr><th>Indicador</th><th>Resultado</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Meta mensual base</td><td>${formatMoney(META_MENSUAL_BASE)}</td></tr>
+                <tr><td>Meta anual</td><td>${formatMoney(META_ANUAL_BASE)}</td></tr>
+                <tr><td>Registros analizados</td><td>${DATASET_FILTRADO.length}</td></tr>
+                <tr><td>Calidad de datos</td><td>${d.calidad.toFixed(1)}%</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Conclusión Gerencial</h2>
+        <p>${document.getElementById("conclusionGerencial")?.innerText || ""}</p>
+
+        <h2>Plan de Acción</h2>
+        <p>Reforzar seguimiento por gestor, validar registros incompletos, monitorear cumplimiento diario y exportar informe para comité gerencial.</p>
+    `;
 }
 
 function exportarExcel(){
     if(typeof XLSX === "undefined") return;
 
-    const hojaDatos = DATASET_FILTRADO.map(item => ({
-        Fecha:getFechaItem(item) || "",
-        Gestor:getGestorItem(item) || "",
-        Tipo_Homenaje:getTipoHomenajeItem(item) || "",
-        Tipo_Excedente:getTipoExcedenteItem(item) || "",
-        Valor:toNumber(getValorItem(item))
+    const hojaDatos = DATASET_FILTRADO.map(row => ({
+        Fecha: row.fechaTexto || "",
+        Gestor: row.gestor || "",
+        Categoria: row.categoria || "",
+        Servicio: row.servicio || "",
+        Sede: row.sede || "",
+        Valor: row.valor
     }));
 
     const resumen = calcularResumen(DATASET_FILTRADO);
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
+    const d = calcularCalidadDatos();
 
     const wsResumen = XLSX.utils.aoa_to_sheet([
         ["Indicador", "Valor"],
@@ -1813,7 +1759,8 @@ function exportarExcel(){
         ["Ventas Totales", resumen.total],
         ["Cumplimiento %", cumplimiento],
         ["Faltante", Math.max(META_RANGO_ACTUAL - resumen.total, 0)],
-        ["Registros Filtrados", DATASET_FILTRADO.length]
+        ["Registros Filtrados", DATASET_FILTRADO.length],
+        ["Calidad de datos %", d.calidad]
     ]);
 
     const wsDatos = XLSX.utils.json_to_sheet(hojaDatos);
@@ -1823,26 +1770,26 @@ function exportarExcel(){
     XLSX.utils.book_append_sheet(wb, wsDatos, "Base Filtrada");
 
     XLSX.writeFile(wb, "dashboard_gerencial_homenajes.xlsx");
-
     setHtml("estadoReporte", "Reporte Excel generado correctamente.");
 }
 
 function exportarPDF(){
-    const elemento = document.getElementById("panelExportar");
+    generarReporteFormal();
+
+    const elemento = document.getElementById("reporteFormal");
     if(!elemento || typeof html2pdf === "undefined") return;
 
     const opciones = {
-        margin:0.2,
-        filename:"dashboard_gerencial_homenajes.pdf",
+        margin:0.25,
+        filename:"reporte_gerencial_homenajes.pdf",
         image:{ type:"jpeg", quality:0.98 },
         html2canvas:{ scale:2, useCORS:true },
-        jsPDF:{ unit:"in", format:"a4", orientation:"landscape" },
+        jsPDF:{ unit:"in", format:"a4", orientation:"portrait" },
         pagebreak:{ mode:["css", "legacy"] }
     };
 
     html2pdf().set(opciones).from(elemento).save();
-
-    setHtml("estadoReporte", "Reporte PDF generado correctamente.");
+    setHtml("estadoReporte", "Reporte PDF formal generado correctamente.");
 }
 
 function alternarTema(){
@@ -1858,22 +1805,15 @@ function alternarSidebar(){
 }
 
 function pantallaCompleta(){
-    if(!document.fullscreenElement){
-        document.documentElement.requestFullscreen?.();
-    }else{
-        document.exitFullscreen?.();
-    }
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
 }
 
 function limpiarFiltros(){
-    const fechaInicio = document.getElementById("fechaInicio");
-    const fechaFin = document.getElementById("fechaFin");
-    const busqueda = document.getElementById("busquedaGeneral");
-
-    if(fechaInicio) fechaInicio.value = "";
-    if(fechaFin) fechaFin.value = "";
-    if(busqueda) busqueda.value = "";
-
+    ["filtroGestor","filtroCategoria","filtroServicio","filtroSede","filtroAnio","filtroMes","filtroEstado"].forEach(id => setValue(id, ""));
+    setValue("busquedaGeneral", "");
+    setValue("fechaInicio", "");
+    setValue("fechaFin", "");
     establecerFechasPorDefecto();
     cargarDashboard();
 }
@@ -1893,8 +1833,25 @@ function guardarMetaMensual(){
     localStorage.setItem("metaMensualBase", String(nuevaMeta));
     recalcularMetasBase();
     cargarDashboard();
-
     alert("Meta mensual guardada correctamente.");
+}
+
+function guardarConfigVisual(){
+    const titulo = document.getElementById("configTitulo")?.value || "General Report Jkfh";
+    const subtitulo = document.getElementById("configSubtitulo")?.value || "Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo";
+
+    localStorage.setItem("dashboardTitulo", titulo);
+    localStorage.setItem("dashboardSubtitulo", subtitulo);
+
+    actualizarConfiguracion();
+    alert("Configuración visual guardada correctamente.");
+}
+
+function guardarAccessCode(){
+    const code = document.getElementById("configAccessCode")?.value || "JKFH2026";
+    ACCESS_CODE = code;
+    localStorage.setItem("dashboardAccessCode", code);
+    alert("Código de acceso actualizado correctamente.");
 }
 
 function aplicarPreferencias(){
@@ -1903,6 +1860,32 @@ function aplicarPreferencias(){
 
     if(tema === "dark") document.body.classList.add("dark-mode");
     if(sidebar === "collapsed") document.body.classList.add("sidebar-collapsed");
+
+    actualizarConfiguracion();
+}
+
+function validarAcceso(){
+    const panel = document.getElementById("accessPanel");
+    if(!panel) return;
+
+    const autorizado = sessionStorage.getItem("dashboardAutorizado") === "1";
+    if(autorizado){
+        panel.classList.add("hidden");
+        return;
+    }
+
+    panel.classList.remove("hidden");
+}
+
+function ingresarDashboard(){
+    const valor = document.getElementById("accessCode")?.value || "";
+
+    if(valor === ACCESS_CODE){
+        sessionStorage.setItem("dashboardAutorizado", "1");
+        document.getElementById("accessPanel")?.classList.add("hidden");
+    }else{
+        alert("Código incorrecto.");
+    }
 }
 
 document.querySelectorAll(".menu-item").forEach(item => {
@@ -1921,13 +1904,34 @@ document.getElementById("btnFull")?.addEventListener("click", pantallaCompleta);
 document.getElementById("reporteExcelResumen")?.addEventListener("click", exportarExcel);
 document.getElementById("reportePdfGeneral")?.addEventListener("click", exportarPDF);
 document.getElementById("reporteRecargar")?.addEventListener("click", cargarDashboard);
+
 document.getElementById("btnGuardarMeta")?.addEventListener("click", guardarMetaMensual);
+document.getElementById("btnGuardarConfigVisual")?.addEventListener("click", guardarConfigVisual);
+document.getElementById("btnGuardarAccess")?.addEventListener("click", guardarAccessCode);
+
+document.getElementById("btnAccess")?.addEventListener("click", ingresarDashboard);
+document.getElementById("accessCode")?.addEventListener("keyup", event => {
+    if(event.key === "Enter") ingresarDashboard();
+});
 
 document.getElementById("busquedaGeneral")?.addEventListener("keyup", event => {
     if(event.key === "Enter") cargarDashboard();
 });
 
+[
+    "filtroGestor",
+    "filtroCategoria",
+    "filtroServicio",
+    "filtroSede",
+    "filtroAnio",
+    "filtroMes",
+    "filtroEstado"
+].forEach(id => {
+    document.getElementById(id)?.addEventListener("change", cargarDashboard);
+});
+
 aplicarPreferencias();
+validarAcceso();
 recalcularMetasBase();
 establecerFechasPorDefecto();
 cargarDashboard();
