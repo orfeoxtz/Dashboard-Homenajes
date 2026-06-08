@@ -1,681 +1,1069 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>General Report Jkfh | Dashboard Gerencial 4K</title>
-
-<link rel="stylesheet" href="style.css">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-</head>
-
-<body>
-
-<section id="accessPanel" class="access-panel">
-    <div class="access-card">
-        <h1>General Report Jkfh</h1>
-        <p>Acceso gerencial al dashboard</p>
-        <input type="password" id="accessCode" placeholder="Código de acceso">
-        <button id="btnAccess">Ingresar</button>
-        <small>Clave inicial: JKFH2026</small>
-    </div>
-</section>
-
-<aside class="sidebar">
-    <div class="logo">
-        <h2>General Report</h2>
-        <h3>George Korfan</h3>
-        <p>Dashboard Gerencial 4K</p>
-    </div>
-
-    <ul class="sidebar-menu">
-        <li class="sidebar-section-title">GENERAL</li>
-        <li class="menu-item active" data-seccion="dashboard"><i class="fas fa-home"></i> Dashboard Ejecutivo</li>
-        <li class="menu-item" data-seccion="resumenGerencial"><i class="fas fa-clipboard-list"></i> Resumen Gerencial</li>
-
-        <li class="sidebar-section-title">VENTAS</li>
-        <li class="menu-item" data-seccion="ventas"><i class="fas fa-chart-line"></i> Ventas Generales</li>
-        <li class="menu-item" data-seccion="categorias"><i class="fas fa-layer-group"></i> Categorías</li>
-        <li class="menu-item" data-seccion="servicios"><i class="fas fa-briefcase"></i> Servicios</li>
-        <li class="menu-item" data-seccion="sedes"><i class="fas fa-building"></i> Sedes</li>
-
-        <li class="sidebar-section-title">METAS</li>
-        <li class="menu-item" data-seccion="metas"><i class="fas fa-calendar-check"></i> Metas</li>
-        <li class="menu-item" data-seccion="cumplimientoDiario"><i class="fas fa-calendar-day"></i> Cumplimiento Diario</li>
-        <li class="menu-item" data-seccion="cumplimientoSemanal"><i class="fas fa-calendar-week"></i> Cumplimiento Semanal</li>
-        <li class="menu-item" data-seccion="cumplimientoMensual"><i class="fas fa-calendar-alt"></i> Cumplimiento Mensual</li>
-        <li class="menu-item" data-seccion="cumplimientoTrimestral"><i class="fas fa-calendar-week"></i> Cumplimiento Trimestral</li>
-        <li class="menu-item" data-seccion="cumplimientoSemestral"><i class="fas fa-calendar"></i> Cumplimiento Semestral</li>
-        <li class="menu-item" data-seccion="cumplimientoAnual"><i class="fas fa-bullseye"></i> Cumplimiento Anual</li>
-
-        <li class="sidebar-section-title">GESTIÓN</li>
-        <li class="menu-item" data-seccion="gestores"><i class="fas fa-users"></i> Gestores</li>
-        <li class="menu-item" data-seccion="excedentes"><i class="fas fa-box"></i> Excedentes</li>
-        <li class="menu-item" data-seccion="comparativos"><i class="fas fa-scale-balanced"></i> Comparativos</li>
-
-        <li class="sidebar-section-title">ANÁLISIS</li>
-        <li class="menu-item" data-seccion="tendencias"><i class="fas fa-chart-area"></i> Tendencias Históricas</li>
-        <li class="menu-item" data-seccion="proyecciones"><i class="fas fa-chart-simple"></i> Proyecciones</li>
-        <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas Gerenciales</li>
-        <li class="menu-item" data-seccion="cierreGerencial"><i class="fas fa-briefcase"></i> Cierre Gerencial</li>
-        <li class="menu-item" data-seccion="diagnostico"><i class="fas fa-stethoscope"></i> Diagnóstico de Datos</li>
-        <li class="menu-item" data-seccion="vistaTv"><i class="fas fa-tv"></i> Vista TV Gerencial</li>
-
-        <li class="sidebar-section-title">SISTEMA</li>
-        <li class="menu-item" data-seccion="reportes"><i class="fas fa-file-export"></i> Reportes</li>
-        <li class="menu-item" data-seccion="baseDatos"><i class="fas fa-database"></i> Base de Datos</li>
-        <li class="menu-item" data-seccion="configuracion"><i class="fas fa-sliders"></i> Configuración</li>
-        <li class="menu-item" data-seccion="administracion"><i class="fas fa-cogs"></i> Administración</li>
-    </ul>
-</aside>
-
-<main class="main" id="panelExportar">
-
-<header class="topbar">
-    <div>
-        <h1 id="tituloDashboard">General Report Jkfh</h1>
-        <p id="subtituloDashboard">Dashboard gerencial premium 4K | Seguimiento, control, metas y análisis ejecutivo</p>
-    </div>
-
-    <div class="header-right">
-        <div class="estado-api cargando" id="estadoApi">
-            <i class="fas fa-circle"></i> Conectando...
-        </div>
-
-        <div class="ultima-act">
-            Última actualización:
-            <span id="ultimaActualizacion">-</span>
-        </div>
-
-        <div class="header-actions">
-            <button id="btnSidebar" class="icon-btn" title="Colapsar menú"><i class="fas fa-bars"></i></button>
-            <button id="btnTema" class="icon-btn" title="Modo oscuro"><i class="fas fa-moon"></i></button>
-            <button id="btnFull" class="icon-btn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
-            <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
-            <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
-            <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
-        </div>
-    </div>
-</header>
-
-<section class="filtros">
-    <div class="filtro-item">
-        <label>Fecha inicial</label>
-        <input type="date" id="fechaInicio">
-    </div>
-
-    <div class="filtro-item">
-        <label>Fecha final</label>
-        <input type="date" id="fechaFin">
-    </div>
-
-    <div class="filtro-item">
-        <label>Gestor</label>
-        <select id="filtroGestor"><option value="">Todos</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Categoría</label>
-        <select id="filtroCategoria"><option value="">Todas</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Servicio / Excedente</label>
-        <select id="filtroServicio"><option value="">Todos</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Sede</label>
-        <select id="filtroSede"><option value="">Todas</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Año</label>
-        <select id="filtroAnio"><option value="">Todos</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Mes</label>
-        <select id="filtroMes">
-            <option value="">Todos</option>
-            <option value="1">Enero</option>
-            <option value="2">Febrero</option>
-            <option value="3">Marzo</option>
-            <option value="4">Abril</option>
-            <option value="5">Mayo</option>
-            <option value="6">Junio</option>
-            <option value="7">Julio</option>
-            <option value="8">Agosto</option>
-            <option value="9">Septiembre</option>
-            <option value="10">Octubre</option>
-            <option value="11">Noviembre</option>
-            <option value="12">Diciembre</option>
-        </select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Estado</label>
-        <select id="filtroEstado">
-            <option value="">Todos</option>
-            <option value="cumplido">Cumplido</option>
-            <option value="riesgo">En riesgo</option>
-            <option value="bajo">Bajo meta</option>
-        </select>
-    </div>
-
-    <div class="filtro-item filtro-grow">
-        <label>Búsqueda general</label>
-        <input type="text" id="busquedaGeneral" placeholder="Gestor, categoría, sede, servicio u observación">
-    </div>
-
-    <div class="filtro-item">
-        <button id="btnFiltrar">Filtrar</button>
-    </div>
-
-    <div class="filtro-item">
-        <button id="btnLimpiar" class="btn-secundario">Limpiar</button>
-    </div>
-</section>
-
-<section id="dashboard" class="vista active-view">
-
-    <section class="resumen-ejecutivo">
-        <div>
-            <h2>Resumen Ejecutivo</h2>
-            <p id="resumenEjecutivoTexto">Cargando análisis gerencial...</p>
-        </div>
-    </section>
-
-    <section class="kpis">
-        <div class="card"><span class="card-icon green"><i class="fas fa-flag-checkered"></i></span><h3>Meta del Rango</h3><h2 id="metaGrupal">$0</h2><p class="mini-text" id="metaRangoDetalle">-</p></div>
-        <div class="card"><span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span><h3>Ventas Acumuladas</h3><h2 id="ventas">$0</h2><p class="mini-text">Según filtros aplicados</p></div>
-        <div class="card"><span class="card-icon violet"><i class="fas fa-percent"></i></span><h3>Cumplimiento</h3><h2 id="cumplimiento">0%</h2><p class="mini-text" id="estadoCumplimientoTexto">Sin datos</p></div>
-        <div class="card"><span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span><h3>Faltante</h3><h2 id="faltante">$0</h2><p class="mini-text">Para cumplir meta</p></div>
-        <div class="card"><span class="card-icon amber"><i class="fas fa-chart-simple"></i></span><h3>Proyección del Rango</h3><h2 id="proyeccion">$0</h2><p class="mini-text">Según promedio diario</p></div>
-    </section>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>📅 Meta Mensual Base</h3><h2 id="metaMensual">$0</h2></div>
-        <div class="card"><h3>📆 Meta Semanal Proporcional</h3><h2 id="metaSemanal">$0</h2></div>
-        <div class="card"><h3>🗓 Meta Trimestral</h3><h2 id="metaTrimestral">$0</h2></div>
-        <div class="card"><h3>🏁 Meta Semestral</h3><h2 id="metaSemestral">$0</h2></div>
-        <div class="card"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
-        <div class="card"><h3>⏱ Meses Equivalentes</h3><h2 id="mesesEquivalentes">0</h2></div>
-        <div class="card"><h3>📈 Promedio Diario Real</h3><h2 id="promedioDiarioReal">$0</h2></div>
-    </section>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
-        <div class="card"><h3>💰 Venta Mejor Gestor</h3><h2 id="ventaMejorGestor">$0</h2></div>
-        <div class="card"><h3>⭐ Servicio Top</h3><h2 id="servicioTop">-</h2></div>
-        <div class="card"><h3>📦 Cantidad Servicio Top</h3><h2 id="cantidadServicioTop">0</h2></div>
-        <div class="card"><h3>📊 Total Registros</h3><h2 id="totalRegistros">0</h2></div>
-        <div class="card"><h3>🧮 Ticket Promedio</h3><h2 id="ticketPromedio">$0</h2></div>
-        <div class="card"><h3>🚦 Cumplimiento Visual</h3><h2 id="cumplimientoVisual">-</h2></div>
-    </section>
-
-    <section class="graficos">
-        <div class="grafico-card"><h3>Meta del Rango vs Venta Real</h3><canvas id="graficoMetaReal"></canvas></div>
-        <div class="grafico-card"><h3>Composición de Ingresos</h3><canvas id="composicionIngresos"></canvas></div>
-        <div class="grafico-card grafico-ancho"><h3>Ventas Mensuales vs Meta Mensual</h3><canvas id="ventasMensuales"></canvas></div>
-        <div class="grafico-card grafico-ancho"><h3>Velocímetro de Cumplimiento</h3><canvas id="velocimetroCumplimiento"></canvas></div>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Tabla Gerencial Consolidada</h2>
-        <table id="tablaConsolidada">
-            <thead>
-                <tr>
-                    <th>Periodo</th>
-                    <th>Meta</th>
-                    <th>Venta Real</th>
-                    <th>% Cumplimiento</th>
-                    <th>Faltante</th>
-                    <th>Proyección</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Cumplimiento General del Rango</h2>
-        <table id="tablaCumplimiento">
-            <thead>
-                <tr>
-                    <th>Indicador</th>
-                    <th>Meta</th>
-                    <th>Real</th>
-                    <th>% Cumplimiento</th>
-                    <th>Faltante</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </section>
-
-    <div class="tablas-inferiores">
-        <section class="tabla-detalle">
-            <h2>Detalle por Categoría</h2>
-            <table id="tablaCategorias">
-                <thead><tr><th>Categoría</th><th>Valor</th><th>Participación</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </section>
-
-        <section class="tabla-detalle">
-            <h2>Detalle de Excedentes</h2>
-            <table id="tablaExcedentes">
-                <thead><tr><th>Excedente</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </section>
-    </div>
-
-    <section class="tabla-cumplimiento">
-        <h2>Top Servicios Vendidos</h2>
-        <table id="tablaTopServicios">
-            <thead><tr><th>Servicio</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Ranking de Gestores</h2>
-        <table id="tablaGestores">
-            <thead><tr><th>Gestor</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Semáforo Gerencial</h2>
-        <div class="semaforo-grid">
-            <div class="semaforo-card"><h3>META GENERAL</h3><div id="semaforoGeneral" class="semaforo-estado">-</div><p id="semaforoGeneralTexto">Sin datos</p></div>
-            <div class="semaforo-card"><h3>VENTA REAL</h3><div id="semaforoVenta" class="semaforo-estado">-</div><p id="semaforoVentaTexto">Sin datos</p></div>
-            <div class="semaforo-card"><h3>PROYECCIÓN</h3><div id="semaforoProyeccion" class="semaforo-estado">-</div><p id="semaforoProyeccionTexto">Sin datos</p></div>
-        </div>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Alertas Gerenciales</h2>
-        <div id="alertasGerenciales" class="alertas-box"><p>Sin alertas por el momento.</p></div>
-    </section>
-
-</section>
-
-<section id="resumenGerencial" class="vista">
-    <h1 class="vista-titulo">Resumen Gerencial</h1>
-    <div class="card-big">
-        <h3>Informe Ejecutivo Automático</h3>
-        <p id="vistaResumenTexto" class="texto-informe">Cargando resumen...</p>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Indicadores Principales</h2>
-        <table id="tablaResumenGerencial">
-            <thead><tr><th>Indicador</th><th>Resultado</th><th>Observación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="ventas" class="vista">
-    <h1 class="vista-titulo">Ventas Generales</h1>
-    <div class="card-big"><h3>Ventas mensuales acumuladas</h3><canvas id="ventasAnuales"></canvas></div>
-    <div class="card-big"><h3>Participación por categoría</h3><canvas id="ventasPorCategoriaVista"></canvas></div>
-</section>
-
-<section id="categorias" class="vista">
-    <h1 class="vista-titulo">Categorías</h1>
-    <div class="card-big"><h3>Ventas por categoría</h3><canvas id="graficoCategoriasVista"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de Categorías</h2>
-        <table id="tablaCategoriasVista">
-            <thead><tr><th>Categoría</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="servicios" class="vista">
-    <h1 class="vista-titulo">Servicios</h1>
-    <div class="card-big"><h3>Servicios más vendidos</h3><canvas id="graficoServiciosVista"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de Servicios</h2>
-        <table id="tablaServiciosVista">
-            <thead><tr><th>Servicio</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="sedes" class="vista">
-    <h1 class="vista-titulo">Sedes</h1>
-    <div class="card-big"><h3>Ventas por sede</h3><canvas id="graficoSedesVista"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle por Sede</h2>
-        <table id="tablaSedesVista">
-            <thead><tr><th>Sede</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="metas" class="vista">
-    <h1 class="vista-titulo">Control de Metas</h1>
-
-    <div class="metas-grid">
-        <div class="admin-card"><h2>Meta Diaria Promedio</h2><span id="vistaMetaDiaria">$0</span></div>
-        <div class="admin-card"><h2>Meta Semanal Proporcional</h2><span id="vistaMetaSemanal">$0</span></div>
-        <div class="admin-card"><h2>Meta Mensual Base</h2><span id="vistaMetaMensual">$0</span></div>
-        <div class="admin-card"><h2>Meta Trimestral</h2><span id="vistaMetaTrimestral">$0</span></div>
-        <div class="admin-card"><h2>Meta Semestral</h2><span id="vistaMetaSemestral">$0</span></div>
-        <div class="admin-card"><h2>Meta Anual</h2><span id="vistaMetaAnual">$0</span></div>
-        <div class="admin-card"><h2>Meta del Rango Seleccionado</h2><span id="vistaMetaRango">$0</span></div>
-        <div class="admin-card"><h2>Meses Equivalentes</h2><span id="vistaMesesRango">0</span></div>
-    </div>
-
-    <div class="card-big"><h3>Meta acumulada por meses</h3><canvas id="graficoMetasAcumuladas"></canvas></div>
-</section>
-
-<section id="cumplimientoDiario" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Diario</h1>
-    <div class="card-big"><h3>Venta diaria vs meta diaria proporcional</h3><canvas id="graficoCumplimientoDiario"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Diario</h2>
-        <table id="tablaCumplimientoDiario">
-            <thead><tr><th>Día</th><th>Meta Diaria</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="cumplimientoSemanal" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Semanal</h1>
-    <div class="card-big"><h3>Venta semanal vs meta semanal proporcional</h3><canvas id="graficoCumplimientoSemanal"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Semanal</h2>
-        <table id="tablaCumplimientoSemanal">
-            <thead><tr><th>Semana</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="cumplimientoMensual" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Mensual</h1>
-    <div class="card-big"><h3>Cumplimiento mensual contra meta base</h3><canvas id="cumplimientoMensualGrafico"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Mensual</h2>
-        <table id="tablaCumplimientoMensual">
-            <thead><tr><th>Mes</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="cumplimientoTrimestral" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Trimestral</h1>
-    <div class="card-big"><h3>Cumplimiento por trimestre</h3><canvas id="graficoCumplimientoTrimestral"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Trimestral</h2>
-        <table id="tablaCumplimientoTrimestral">
-            <thead><tr><th>Trimestre</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="cumplimientoSemestral" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Semestral</h1>
-    <div class="card-big"><h3>Cumplimiento por semestre</h3><canvas id="graficoCumplimientoSemestral"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Semestral</h2>
-        <table id="tablaCumplimientoSemestral">
-            <thead><tr><th>Semestre</th><th>Meta</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="cumplimientoAnual" class="vista">
-    <h1 class="vista-titulo">Cumplimiento Anual</h1>
-    <div class="card-big"><h3>Cumplimiento anual acumulado</h3><canvas id="cumplimientoAnualGrafico"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle Anual</h2>
-        <table id="tablaCumplimientoAnual">
-            <thead><tr><th>Año</th><th>Meta Anual</th><th>Venta Real</th><th>% Cumplimiento</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="gestores" class="vista">
-    <h1 class="vista-titulo">Productividad de Gestores</h1>
-    <div class="card-big"><h3>Top gestores por valor vendido</h3><canvas id="rankingCompletoGestores"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Ranking Completo</h2>
-        <table id="tablaGestoresVista">
-            <thead><tr><th>Gestor</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="excedentes" class="vista">
-    <h1 class="vista-titulo">Control de Excedentes</h1>
-    <div class="card-big"><h3>Excedentes por valor vendido</h3><canvas id="graficoExcedentes"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de Excedentes</h2>
-        <table id="tablaExcedentesVista">
-            <thead><tr><th>Excedente</th><th>Cantidad</th><th>Valor</th><th>Participación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="comparativos" class="vista">
-    <h1 class="vista-titulo">Comparativos</h1>
-    <div class="card-big"><h3>Comparativo mensual: venta vs meta</h3><canvas id="graficoComparativoMensual"></canvas></div>
-    <div class="card-big"><h3>Comparativo periodo actual vs periodo anterior</h3><canvas id="graficoComparativoPeriodos"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Comparativo de Periodos</h2>
-        <table id="tablaComparativos">
-            <thead><tr><th>Periodo</th><th>Venta Actual</th><th>Periodo Anterior</th><th>Diferencia</th><th>Crecimiento</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="tendencias" class="vista">
-    <h1 class="vista-titulo">Tendencias Históricas</h1>
-    <div class="card-big"><h3>Serie histórica de ventas</h3><canvas id="graficoHistorico"></canvas></div>
-</section>
-
-<section id="proyecciones" class="vista">
-    <h1 class="vista-titulo">Proyecciones Gerenciales</h1>
-
-    <section class="kpis">
-        <div class="card"><span class="card-icon green"><i class="fas fa-calendar-day"></i></span><h3>Promedio Diario Real</h3><h2 id="proyPromedioDiario">$0</h2><p class="mini-text">Según filtros</p></div>
-        <div class="card"><span class="card-icon blue"><i class="fas fa-calendar-check"></i></span><h3>Proyección Mes</h3><h2 id="proyMes">$0</h2><p class="mini-text">Cierre estimado mensual</p></div>
-        <div class="card"><span class="card-icon violet"><i class="fas fa-flag"></i></span><h3>Proyección Año</h3><h2 id="proyAnual">$0</h2><p class="mini-text">Estimación anualizada</p></div>
-        <div class="card"><span class="card-icon red"><i class="fas fa-triangle-exclamation"></i></span><h3>Riesgo Proyectado</h3><h2 id="riesgoProyectado">-</h2><p class="mini-text">Estado gerencial</p></div>
-        <div class="card"><span class="card-icon amber"><i class="fas fa-stopwatch"></i></span><h3>Valor Diario Necesario</h3><h2 id="valorDiarioNecesario">$0</h2><p class="mini-text">Para cubrir faltante</p></div>
-    </section>
-
-    <div class="card-big"><h3>Meta Anual vs Proyección Anual</h3><canvas id="graficoProyeccionAnual"></canvas></div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Tabla de Proyección Ejecutiva</h2>
-        <table id="tablaProyecciones">
-            <thead><tr><th>Concepto</th><th>Resultado</th><th>Interpretación</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="alertas" class="vista">
-    <h1 class="vista-titulo">Alertas Gerenciales</h1>
-    <div id="alertasGerencialesVista" class="alertas-box card-big"><p>Sin alertas por el momento.</p></div>
-</section>
-
-<section id="cierreGerencial" class="vista">
-    <h1 class="vista-titulo">Cierre Gerencial</h1>
-
-    <section class="resumen-ejecutivo">
-        <div>
-            <h2>Conclusión Ejecutiva</h2>
-            <p id="conclusionGerencial">Cargando conclusión...</p>
-        </div>
-    </section>
-
-    <div class="card-big">
-        <h3>Plan de Acción Recomendado</h3>
-        <div id="planAccionGerencial" class="plan-accion-box"><p>Cargando plan de acción...</p></div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Matriz de Decisiones Gerenciales</h2>
-        <table id="tablaDecisionGerencial">
-            <thead><tr><th>Área</th><th>Estado</th><th>Acción Recomendada</th><th>Prioridad</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="diagnostico" class="vista">
-    <h1 class="vista-titulo">Diagnóstico de Datos</h1>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>📦 Registros API</h3><h2 id="diagTotalApi">0</h2></div>
-        <div class="card"><h3>🔎 Registros Filtrados</h3><h2 id="diagTotalFiltrado">0</h2></div>
-        <div class="card"><h3>📅 Fechas Inválidas</h3><h2 id="diagFechasInvalidas">0</h2></div>
-        <div class="card"><h3>💰 Valores en Cero</h3><h2 id="diagValoresCero">0</h2></div>
-        <div class="card"><h3>👤 Sin Gestor</h3><h2 id="diagSinGestor">0</h2></div>
-        <div class="card"><h3>🏷 Sin Categoría</h3><h2 id="diagSinCategoria">0</h2></div>
-        <div class="card"><h3>✅ Calidad de Datos</h3><h2 id="diagCalidad">0%</h2></div>
-    </section>
-
-    <div class="card-big">
-        <h3>Estado Técnico de la Información</h3>
-        <p id="diagnosticoTexto" class="texto-informe">Cargando diagnóstico...</p>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Primeros 50 Registros Detectados</h2>
-        <table id="tablaDiagnosticoDatos">
-            <thead><tr><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Valor</th><th>Estado</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="vistaTv" class="vista">
-    <h1 class="vista-titulo">Vista TV Gerencial</h1>
-
-    <div class="tv-board">
-        <div class="tv-card"><h3>Meta del Rango</h3><strong id="tvMeta">$0</strong></div>
-        <div class="tv-card"><h3>Ventas</h3><strong id="tvVentas">$0</strong></div>
-        <div class="tv-card"><h3>Cumplimiento</h3><strong id="tvCumplimiento">0%</strong></div>
-        <div class="tv-card"><h3>Faltante</h3><strong id="tvFaltante">$0</strong></div>
-    </div>
-
-    <div class="card-big"><h3>Velocímetro General</h3><canvas id="graficoTvCumplimiento"></canvas></div>
-</section>
-
-<section id="reportes" class="vista">
-    <h1 class="vista-titulo">Reportes</h1>
-
-    <div class="reportes-grid">
-        <button class="reporte-btn" id="reporteExcelResumen"><i class="fas fa-file-excel"></i> Exportar Resumen Excel</button>
-        <button class="reporte-btn" id="reportePdfGeneral"><i class="fas fa-file-pdf"></i> Exportar Reporte PDF Formal</button>
-        <button class="reporte-btn" id="reporteRecargar"><i class="fas fa-rotate"></i> Actualizar Información</button>
-    </div>
-
-    <div class="card-big">
-        <h3>Estado del Reporte</h3>
-        <p id="estadoReporte">Listo para generar reportes gerenciales.</p>
-    </div>
-</section>
-
-<section id="baseDatos" class="vista">
-    <h1 class="vista-titulo">Base de Datos</h1>
-
-    <div class="admin-grid">
-        <div class="admin-card"><h2>Total Registros API</h2><span id="bdTotalApi">0</span></div>
-        <div class="admin-card"><h2>Registros Filtrados</h2><span id="bdTotalFiltrados">0</span></div>
-        <div class="admin-card"><h2>Registros con Fecha Inválida</h2><span id="bdFechasInvalidas">0</span></div>
-        <div class="admin-card"><h2>Registros con Valor Cero</h2><span id="bdValoresCero">0</span></div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Vista Previa de Datos</h2>
-        <table id="tablaBaseDatos">
-            <thead><tr><th>Fecha</th><th>Gestor</th><th>Categoría</th><th>Servicio</th><th>Sede</th><th>Valor</th></tr></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="configuracion" class="vista">
-    <h1 class="vista-titulo">Configuración</h1>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Meta Mensual Base</h2>
-            <p>Valor utilizado para calcular metas diaria, semanal, mensual, trimestral, semestral, anual y rango filtrado.</p>
-            <input type="number" id="configMetaMensual" placeholder="219133881">
-            <button id="btnGuardarMeta" class="action-btn">Guardar Meta</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Personalización</h2>
-            <p>Nombre visible del dashboard y sede general.</p>
-            <input type="text" id="configTitulo" placeholder="General Report Jkfh">
-            <input type="text" id="configSubtitulo" placeholder="Dashboard gerencial premium">
-            <button id="btnGuardarConfigVisual" class="action-btn">Guardar Visual</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Acceso Visual</h2>
-            <p>Clave básica de acceso visual. No reemplaza seguridad real de servidor.</p>
-            <input type="text" id="configAccessCode" placeholder="JKFH2026">
-            <button id="btnGuardarAccess" class="action-btn">Guardar Acceso</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Estructura Oficial Esperada</h2>
-            <p><strong>Columnas recomendadas:</strong> Fecha, Gestor, Tipo_Homenaje, Tipo_Excedente, Valor, Sede, Observación.</p>
-            <p>El sistema acepta nombres similares, pero es mejor mantener estos encabezados.</p>
-        </div>
-    </div>
-</section>
-
-<section id="administracion" class="vista">
-    <h1 class="vista-titulo">Administración</h1>
-
-    <div class="admin-grid">
-        <div class="admin-card"><h2>Meta Mensual Configurada</h2><span id="adminMetaMensual">-</span></div>
-        <div class="admin-card"><h2>Meta del Rango Actual</h2><span id="adminMetaGeneral">-</span></div>
-        <div class="admin-card"><h2>Última Actualización</h2><span id="adminUltimaActualizacion">-</span></div>
-        <div class="admin-card"><h2>Total Registros</h2><span id="adminTotalRegistros">-</span></div>
-        <div class="admin-card"><h2>Rango Filtrado</h2><span id="adminRangoFechas">-</span></div>
-        <div class="admin-card"><h2>Estado de Conexión</h2><span id="adminEstadoConexion">-</span></div>
-    </div>
-</section>
-
-<div id="reporteFormal" class="print-report"></div>
-
-</main>
-
-<script src="app.js"></script>
-</body>
-</html>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Segoe UI',sans-serif;
+}
+
+:root{
+    --bg:#eef2f7;
+    --bg-card:#ffffff;
+    --text:#0f172a;
+    --muted:#64748b;
+    --green:#00a651;
+    --green-dark:#007f3f;
+    --blue:#2563eb;
+    --violet:#7c3aed;
+    --amber:#f59e0b;
+    --red:#ef4444;
+    --cyan:#06b6d4;
+    --pink:#ec4899;
+    --orange:#f97316;
+    --shadow:0 14px 34px rgba(15,23,42,.12);
+    --shadow-soft:0 8px 20px rgba(15,23,42,.08);
+}
+
+body{
+    min-height:100vh;
+    background:
+        radial-gradient(circle at top left, rgba(0,166,81,.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(37,99,235,.10), transparent 25%),
+        linear-gradient(180deg,#f8fbff 0%,var(--bg) 100%);
+    display:flex;
+    overflow-x:hidden;
+    color:var(--text);
+    transition:.25s ease;
+}
+
+body.dark-mode{
+    --bg:#0f172a;
+    --bg-card:#111827;
+    --text:#e5e7eb;
+    --muted:#94a3b8;
+    background:
+        radial-gradient(circle at top left, rgba(0,166,81,.13), transparent 30%),
+        radial-gradient(circle at top right, rgba(37,99,235,.15), transparent 25%),
+        linear-gradient(180deg,#0b1220 0%,#111827 100%);
+}
+
+.access-panel{
+    position:fixed;
+    inset:0;
+    background:linear-gradient(135deg,#007f3f 0%,#0f172a 100%);
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+}
+
+.access-panel.hidden{
+    display:none;
+}
+
+.access-card{
+    background:#fff;
+    border-radius:26px;
+    padding:34px;
+    width:min(430px,100%);
+    box-shadow:0 24px 70px rgba(0,0,0,.25);
+    text-align:center;
+}
+
+.access-card h1{
+    color:var(--green-dark);
+    font-size:28px;
+    font-weight:900;
+    margin-bottom:8px;
+}
+
+.access-card p{
+    color:#475569;
+    margin-bottom:18px;
+    font-weight:700;
+}
+
+.access-card input{
+    width:100%;
+    padding:14px 16px;
+    border:1px solid #cbd5e1;
+    border-radius:14px;
+    outline:none;
+    margin-bottom:14px;
+    font-size:15px;
+}
+
+.access-card button{
+    width:100%;
+    border:none;
+    border-radius:14px;
+    background:linear-gradient(135deg,var(--green) 0%,#18c96d 100%);
+    color:#fff;
+    padding:14px;
+    font-weight:900;
+    cursor:pointer;
+    margin-bottom:12px;
+}
+
+.access-card small{
+    color:#64748b;
+    font-weight:700;
+}
+
+.sidebar{
+    width:260px;
+    min-height:100vh;
+    position:fixed;
+    left:0;
+    top:0;
+    background:linear-gradient(180deg,#00b65a 0%,#00944a 45%,#006b36 100%);
+    color:#fff;
+    padding:18px 14px;
+    box-shadow:var(--shadow);
+    overflow-y:auto;
+    z-index:20;
+    transition:.25s ease;
+}
+
+.sidebar::-webkit-scrollbar{
+    width:6px;
+}
+
+.sidebar::-webkit-scrollbar-thumb{
+    background:rgba(255,255,255,.35);
+    border-radius:999px;
+}
+
+.sidebar-collapsed .sidebar{
+    width:84px;
+}
+
+.sidebar-collapsed .main{
+    margin-left:84px;
+    width:calc(100% - 84px);
+}
+
+.sidebar-collapsed .logo h2,
+.sidebar-collapsed .logo h3,
+.sidebar-collapsed .logo p,
+.sidebar-collapsed .sidebar li,
+.sidebar-collapsed .sidebar-section-title{
+    font-size:0;
+}
+
+.sidebar-collapsed .sidebar li{
+    justify-content:center;
+}
+
+.sidebar-collapsed .sidebar li i{
+    font-size:17px;
+    width:auto;
+}
+
+.logo{
+    text-align:center;
+    padding:12px 8px 20px;
+    margin-bottom:16px;
+    border-bottom:1px solid rgba(255,255,255,.20);
+}
+
+.logo h2{
+    font-size:20px;
+    font-weight:900;
+    line-height:1.05;
+}
+
+.logo h3{
+    font-size:15px;
+    font-weight:800;
+    margin-top:6px;
+}
+
+.logo p{
+    font-size:12px;
+    margin-top:8px;
+    opacity:.9;
+}
+
+.sidebar-menu{
+    list-style:none;
+}
+
+.sidebar-section-title{
+    font-size:11px;
+    font-weight:900;
+    opacity:.72;
+    letter-spacing:.8px;
+    padding:12px 12px 6px;
+    text-transform:uppercase;
+}
+
+.sidebar li.menu-item{
+    padding:12px 12px;
+    margin-bottom:6px;
+    border-radius:15px;
+    font-size:13px;
+    line-height:1.2;
+    cursor:pointer;
+    transition:.22s ease;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    color:#f8fffb;
+}
+
+.sidebar li.menu-item:hover{
+    background:rgba(255,255,255,.15);
+    transform:translateX(3px);
+}
+
+.sidebar i{
+    width:20px;
+    text-align:center;
+    font-size:14px;
+}
+
+.menu-item.active{
+    background:#ffffff;
+    color:#00a651 !important;
+    font-weight:900;
+}
+
+.main{
+    margin-left:260px;
+    width:calc(100% - 260px);
+    padding:18px;
+    min-width:0;
+    transition:.25s ease;
+}
+
+.topbar{
+    background:linear-gradient(135deg,#ffffff 0%,#f8fbff 100%);
+    border:1px solid rgba(148,163,184,.20);
+    box-shadow:var(--shadow);
+    border-radius:24px;
+    padding:22px 24px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+    position:sticky;
+    top:12px;
+    z-index:10;
+    backdrop-filter:blur(12px);
+}
+
+body.dark-mode .topbar,
+body.dark-mode .filtros,
+body.dark-mode .card,
+body.dark-mode .grafico-card,
+body.dark-mode .tabla-cumplimiento,
+body.dark-mode .tabla-detalle,
+body.dark-mode .semaforo-card,
+body.dark-mode .alertas-box,
+body.dark-mode .card-big,
+body.dark-mode .admin-card,
+body.dark-mode .resumen-ejecutivo,
+body.dark-mode .config-card,
+body.dark-mode .tv-card,
+body.dark-mode .plan-card{
+    background:linear-gradient(180deg,#111827 0%,#0f172a 100%);
+    color:var(--text);
+    border-color:rgba(148,163,184,.20);
+}
+
+.topbar h1{
+    color:var(--green-dark);
+    font-size:31px;
+    font-weight:900;
+    line-height:1.05;
+    letter-spacing:-.4px;
+}
+
+.topbar p{
+    color:var(--muted);
+    margin-top:5px;
+    font-size:14px;
+}
+
+.header-right{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+}
+
+.estado-api{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    padding:9px 12px;
+    border-radius:999px;
+    font-size:13px;
+    font-weight:900;
+    background:#f1f5f9;
+    color:#334155;
+}
+
+.estado-api.ok i{ color:#16a34a; }
+.estado-api.error i{ color:#dc2626; }
+.estado-api.cargando i{ color:#f59e0b; }
+
+.ultima-act{
+    font-weight:800;
+    color:var(--text);
+    font-size:14px;
+}
+
+#ultimaActualizacion{
+    font-weight:900;
+}
+
+.header-actions{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.icon-btn,
+.action-btn,
+.btn-secundario,
+.reporte-btn{
+    border:none;
+    border-radius:13px;
+    cursor:pointer;
+    font-weight:900;
+    transition:.2s ease;
+}
+
+.icon-btn{
+    width:42px;
+    height:42px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#f1f5f9;
+    color:#0f172a;
+    box-shadow:var(--shadow-soft);
+}
+
+.action-btn{
+    padding:11px 16px;
+    background:linear-gradient(135deg,var(--green) 0%,#18c96d 100%);
+    color:#fff;
+    box-shadow:0 10px 22px rgba(0,166,81,.24);
+}
+
+.btn-secundario{
+    padding:11px 20px;
+    min-width:105px;
+    background:#e2e8f0;
+    color:#0f172a;
+}
+
+.icon-btn:hover,
+.action-btn:hover,
+.btn-secundario:hover,
+.reporte-btn:hover{
+    transform:translateY(-2px);
+}
+
+.filtros{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:flex-end;
+    background:var(--bg-card);
+    border:1px solid rgba(148,163,184,.18);
+    box-shadow:var(--shadow-soft);
+    padding:18px 20px;
+    border-radius:24px;
+    margin-top:18px;
+}
+
+.filtro-item{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+}
+
+.filtro-grow{
+    flex:1;
+    min-width:260px;
+}
+
+.filtro-item label{
+    font-weight:800;
+    color:var(--text);
+    font-size:13px;
+}
+
+.filtro-item input,
+.filtro-item select,
+.config-card input{
+    padding:12px 14px;
+    border:1px solid #d9e2ef;
+    border-radius:13px;
+    min-width:150px;
+    background:#fff;
+    color:#0f172a;
+    outline:none;
+    transition:.2s ease;
+}
+
+.filtro-item input:focus,
+.filtro-item select:focus,
+.config-card input:focus{
+    border-color:var(--green);
+    box-shadow:0 0 0 4px rgba(0,166,81,.12);
+}
+
+#btnFiltrar{
+    border:none;
+    border-radius:13px;
+    padding:12px 24px;
+    min-width:110px;
+    cursor:pointer;
+    color:#fff;
+    font-weight:900;
+    background:linear-gradient(135deg,var(--green) 0%,#18c96d 100%);
+    box-shadow:0 10px 22px rgba(0,166,81,.24);
+}
+
+.vista{
+    display:none;
+}
+
+.active-view{
+    display:block;
+}
+
+.vista-titulo{
+    margin-top:18px;
+    font-size:25px;
+    color:var(--green-dark);
+    font-weight:900;
+}
+
+.resumen-ejecutivo{
+    margin-top:18px;
+    background:linear-gradient(135deg,#ffffff 0%,#f3fff8 100%);
+    border:1px solid rgba(0,166,81,.14);
+    border-left:7px solid var(--green);
+    box-shadow:var(--shadow-soft);
+    border-radius:24px;
+    padding:20px 22px;
+}
+
+.resumen-ejecutivo h2{
+    color:var(--green-dark);
+    font-size:20px;
+    margin-bottom:8px;
+}
+
+.resumen-ejecutivo p,
+.texto-informe{
+    color:var(--text);
+    line-height:1.55;
+    font-size:14px;
+    font-weight:600;
+}
+
+.kpis,
+.kpis-secundarios{
+    display:grid;
+    gap:14px;
+    margin-top:18px;
+}
+
+.kpis{
+    grid-template-columns:repeat(5,minmax(0,1fr));
+}
+
+.kpis-secundarios{
+    grid-template-columns:repeat(7,minmax(0,1fr));
+}
+
+.card{
+    background:linear-gradient(145deg,#ffffff 0%,#f4f9ff 100%);
+    border:1px solid rgba(0,166,81,.10);
+    border-radius:24px;
+    padding:17px 17px 15px;
+    min-height:126px;
+    box-shadow:var(--shadow-soft);
+    position:relative;
+    overflow:hidden;
+    transition:.25s ease;
+}
+
+.card:hover{
+    transform:translateY(-4px);
+    box-shadow:0 16px 35px rgba(15,23,42,.14);
+}
+
+.card::before{
+    content:"";
+    position:absolute;
+    inset:auto -30px -30px auto;
+    width:95px;
+    height:95px;
+    border-radius:999px;
+    background:radial-gradient(circle,rgba(0,166,81,.13) 0%,rgba(0,166,81,0) 72%);
+    pointer-events:none;
+}
+
+.card-icon{
+    width:36px;
+    height:36px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    margin-bottom:10px;
+}
+
+.card-icon.green{background:var(--green);}
+.card-icon.blue{background:var(--blue);}
+.card-icon.violet{background:var(--violet);}
+.card-icon.red{background:var(--red);}
+.card-icon.amber{background:var(--amber);}
+
+.card h3{
+    color:var(--muted);
+    font-size:13px;
+    margin-bottom:9px;
+    font-weight:800;
+}
+
+.card h2{
+    font-size:27px;
+    font-weight:900;
+    letter-spacing:-.5px;
+    line-height:1.05;
+    color:#0f172a;
+    word-break:break-word;
+}
+
+.mini-text{
+    color:var(--muted);
+    font-size:12px;
+    margin-top:7px;
+    font-weight:700;
+}
+
+body.dark-mode .card h2,
+body.dark-mode .grafico-card h3,
+body.dark-mode .card-big h3,
+body.dark-mode .semaforo-card h3,
+body.dark-mode .admin-card span,
+body.dark-mode .tv-card strong{
+    color:#e5e7eb;
+}
+
+.graficos{
+    display:grid;
+    grid-template-columns:1.15fr .85fr;
+    gap:18px;
+    margin-top:18px;
+}
+
+.grafico-ancho{
+    grid-column:1 / -1;
+}
+
+.grafico-card,
+.tabla-cumplimiento,
+.tabla-detalle,
+.card-big,
+.admin-card,
+.semaforo-card,
+.alertas-box,
+.config-card,
+.tv-card,
+.plan-card{
+    background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);
+    border:1px solid rgba(148,163,184,.15);
+    border-radius:24px;
+    box-shadow:var(--shadow-soft);
+}
+
+.grafico-card{
+    padding:18px;
+    min-height:360px;
+    overflow:hidden;
+}
+
+.grafico-card h3,
+.card-big h3{
+    font-size:18px;
+    margin-bottom:14px;
+    color:#0f172a;
+    font-weight:900;
+}
+
+.grafico-card canvas{
+    width:100% !important;
+    height:310px !important;
+    max-width:100%;
+}
+
+canvas{
+    max-width:100%;
+}
+
+#velocimetroCumplimiento,
+#ventasAnuales,
+#ventasPorCategoriaVista,
+#cumplimientoMensualGrafico,
+#cumplimientoAnualGrafico,
+#rankingCompletoGestores,
+#graficoExcedentes,
+#graficoHistorico,
+#graficoMetasAcumuladas,
+#graficoCumplimientoDiario,
+#graficoCumplimientoSemanal,
+#graficoCumplimientoTrimestral,
+#graficoCumplimientoSemestral,
+#graficoCategoriasVista,
+#graficoServiciosVista,
+#graficoSedesVista,
+#graficoComparativoMensual,
+#graficoComparativoPeriodos,
+#graficoTvCumplimiento,
+#graficoProyeccionAnual{
+    width:100% !important;
+    height:430px !important;
+}
+
+.tabla-cumplimiento{
+    margin-top:18px;
+    padding:18px;
+    overflow:auto;
+}
+
+.tabla-cumplimiento h2,
+.tabla-detalle h2{
+    color:var(--green-dark);
+    margin-bottom:14px;
+    font-size:19px;
+    font-weight:900;
+}
+
+.tablas-inferiores{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:18px;
+    margin-top:18px;
+}
+
+.tabla-detalle{
+    padding:18px;
+    overflow:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+}
+
+th{
+    background:linear-gradient(135deg,var(--green) 0%,#16b15f 100%);
+    color:white;
+    padding:12px 10px;
+    font-size:13px;
+    text-align:center;
+    letter-spacing:.2px;
+}
+
+td{
+    padding:10px 8px;
+    border-bottom:1px solid #e5ecf5;
+    text-align:center;
+    font-size:13px;
+    word-break:break-word;
+    color:#111827;
+}
+
+body.dark-mode td{
+    color:#e5e7eb;
+    border-color:rgba(148,163,184,.16);
+}
+
+tr:hover{
+    background:#f4fbf7;
+}
+
+body.dark-mode tr:hover{
+    background:rgba(0,166,81,.08);
+}
+
+.badge{
+    display:inline-block;
+    padding:5px 9px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:900;
+}
+
+.badge-ok{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.badge-warning{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+.badge-danger{
+    background:#fee2e2;
+    color:#991b1b;
+}
+
+.semaforo-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:16px;
+}
+
+.semaforo-card{
+    padding:18px;
+    text-align:center;
+}
+
+.semaforo-card h3{
+    font-size:16px;
+    font-weight:900;
+    margin-bottom:12px;
+    color:#0f172a;
+}
+
+.semaforo-estado{
+    width:94px;
+    height:94px;
+    border-radius:999px;
+    margin:0 auto 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:25px;
+    font-weight:900;
+    color:#fff;
+    box-shadow:0 10px 22px rgba(0,0,0,.14);
+}
+
+.semaforo-ok{background:linear-gradient(135deg,#22c55e 0%,#16a34a 100%);}
+.semaforo-warning{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%);}
+.semaforo-danger{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);}
+
+.semaforo-card p{
+    margin-top:8px;
+    color:var(--muted);
+    font-size:13px;
+    font-weight:700;
+}
+
+.alertas-box{
+    padding:18px;
+}
+
+.alerta-item{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:12px 0;
+    border-bottom:1px solid #e5ecf5;
+    font-size:14px;
+    color:#111827;
+}
+
+body.dark-mode .alerta-item{
+    color:#e5e7eb;
+    border-color:rgba(148,163,184,.16);
+}
+
+.alerta-item:last-child{
+    border-bottom:none;
+}
+
+.alerta-item i{
+    margin-top:3px;
+    color:#ef4444;
+}
+
+.card-big{
+    padding:22px;
+    margin-top:18px;
+}
+
+.admin-grid,
+.metas-grid,
+.config-grid,
+.reportes-grid,
+.tv-board,
+.plan-accion-box{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:20px;
+    margin-top:20px;
+}
+
+.tv-board{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+}
+
+.admin-card,
+.config-card,
+.tv-card,
+.plan-card{
+    padding:30px;
+}
+
+.admin-card h2,
+.config-card h2,
+.tv-card h3,
+.plan-card h4{
+    color:#00a651;
+    margin-bottom:15px;
+    font-size:18px;
+    font-weight:900;
+}
+
+.admin-card span{
+    font-size:22px;
+    font-weight:900;
+    color:#0f172a;
+    word-break:break-word;
+}
+
+.config-card p,
+.plan-card p{
+    color:var(--muted);
+    font-size:14px;
+    margin-bottom:14px;
+    line-height:1.5;
+    font-weight:600;
+}
+
+.config-card input{
+    width:100%;
+    margin-bottom:14px;
+}
+
+.reportes-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+.reporte-btn{
+    min-height:110px;
+    background:linear-gradient(135deg,#ffffff 0%,#f4f9ff 100%);
+    border:1px solid rgba(148,163,184,.18);
+    box-shadow:var(--shadow-soft);
+    color:#0f172a;
+    font-size:16px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+}
+
+.reporte-btn i{
+    color:var(--green);
+    font-size:28px;
+}
+
+.tv-card{
+    text-align:center;
+}
+
+.tv-card strong{
+    display:block;
+    color:#0f172a;
+    font-size:32px;
+    font-weight:900;
+    word-break:break-word;
+}
+
+.plan-card{
+    border-left:6px solid var(--green);
+}
+
+.prioridad-alta{color:#dc2626 !important;font-weight:900;}
+.prioridad-media{color:#d97706 !important;font-weight:900;}
+.prioridad-baja{color:#16a34a !important;font-weight:900;}
+.estado-bueno{color:#16a34a;font-weight:900;}
+.estado-riesgo{color:#f59e0b;font-weight:900;}
+.estado-critico{color:#dc2626;font-weight:900;}
+
+.print-report{
+    position:absolute;
+    left:-99999px;
+    top:0;
+    width:1120px;
+    background:#ffffff;
+    color:#111827;
+    padding:38px;
+    font-family:'Segoe UI',sans-serif;
+}
+
+.print-report h1{
+    color:#007f3f;
+    font-size:30px;
+    margin-bottom:8px;
+}
+
+.print-report h2{
+    color:#007f3f;
+    margin:26px 0 10px;
+    font-size:20px;
+}
+
+.print-report p{
+    line-height:1.5;
+    font-size:14px;
+}
+
+.print-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+    margin:18px 0;
+}
+
+.print-kpi{
+    border:1px solid #dbe5ef;
+    border-radius:14px;
+    padding:14px;
+    background:#f8fafc;
+}
+
+.print-kpi span{
+    display:block;
+    color:#64748b;
+    font-size:12px;
+    font-weight:800;
+}
+
+.print-kpi strong{
+    display:block;
+    color:#0f172a;
+    font-size:21px;
+    margin-top:6px;
+}
+
+.print-report table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:12px;
+}
+
+.print-report th{
+    background:#00a651;
+    color:#fff;
+    padding:9px;
+    font-size:12px;
+}
+
+.print-report td{
+    padding:8px;
+    border:1px solid #e2e8f0;
+    font-size:12px;
+}
+
+@media (min-width:1800px){
+    .main{padding:26px;}
+    .topbar{padding:26px 28px;}
+    .topbar h1{font-size:39px;}
+    .topbar p{font-size:16px;}
+    .card h2{font-size:31px;}
+
+    .grafico-card canvas,
+    #velocimetroCumplimiento,
+    #ventasAnuales,
+    #ventasPorCategoriaVista,
+    #cumplimientoMensualGrafico,
+    #cumplimientoAnualGrafico,
+    #rankingCompletoGestores,
+    #graficoExcedentes,
+    #graficoHistorico,
+    #graficoMetasAcumuladas,
+    #graficoCumplimientoDiario,
+    #graficoCumplimientoSemanal,
+    #graficoCumplimientoTrimestral,
+    #graficoCumplimientoSemestral,
+    #graficoCategoriasVista,
+    #graficoServiciosVista,
+    #graficoSedesVista,
+    #graficoComparativoMensual,
+    #graficoComparativoPeriodos,
+    #graficoTvCumplimiento,
+    #graficoProyeccionAnual{
+        height:530px !important;
+    }
+}
+
+@media(max-width:1400px){
+    .kpis{grid-template-columns:repeat(3,minmax(0,1fr));}
+    .kpis-secundarios{grid-template-columns:repeat(3,minmax(0,1fr));}
+    .graficos{grid-template-columns:1fr 1fr;}
+    .tv-board{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
+@media(max-width:1200px){
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .kpis-secundarios{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .graficos{grid-template-columns:1fr;}
+    .grafico-ancho{grid-column:auto;}
+    .tablas-inferiores{grid-template-columns:1fr;}
+    .semaforo-grid{grid-template-columns:1fr;}
+    .admin-grid,
+    .metas-grid,
+    .config-grid,
+    .reportes-grid,
+    .tv-board,
+    .plan-accion-box{grid-template-columns:1fr;}
+}
+
+@media(max-width:768px){
+    body{display:block;}
+    .sidebar{width:100%;position:relative;min-height:auto;}
+    .main{margin-left:0;width:100%;padding:14px;}
+    .topbar{flex-direction:column;align-items:flex-start;padding:18px;}
+    .topbar h1{font-size:24px;}
+    .header-right{width:100%;justify-content:flex-start;}
+    .kpis,.kpis-secundarios{grid-template-columns:1fr;}
+    .filtros{flex-direction:column;align-items:stretch;}
+    .filtro-item input,
+    .filtro-item select,
+    #btnFiltrar,
+    .btn-secundario{width:100%;}
+
+    .grafico-card canvas,
+    #velocimetroCumplimiento,
+    #ventasAnuales,
+    #ventasPorCategoriaVista,
+    #cumplimientoMensualGrafico,
+    #cumplimientoAnualGrafico,
+    #rankingCompletoGestores,
+    #graficoExcedentes,
+    #graficoHistorico,
+    #graficoMetasAcumuladas,
+    #graficoCumplimientoDiario,
+    #graficoCumplimientoSemanal,
+    #graficoCumplimientoTrimestral,
+    #graficoCumplimientoSemestral,
+    #graficoCategoriasVista,
+    #graficoServiciosVista,
+    #graficoSedesVista,
+    #graficoComparativoMensual,
+    #graficoComparativoPeriodos,
+    #graficoTvCumplimiento,
+    #graficoProyeccionAnual{
+        height:270px !important;
+    }
+}
