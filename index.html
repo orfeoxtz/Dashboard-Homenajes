@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260611">
+<link rel="stylesheet" href="./style.css?v=20260617">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -62,6 +62,11 @@
         <li class="menu-item" data-seccion="comparativo"><i class="fas fa-scale-balanced"></i> Comparativo</li>
         <li class="menu-item" data-seccion="pareto"><i class="fas fa-chart-pie"></i> Pareto 80/20</li>
         <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas</li>
+
+        <li class="sidebar-section-title">OPERACIÓN</li>
+        <li class="menu-item" data-seccion="energia"><i class="fas fa-bolt"></i> Energía eléctrica</li>
+        <li class="menu-item" data-seccion="vacaciones"><i class="fas fa-umbrella-beach"></i> Vacaciones</li>
+        <li class="menu-item" data-seccion="agenda"><i class="fas fa-calendar-check"></i> Agenda anual</li>
 
         <li class="sidebar-section-title">CONTROL</li>
         <li class="menu-item" data-seccion="datos"><i class="fas fa-database"></i> Datos</li>
@@ -507,6 +512,231 @@
     </div>
 </section>
 
+<section id="energia" class="vista">
+    <h1 class="vista-titulo">Consumo Energía Eléctrica Homenajes</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Lectura operativa</h2>
+        <p id="textoEnergia">Comparativo anual del consumo eléctrico del área de homenajes, con seguimiento mensual de kWh, costo y variación frente al año anterior.</p>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>⚡ Consumo año actual</h3><h2 id="kpiEnergiaKwh">0 kWh</h2></div>
+        <div class="card"><h3>💰 Costo año actual</h3><h2 id="kpiEnergiaCosto">$0</h2></div>
+        <div class="card"><h3>📊 Promedio mensual</h3><h2 id="kpiEnergiaPromedio">0 kWh</h2></div>
+        <div class="card"><h3>🔁 Variación anual</h3><h2 id="kpiEnergiaVariacion">0%</h2></div>
+    </section>
+
+    <section class="graficos">
+        <div class="grafico-card grafico-full">
+            <h3>Comparativo mensual de consumo kWh</h3>
+            <canvas id="graficoEnergiaComparativo"></canvas>
+        </div>
+
+        <div class="grafico-card grafico-full">
+            <h3>Costo mensual de energía</h3>
+            <canvas id="graficoEnergiaCosto"></canvas>
+        </div>
+    </section>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar consumo</h2>
+            <p>Agrega el consumo mensual de energía del área de homenajes. La información queda guardada localmente en este navegador.</p>
+            <input type="number" id="energiaAnio" placeholder="Año, ejemplo 2026">
+            <select id="energiaMes">
+                <option value="">Mes</option>
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+            <input type="number" id="energiaKwh" placeholder="Consumo kWh">
+            <input type="number" id="energiaCosto" placeholder="Valor factura">
+            <input type="text" id="energiaObservacion" placeholder="Observación">
+            <button id="btnAgregarEnergia" class="action-btn">Agregar consumo</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Úsalo solo si deseas borrar los consumos manuales guardados en esta sección.</p>
+            <button id="btnLimpiarEnergia" class="danger-btn">Eliminar consumos de energía</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle mensual energía</h2>
+        <table id="tablaEnergia">
+            <thead>
+                <tr>
+                    <th>Año</th>
+                    <th>Mes</th>
+                    <th>kWh</th>
+                    <th>Costo</th>
+                    <th>Costo/kWh</th>
+                    <th>Observación</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="vacaciones" class="vista">
+    <h1 class="vista-titulo">Vacaciones del Personal</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Control de vencimientos</h2>
+        <p id="textoVacaciones">Seguimiento del personal con vacaciones vencidas, programadas, pendientes y vacaciones ya otorgadas.</p>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>🚨 Vencidas</h3><h2 id="kpiVacacionesVencidas">0</h2></div>
+        <div class="card"><h3>🗓 Programadas</h3><h2 id="kpiVacacionesProgramadas">0</h2></div>
+        <div class="card"><h3>✅ Disfrutadas</h3><h2 id="kpiVacacionesDisfrutadas">0</h2></div>
+        <div class="card"><h3>⏳ Pendientes</h3><h2 id="kpiVacacionesPendientes">0</h2></div>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Estado de vacaciones del equipo</h3>
+        <canvas id="graficoVacacionesEstado"></canvas>
+    </div>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar vacaciones</h2>
+            <p>Ingresa o actualiza el estado de vacaciones de cada colaborador.</p>
+            <input type="text" id="vacNombre" placeholder="Nombre del colaborador">
+            <input type="text" id="vacCargo" placeholder="Cargo / área">
+            <input type="date" id="vacFechaBase" title="Fecha de ingreso o último periodo causado">
+            <select id="vacEstado">
+                <option value="">Estado</option>
+                <option value="VENCIDA">VENCIDA</option>
+                <option value="PENDIENTE">PENDIENTE</option>
+                <option value="PROGRAMADA">PROGRAMADA</option>
+                <option value="DISFRUTADA">DISFRUTADA</option>
+            </select>
+            <input type="date" id="vacInicio" title="Inicio vacaciones">
+            <input type="date" id="vacFin" title="Fin vacaciones">
+            <input type="number" id="vacDias" placeholder="Días otorgados">
+            <button id="btnAgregarVacacion" class="action-btn">Agregar / actualizar</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Elimina los registros locales de vacaciones si necesitas cargar una base nueva.</p>
+            <button id="btnLimpiarVacaciones" class="danger-btn">Eliminar vacaciones</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle vacaciones personal</h2>
+        <table id="tablaVacaciones">
+            <thead>
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Cargo</th>
+                    <th>Fecha base</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Días</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="agenda" class="vista">
+    <h1 class="vista-titulo">Agenda Interna Anual</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Actividades por cumplir</h2>
+        <p id="textoAgenda">Calendario interno para visualizar actividades diarias, mensuales, anuales, pendientes y finiquitadas.</p>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>📌 Pendientes</h3><h2 id="kpiAgendaPendientes">0</h2></div>
+        <div class="card"><h3>✅ Finiquitadas</h3><h2 id="kpiAgendaFiniquitadas">0</h2></div>
+        <div class="card"><h3>📅 Actividades hoy</h3><h2 id="kpiAgendaHoy">0</h2></div>
+        <div class="card"><h3>🗓 Actividades mes</h3><h2 id="kpiAgendaMes">0</h2></div>
+    </section>
+
+    <div class="agenda-layout">
+        <div class="card-big agenda-panel">
+            <div class="agenda-header">
+                <button id="btnAgendaAnterior" class="btn-secundario"><i class="fas fa-chevron-left"></i></button>
+                <h3 id="agendaMesTitulo">Mes</h3>
+                <button id="btnAgendaSiguiente" class="btn-secundario"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div id="agendaCalendario" class="agenda-calendar"></div>
+        </div>
+
+        <div class="card-big agenda-panel">
+            <h3>Actividades del periodo</h3>
+            <div id="agendaLista" class="agenda-lista"></div>
+        </div>
+    </div>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Nueva actividad</h2>
+            <p>Registra actividades diarias, mensuales o anuales y marca su cumplimiento.</p>
+            <input type="date" id="actFecha">
+            <input type="text" id="actTitulo" placeholder="Actividad">
+            <select id="actFrecuencia">
+                <option value="">Frecuencia</option>
+                <option value="DIARIA">DIARIA</option>
+                <option value="MENSUAL">MENSUAL</option>
+                <option value="ANUAL">ANUAL</option>
+                <option value="UNICA">ÚNICA</option>
+            </select>
+            <select id="actEstado">
+                <option value="PENDIENTE">PENDIENTE</option>
+                <option value="FINIQUITADA">FINIQUITADA</option>
+            </select>
+            <input type="text" id="actResponsable" placeholder="Responsable">
+            <textarea id="actDetalle" placeholder="Detalle u observación"></textarea>
+            <button id="btnAgregarActividad" class="action-btn">Agregar actividad</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Elimina la agenda local si necesitas reiniciar la programación anual.</p>
+            <button id="btnLimpiarAgenda" class="danger-btn">Eliminar agenda</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Listado general de actividades</h2>
+        <table id="tablaAgenda">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Actividad</th>
+                    <th>Frecuencia</th>
+                    <th>Responsable</th>
+                    <th>Estado</th>
+                    <th>Detalle</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
 <section id="datos" class="vista">
     <h1 class="vista-titulo">Datos y Diagnóstico</h1>
 
@@ -664,6 +894,6 @@
 
 </main>
 
-<script src="./app.js?v=20260611"></script>
+<script src="./app.js?v=20260617"></script>
 </body>
 </html>
