@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260611");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260617");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
@@ -30,6 +30,7 @@ let API_STATUS = {
 let charts = {};
 let ULTIMO_RESUMEN = null;
 let ULTIMA_META_INFO = null;
+let AGENDA_CURSOR = new Date();
 
 const $ = id => document.getElementById(id);
 
@@ -41,6 +42,15 @@ function setHtml(id, value){
 function setValue(id, value){
     const el = $(id);
     if(el) el.value = value;
+}
+
+function escapeHtml(value){
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function toast(message, type="ok"){
@@ -89,6 +99,13 @@ function toNumber(valor){
 
 function formatMoney(valor){
     return "$" + Math.round(toNumber(valor)).toLocaleString("es-CO");
+}
+
+function formatNumber(valor, decimales=0){
+    return Number(toNumber(valor)).toLocaleString("es-CO", {
+        minimumFractionDigits:decimales,
+        maximumFractionDigits:decimales
+    });
 }
 
 function getCampo(item, posibles){
@@ -797,6 +814,9 @@ function renderTodo(resumen, metaInfo){
     renderPareto();
     renderDatos();
     renderAlertas(resumen);
+    renderEnergia();
+    renderVacaciones();
+    renderAgenda();
     renderRegistrosManuales();
     renderReporteFormal();
     actualizarConfiguracion();
@@ -1422,6 +1442,455 @@ function renderAlertas(resumen){
     setHtml("alertasGerencialesVista", html || "<p>Sin alertas por el momento.</p>");
 }
 
+function cargarColeccionLocal(clave, datosIniciales=[]){
+    const guardado = localStorage.getItem(clave);
+    if(guardado){
+        try{
+            const data = JSON.parse(guardado);
+            return Array.isArray(data) ? data : [];
+        }catch(error){
+            console.warn(`No se pudo leer ${clave}`, error);
+        }
+    }
+
+    localStorage.setItem(clave, JSON.stringify(datosIniciales));
+    return datosIniciales;
+}
+
+function guardarColeccionLocal(clave, data){
+    localStorage.setItem(clave, JSON.stringify(data));
+}
+
+function anioOperativoActual(){
+    const f = obtenerFiltros();
+    const fecha = f.fechaFin ? new Date(`${f.fechaFin}T00:00:00`) : new Date();
+    return fecha && !isNaN(fecha.getTime()) ? fecha.getFullYear() : new Date().getFullYear();
+}
+
+function datosEnergiaIniciales(){
+    return [
+        {id:"energia_2025_1", anio:2025, mes:1, kwh:1840, costo:1612000, observacion:"Base histórica"},
+        {id:"energia_2025_2", anio:2025, mes:2, kwh:1765, costo:1549000, observacion:"Base histórica"},
+        {id:"energia_2025_3", anio:2025, mes:3, kwh:1910, costo:1719000, observacion:"Base histórica"},
+        {id:"energia_2025_4", anio:2025, mes:4, kwh:1888, costo:1687000, observacion:"Base histórica"},
+        {id:"energia_2025_5", anio:2025, mes:5, kwh:1965, costo:1785000, observacion:"Base histórica"},
+        {id:"energia_2025_6", anio:2025, mes:6, kwh:2015, costo:1850000, observacion:"Base histórica"},
+        {id:"energia_2026_1", anio:2026, mes:1, kwh:1795, costo:1650000, observacion:"Registro inicial"},
+        {id:"energia_2026_2", anio:2026, mes:2, kwh:1820, costo:1692000, observacion:"Registro inicial"},
+        {id:"energia_2026_3", anio:2026, mes:3, kwh:1875, costo:1756000, observacion:"Registro inicial"},
+        {id:"energia_2026_4", anio:2026, mes:4, kwh:1932, costo:1815000, observacion:"Registro inicial"},
+        {id:"energia_2026_5", anio:2026, mes:5, kwh:1988, costo:1897000, observacion:"Registro inicial"},
+        {id:"energia_2026_6", anio:2026, mes:6, kwh:2040, costo:1975000, observacion:"Registro inicial"}
+    ];
+}
+
+function cargarEnergia(){
+    return cargarColeccionLocal("energiaHomenajes", datosEnergiaIniciales());
+}
+
+function valorEnergia(data, anio, mes, campo){
+    const item = data.find(x => Number(x.anio) === Number(anio) && Number(x.mes) === Number(mes));
+    return item ? toNumber(item[campo]) : 0;
+}
+
+function renderEnergia(){
+    const data = cargarEnergia().sort((a,b) => Number(a.anio) - Number(b.anio) || Number(a.mes) - Number(b.mes));
+    const anioActual = anioOperativoActual();
+    const anioAnterior = anioActual - 1;
+    const meses = Array.from({length:12}, (_,i) => i + 1);
+    const labels = meses.map(m => nombreMes(m).slice(0,3));
+
+    const kwhActual = meses.map(m => valorEnergia(data, anioActual, m, "kwh"));
+    const kwhAnterior = meses.map(m => valorEnergia(data, anioAnterior, m, "kwh"));
+    const costoActual = meses.map(m => valorEnergia(data, anioActual, m, "costo"));
+
+    const totalActual = kwhActual.reduce((a,b) => a + b, 0);
+    const totalAnterior = kwhAnterior.reduce((a,b) => a + b, 0);
+    const costoTotal = costoActual.reduce((a,b) => a + b, 0);
+    const mesesConDato = kwhActual.filter(v => v > 0).length || 1;
+    const variacion = totalAnterior > 0 ? ((totalActual - totalAnterior) / totalAnterior) * 100 : 0;
+
+    setHtml("kpiEnergiaKwh", `${formatNumber(totalActual)} kWh`);
+    setHtml("kpiEnergiaCosto", formatMoney(costoTotal));
+    setHtml("kpiEnergiaPromedio", `${formatNumber(totalActual / mesesConDato)} kWh`);
+    setHtml("kpiEnergiaVariacion", `${variacion.toFixed(1)}%`);
+    setHtml("textoEnergia", `
+        Comparativo del consumo eléctrico de homenajes para <strong>${anioActual}</strong> frente a <strong>${anioAnterior}</strong>.
+        El acumulado actual es <strong>${formatNumber(totalActual)} kWh</strong>, con costo de <strong>${formatMoney(costoTotal)}</strong>
+        y variación de <strong>${variacion.toFixed(1)}%</strong>.
+    `);
+
+    const variacionEl = $("kpiEnergiaVariacion");
+    if(variacionEl) variacionEl.style.color = variacion <= 0 ? "#16a34a" : "#dc2626";
+
+    crearChartLine("graficoEnergiaComparativo", labels, [
+        {label:String(anioActual), data:kwhActual, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
+        {label:String(anioAnterior), data:kwhAnterior, borderColor:"#2563eb", backgroundColor:"rgba(37,99,235,.10)", fill:true, tension:.3}
+    ], "Consumo kWh año actual vs anterior");
+
+    crearChartBar("graficoEnergiaCosto", labels, costoActual, "Costo", `Costo mensual ${anioActual}`);
+
+    const tbody = document.querySelector("#tablaEnergia tbody");
+    if(tbody){
+        tbody.innerHTML = data.length ? [...data].sort((a,b) => Number(b.anio) - Number(a.anio) || Number(b.mes) - Number(a.mes)).map(item => {
+            const costoKwh = toNumber(item.kwh) > 0 ? toNumber(item.costo) / toNumber(item.kwh) : 0;
+            return `
+                <tr>
+                    <td>${escapeHtml(item.anio)}</td>
+                    <td>${nombreMes(item.mes)}</td>
+                    <td>${formatNumber(item.kwh)} kWh</td>
+                    <td>${formatMoney(item.costo)}</td>
+                    <td>${formatMoney(costoKwh)}</td>
+                    <td>${escapeHtml(item.observacion || "-")}</td>
+                    <td><button class="danger-btn" onclick="eliminarEnergia('${escapeHtml(item.id)}')">Eliminar</button></td>
+                </tr>
+            `;
+        }).join("") : `<tr><td colspan="7">Sin registros de energía</td></tr>`;
+    }
+}
+
+function agregarEnergia(){
+    const item = {
+        id:cryptoRandom(),
+        anio:Number($("energiaAnio")?.value || 0),
+        mes:Number($("energiaMes")?.value || 0),
+        kwh:toNumber($("energiaKwh")?.value || 0),
+        costo:toNumber($("energiaCosto")?.value || 0),
+        observacion:$("energiaObservacion")?.value || ""
+    };
+
+    if(!item.anio || !item.mes || item.kwh <= 0){
+        toast("Año, mes y consumo kWh son obligatorios.", "warning");
+        return;
+    }
+
+    let data = cargarEnergia().filter(x => !(Number(x.anio) === item.anio && Number(x.mes) === item.mes));
+    data.push(item);
+    guardarColeccionLocal("energiaHomenajes", data);
+
+    ["energiaAnio","energiaMes","energiaKwh","energiaCosto","energiaObservacion"].forEach(id => setValue(id, ""));
+    renderEnergia();
+    toast("Consumo de energía guardado.");
+}
+
+function eliminarEnergia(id){
+    const data = cargarEnergia().filter(item => item.id !== id);
+    guardarColeccionLocal("energiaHomenajes", data);
+    renderEnergia();
+    toast("Registro de energía eliminado.");
+}
+
+window.eliminarEnergia = eliminarEnergia;
+
+function limpiarEnergia(){
+    if(!confirm("¿Deseas eliminar todos los registros de energía?")) return;
+    guardarColeccionLocal("energiaHomenajes", []);
+    renderEnergia();
+    toast("Registros de energía eliminados.");
+}
+
+function datosVacacionesIniciales(){
+    return [
+        {id:"vac_javier", nombre:"Javier Mendoza Galván", cargo:"Conductor Tanatopractor", fechaBase:"2025-07-01", inicio:"2026-07-02", fin:"2026-07-21", dias:15, estado:"PROGRAMADA"},
+        {id:"vac_raul", nombre:"Raúl López", cargo:"Conductor Tanatopractor", fechaBase:"2024-12-01", inicio:"", fin:"", dias:0, estado:"VENCIDA"},
+        {id:"vac_hazael", nombre:"Hazael Galván", cargo:"Conductor Tanatopractor", fechaBase:"2025-08-15", inicio:"", fin:"", dias:0, estado:"PENDIENTE"},
+        {id:"vac_wendy", nombre:"Wendy Paola Cordero", cargo:"Gestora de Protocolo", fechaBase:"2025-05-20", inicio:"2026-05-05", fin:"2026-05-24", dias:15, estado:"DISFRUTADA"}
+    ];
+}
+
+function cargarVacaciones(){
+    return cargarColeccionLocal("vacacionesPersonal", datosVacacionesIniciales());
+}
+
+function estadoVacacion(item){
+    const estado = normalizarTexto(item.estado);
+    if(["VENCIDA","PENDIENTE","PROGRAMADA","DISFRUTADA"].includes(estado)) return estado;
+
+    const base = parseFecha(item.fechaBase);
+    if(!base) return "PENDIENTE";
+
+    const dias = diasEntre(base, new Date());
+    return dias >= 365 ? "VENCIDA" : "PENDIENTE";
+}
+
+function badgeVacacion(estado){
+    if(estado === "DISFRUTADA") return `<span class="badge badge-ok">Disfrutada</span>`;
+    if(estado === "PROGRAMADA") return `<span class="badge badge-info">Programada</span>`;
+    if(estado === "VENCIDA") return `<span class="badge badge-danger">Vencida</span>`;
+    return `<span class="badge badge-warning">Pendiente</span>`;
+}
+
+function renderVacaciones(){
+    const data = cargarVacaciones();
+    const conteo = {VENCIDA:0, PROGRAMADA:0, DISFRUTADA:0, PENDIENTE:0};
+
+    data.forEach(item => conteo[estadoVacacion(item)] = (conteo[estadoVacacion(item)] || 0) + 1);
+
+    setHtml("kpiVacacionesVencidas", conteo.VENCIDA);
+    setHtml("kpiVacacionesProgramadas", conteo.PROGRAMADA);
+    setHtml("kpiVacacionesDisfrutadas", conteo.DISFRUTADA);
+    setHtml("kpiVacacionesPendientes", conteo.PENDIENTE);
+    setHtml("textoVacaciones", `
+        Control actual: <strong>${conteo.VENCIDA}</strong> vencidas, <strong>${conteo.PROGRAMADA}</strong> programadas,
+        <strong>${conteo.DISFRUTADA}</strong> disfrutadas y <strong>${conteo.PENDIENTE}</strong> pendientes.
+    `);
+
+    crearChartDoughnut(
+        "graficoVacacionesEstado",
+        ["VENCIDA","PROGRAMADA","DISFRUTADA","PENDIENTE"],
+        [conteo.VENCIDA, conteo.PROGRAMADA, conteo.DISFRUTADA, conteo.PENDIENTE],
+        "Estado vacaciones"
+    );
+
+    const tbody = document.querySelector("#tablaVacaciones tbody");
+    if(tbody){
+        tbody.innerHTML = data.length ? data.map(item => {
+            const estado = estadoVacacion(item);
+            return `
+                <tr>
+                    <td>${escapeHtml(item.nombre)}</td>
+                    <td>${escapeHtml(item.cargo || "-")}</td>
+                    <td>${escapeHtml(item.fechaBase || "-")}</td>
+                    <td>${escapeHtml(item.inicio || "-")}</td>
+                    <td>${escapeHtml(item.fin || "-")}</td>
+                    <td>${formatNumber(item.dias || 0)}</td>
+                    <td>${badgeVacacion(estado)}</td>
+                    <td><button class="danger-btn" onclick="eliminarVacacion('${escapeHtml(item.id)}')">Eliminar</button></td>
+                </tr>
+            `;
+        }).join("") : `<tr><td colspan="8">Sin registros de vacaciones</td></tr>`;
+    }
+}
+
+function agregarVacacion(){
+    const nombre = $("vacNombre")?.value || "";
+    const item = {
+        id:cryptoRandom(),
+        nombre:nombre.trim(),
+        cargo:$("vacCargo")?.value || "",
+        fechaBase:$("vacFechaBase")?.value || "",
+        estado:$("vacEstado")?.value || "PENDIENTE",
+        inicio:$("vacInicio")?.value || "",
+        fin:$("vacFin")?.value || "",
+        dias:toNumber($("vacDias")?.value || 0)
+    };
+
+    if(!item.nombre){
+        toast("El nombre del colaborador es obligatorio.", "warning");
+        return;
+    }
+
+    let data = cargarVacaciones().filter(x => normalizarLlave(x.nombre) !== normalizarLlave(item.nombre));
+    data.push(item);
+    guardarColeccionLocal("vacacionesPersonal", data);
+
+    ["vacNombre","vacCargo","vacFechaBase","vacEstado","vacInicio","vacFin","vacDias"].forEach(id => setValue(id, ""));
+    renderVacaciones();
+    toast("Registro de vacaciones guardado.");
+}
+
+function eliminarVacacion(id){
+    const data = cargarVacaciones().filter(item => item.id !== id);
+    guardarColeccionLocal("vacacionesPersonal", data);
+    renderVacaciones();
+    toast("Registro de vacaciones eliminado.");
+}
+
+window.eliminarVacacion = eliminarVacacion;
+
+function limpiarVacaciones(){
+    if(!confirm("¿Deseas eliminar todos los registros de vacaciones?")) return;
+    guardarColeccionLocal("vacacionesPersonal", []);
+    renderVacaciones();
+    toast("Vacaciones eliminadas.");
+}
+
+function datosAgendaIniciales(){
+    const anio = new Date().getFullYear();
+    return [
+        {id:"act_preoperacional", fecha:`${anio}-01-02`, titulo:"Verificar reporte preoperacional de vehículos", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Control diario antes de entregar turno."},
+        {id:"act_bitacora", fecha:`${anio}-01-02`, titulo:"Revisar bitácora de parque automotor", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Confirmar novedades y entrega de llaves."},
+        {id:"act_implementos", fecha:`${anio}-06-20`, titulo:"Seguimiento implementos de velación en casa", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Gestores", detalle:"Validar elementos vigentes, por recoger y recogidos."},
+        {id:"act_residuos", fecha:`${anio}-07-01`, titulo:"Capacitación residuos y desinfección", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Talento Humano / Homenajes", detalle:"Refuerzo obligatorio para el equipo operativo."},
+        {id:"act_auditoria", fecha:`${anio}-11-10`, titulo:"Preparación auditoría interna", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Revisar R-15, R-56, RH1 y soportes operativos."}
+    ];
+}
+
+function cargarAgenda(){
+    return cargarColeccionLocal("agendaHomenajes", datosAgendaIniciales());
+}
+
+function actividadEnMes(item, anio, mes){
+    const fecha = parseFecha(item.fecha);
+    return fecha && fecha.getFullYear() === anio && fecha.getMonth() + 1 === mes;
+}
+
+function actividadEsHoy(item){
+    const fecha = parseFecha(item.fecha);
+    return fecha && fechaISO(fecha) === fechaISO(new Date());
+}
+
+function badgeActividad(estado){
+    return normalizarTexto(estado) === "FINIQUITADA"
+        ? `<span class="badge badge-ok">Finiquitada</span>`
+        : `<span class="badge badge-warning">Pendiente</span>`;
+}
+
+function renderAgenda(){
+    const data = cargarAgenda().sort((a,b) => String(a.fecha).localeCompare(String(b.fecha)));
+    const anio = AGENDA_CURSOR.getFullYear();
+    const mes = AGENDA_CURSOR.getMonth() + 1;
+    const actividadesMes = data.filter(item => actividadEnMes(item, anio, mes));
+    const pendientes = data.filter(item => normalizarTexto(item.estado) !== "FINIQUITADA").length;
+    const finiquitadas = data.filter(item => normalizarTexto(item.estado) === "FINIQUITADA").length;
+    const hoy = data.filter(actividadEsHoy).length;
+
+    setHtml("kpiAgendaPendientes", pendientes);
+    setHtml("kpiAgendaFiniquitadas", finiquitadas);
+    setHtml("kpiAgendaHoy", hoy);
+    setHtml("kpiAgendaMes", actividadesMes.length);
+    setHtml("textoAgenda", `
+        Agenda activa con <strong>${pendientes}</strong> actividades pendientes y <strong>${finiquitadas}</strong> finiquitadas.
+        Para <strong>${nombreMes(mes)} ${anio}</strong> hay <strong>${actividadesMes.length}</strong> actividades programadas.
+    `);
+    setHtml("agendaMesTitulo", `${nombreMes(mes)} ${anio}`);
+
+    renderCalendarioAgenda(data, anio, mes);
+    renderListaAgenda(actividadesMes);
+    renderTablaAgenda(data);
+}
+
+function renderCalendarioAgenda(data, anio, mes){
+    const contenedor = $("agendaCalendario");
+    if(!contenedor) return;
+
+    const primerDia = new Date(anio, mes - 1, 1);
+    const ultimoDia = new Date(anio, mes, 0);
+    const inicioSemana = (primerDia.getDay() + 6) % 7;
+    const totalDias = ultimoDia.getDate();
+    const hoy = fechaISO(new Date());
+    const diasSemana = ["L","M","M","J","V","S","D"];
+    const celdas = [];
+
+    diasSemana.forEach(dia => celdas.push(`<div class="agenda-weekday">${dia}</div>`));
+    for(let i = 0; i < inicioSemana; i++) celdas.push(`<div class="agenda-day empty"></div>`);
+
+    for(let dia = 1; dia <= totalDias; dia++){
+        const fecha = new Date(anio, mes - 1, dia);
+        const iso = fechaISO(fecha);
+        const actividadesDia = data.filter(item => item.fecha === iso);
+        const clases = ["agenda-day"];
+        if(iso === hoy) clases.push("today");
+        if(actividadesDia.length) clases.push("has-events");
+
+        celdas.push(`
+            <div class="${clases.join(" ")}">
+                <strong>${dia}</strong>
+                ${actividadesDia.length ? `<span>${actividadesDia.length} act.</span>` : ""}
+            </div>
+        `);
+    }
+
+    contenedor.innerHTML = celdas.join("");
+}
+
+function renderListaAgenda(actividades){
+    const contenedor = $("agendaLista");
+    if(!contenedor) return;
+
+    if(!actividades.length){
+        contenedor.innerHTML = `<p class="mini-text">Sin actividades programadas para este mes.</p>`;
+        return;
+    }
+
+    contenedor.innerHTML = actividades.map(item => `
+        <div class="agenda-item">
+            <div>
+                <strong>${escapeHtml(item.titulo)}</strong>
+                <p>${escapeHtml(item.fecha)} · ${escapeHtml(item.frecuencia)} · ${escapeHtml(item.responsable || "Sin responsable")}</p>
+            </div>
+            ${badgeActividad(item.estado)}
+        </div>
+    `).join("");
+}
+
+function renderTablaAgenda(data){
+    const tbody = document.querySelector("#tablaAgenda tbody");
+    if(!tbody) return;
+
+    tbody.innerHTML = data.length ? data.map(item => `
+        <tr>
+            <td>${escapeHtml(item.fecha || "-")}</td>
+            <td>${escapeHtml(item.titulo || "-")}</td>
+            <td>${escapeHtml(item.frecuencia || "-")}</td>
+            <td>${escapeHtml(item.responsable || "-")}</td>
+            <td>${badgeActividad(item.estado)}</td>
+            <td>${escapeHtml(item.detalle || "-")}</td>
+            <td>
+                <button class="action-btn" onclick="alternarEstadoActividad('${escapeHtml(item.id)}')">Cambiar</button>
+                <button class="danger-btn" onclick="eliminarActividad('${escapeHtml(item.id)}')">Eliminar</button>
+            </td>
+        </tr>
+    `).join("") : `<tr><td colspan="7">Sin actividades registradas</td></tr>`;
+}
+
+function agregarActividad(){
+    const item = {
+        id:cryptoRandom(),
+        fecha:$("actFecha")?.value || "",
+        titulo:($("actTitulo")?.value || "").trim(),
+        frecuencia:$("actFrecuencia")?.value || "UNICA",
+        estado:$("actEstado")?.value || "PENDIENTE",
+        responsable:$("actResponsable")?.value || "",
+        detalle:$("actDetalle")?.value || ""
+    };
+
+    if(!item.fecha || !item.titulo){
+        toast("Fecha y actividad son obligatorias.", "warning");
+        return;
+    }
+
+    const data = cargarAgenda();
+    data.push(item);
+    guardarColeccionLocal("agendaHomenajes", data);
+
+    ["actFecha","actTitulo","actFrecuencia","actEstado","actResponsable","actDetalle"].forEach(id => setValue(id, ""));
+    setValue("actEstado", "PENDIENTE");
+    renderAgenda();
+    toast("Actividad agregada.");
+}
+
+function alternarEstadoActividad(id){
+    const data = cargarAgenda().map(item => {
+        if(item.id !== id) return item;
+        return {...item, estado:normalizarTexto(item.estado) === "FINIQUITADA" ? "PENDIENTE" : "FINIQUITADA"};
+    });
+    guardarColeccionLocal("agendaHomenajes", data);
+    renderAgenda();
+}
+
+function eliminarActividad(id){
+    const data = cargarAgenda().filter(item => item.id !== id);
+    guardarColeccionLocal("agendaHomenajes", data);
+    renderAgenda();
+    toast("Actividad eliminada.");
+}
+
+window.alternarEstadoActividad = alternarEstadoActividad;
+window.eliminarActividad = eliminarActividad;
+
+function moverAgenda(meses){
+    AGENDA_CURSOR = new Date(AGENDA_CURSOR.getFullYear(), AGENDA_CURSOR.getMonth() + meses, 1);
+    renderAgenda();
+}
+
+function limpiarAgenda(){
+    if(!confirm("¿Deseas eliminar toda la agenda interna?")) return;
+    guardarColeccionLocal("agendaHomenajes", []);
+    renderAgenda();
+    toast("Agenda eliminada.");
+}
+
 function renderRegistrosManuales(){
     const tbody = document.querySelector("#tablaRegistrosManuales tbody");
     if(!tbody) return;
@@ -1933,6 +2402,17 @@ $("reporteLimpiarCache")?.addEventListener("click", limpiarCache);
 
 $("btnAgregarRegistro")?.addEventListener("click", agregarRegistroManual);
 $("btnEliminarManuales")?.addEventListener("click", eliminarTodosManuales);
+
+$("btnAgregarEnergia")?.addEventListener("click", agregarEnergia);
+$("btnLimpiarEnergia")?.addEventListener("click", limpiarEnergia);
+
+$("btnAgregarVacacion")?.addEventListener("click", agregarVacacion);
+$("btnLimpiarVacaciones")?.addEventListener("click", limpiarVacaciones);
+
+$("btnAgregarActividad")?.addEventListener("click", agregarActividad);
+$("btnLimpiarAgenda")?.addEventListener("click", limpiarAgenda);
+$("btnAgendaAnterior")?.addEventListener("click", () => moverAgenda(-1));
+$("btnAgendaSiguiente")?.addEventListener("click", () => moverAgenda(1));
 
 $("btnGuardarMeta")?.addEventListener("click", guardarMeta);
 $("btnGuardarConfigVisual")?.addEventListener("click", guardarIdentidad);
