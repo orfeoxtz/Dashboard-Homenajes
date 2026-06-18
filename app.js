@@ -1966,6 +1966,46 @@ function eliminarTodosManuales(){
     cargarDashboard();
 }
 
+function obtenerResumenOperativoReporte(){
+    const anio = anioOperativoActual();
+    const energia = cargarEnergia();
+    const energiaActual = energia.filter(item => Number(item.anio) === anio);
+    const energiaAnterior = energia.filter(item => Number(item.anio) === anio - 1);
+
+    const totalKwh = energiaActual.reduce((acc,item) => acc + toNumber(item.kwh), 0);
+    const totalCosto = energiaActual.reduce((acc,item) => acc + toNumber(item.costo), 0);
+    const totalKwhAnterior = energiaAnterior.reduce((acc,item) => acc + toNumber(item.kwh), 0);
+    const variacionKwh = totalKwhAnterior > 0 ? ((totalKwh - totalKwhAnterior) / totalKwhAnterior) * 100 : 0;
+
+    const vacaciones = cargarVacaciones();
+    const vacacionesConteo = {VENCIDA:0, PROGRAMADA:0, DISFRUTADA:0, PENDIENTE:0};
+    vacaciones.forEach(item => {
+        const estado = estadoVacacion(item);
+        vacacionesConteo[estado] = (vacacionesConteo[estado] || 0) + 1;
+    });
+
+    const agenda = cargarAgenda();
+    const agendaPendiente = agenda.filter(item => normalizarTexto(item.estado) !== "FINIQUITADA").length;
+    const agendaFiniquitada = agenda.filter(item => normalizarTexto(item.estado) === "FINIQUITADA").length;
+    const agendaHoy = agenda.filter(actividadEsHoy).length;
+
+    return {
+        anio,
+        energia,
+        energiaActual,
+        totalKwh,
+        totalCosto,
+        totalKwhAnterior,
+        variacionKwh,
+        vacaciones,
+        vacacionesConteo,
+        agenda,
+        agendaPendiente,
+        agendaFiniquitada,
+        agendaHoy
+    };
+}
+
 function renderReporteFormal(){
     const reporte = $("reporteFormal");
     if(!reporte || !ULTIMO_RESUMEN || !ULTIMA_META_INFO) return;
@@ -1978,6 +2018,7 @@ function renderReporteFormal(){
 
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (ULTIMO_RESUMEN.total / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - ULTIMO_RESUMEN.total, 0);
+    const operativo = obtenerResumenOperativoReporte();
 
     reporte.innerHTML = `
         <div class="print-header">
@@ -1999,6 +2040,10 @@ function renderReporteFormal(){
             <div class="print-kpi"><span>Venta Real</span><strong>${formatMoney(ULTIMO_RESUMEN.total)}</strong></div>
             <div class="print-kpi"><span>Cumplimiento</span><strong>${cumplimiento.toFixed(1)}%</strong></div>
             <div class="print-kpi"><span>Faltante</span><strong>${formatMoney(faltante)}</strong></div>
+            <div class="print-kpi"><span>Energía ${operativo.anio}</span><strong>${formatNumber(operativo.totalKwh)} kWh</strong></div>
+            <div class="print-kpi"><span>Costo energía</span><strong>${formatMoney(operativo.totalCosto)}</strong></div>
+            <div class="print-kpi"><span>Vacaciones vencidas</span><strong>${operativo.vacacionesConteo.VENCIDA || 0}</strong></div>
+            <div class="print-kpi"><span>Agenda pendiente</span><strong>${operativo.agendaPendiente}</strong></div>
         </div>
 
         <h2>Resumen ejecutivo</h2>
@@ -2038,6 +2083,100 @@ function renderReporteFormal(){
             </tbody>
         </table>
 
+        <h2>Control de energía eléctrica</h2>
+        <p>
+            En ${operativo.anio}, el consumo registrado es <strong>${formatNumber(operativo.totalKwh)} kWh</strong>,
+            con costo acumulado de <strong>${formatMoney(operativo.totalCosto)}</strong> y variación frente al año anterior de
+            <strong>${operativo.variacionKwh.toFixed(1)}%</strong>.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>kWh</th>
+                    <th>Costo</th>
+                    <th>Costo/kWh</th>
+                    <th>Observación</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${operativo.energiaActual.length ? operativo.energiaActual.sort((a,b) => Number(a.mes) - Number(b.mes)).map(item => {
+                    const costoKwh = toNumber(item.kwh) > 0 ? toNumber(item.costo) / toNumber(item.kwh) : 0;
+                    return `
+                        <tr>
+                            <td>${nombreMes(item.mes)}</td>
+                            <td>${formatNumber(item.kwh)}</td>
+                            <td>${formatMoney(item.costo)}</td>
+                            <td>${formatMoney(costoKwh)}</td>
+                            <td>${escapeHtml(item.observacion || "-")}</td>
+                        </tr>
+                    `;
+                }).join("") : `<tr><td colspan="5">Sin registros de energía para el año seleccionado</td></tr>`}
+            </tbody>
+        </table>
+
+        <h2>Control de vacaciones</h2>
+        <p>
+            Estado del personal: <strong>${operativo.vacacionesConteo.VENCIDA || 0}</strong> vencidas,
+            <strong>${operativo.vacacionesConteo.PROGRAMADA || 0}</strong> programadas,
+            <strong>${operativo.vacacionesConteo.DISFRUTADA || 0}</strong> disfrutadas y
+            <strong>${operativo.vacacionesConteo.PENDIENTE || 0}</strong> pendientes.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Cargo</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Días</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${operativo.vacaciones.length ? operativo.vacaciones.map(item => `
+                    <tr>
+                        <td>${escapeHtml(item.nombre || "-")}</td>
+                        <td>${escapeHtml(item.cargo || "-")}</td>
+                        <td>${escapeHtml(item.inicio || "-")}</td>
+                        <td>${escapeHtml(item.fin || "-")}</td>
+                        <td>${formatNumber(item.dias || 0)}</td>
+                        <td>${estadoVacacion(item)}</td>
+                    </tr>
+                `).join("") : `<tr><td colspan="6">Sin registros de vacaciones</td></tr>`}
+            </tbody>
+        </table>
+
+        <h2>Agenda anual interna</h2>
+        <p>
+            Actividades registradas: <strong>${operativo.agenda.length}</strong>.
+            Pendientes: <strong>${operativo.agendaPendiente}</strong>.
+            Finiquitadas: <strong>${operativo.agendaFiniquitada}</strong>.
+            Actividades para hoy: <strong>${operativo.agendaHoy}</strong>.
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Actividad</th>
+                    <th>Frecuencia</th>
+                    <th>Responsable</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${operativo.agenda.length ? operativo.agenda.slice().sort((a,b) => String(a.fecha).localeCompare(String(b.fecha))).slice(0,20).map(item => `
+                    <tr>
+                        <td>${escapeHtml(item.fecha || "-")}</td>
+                        <td>${escapeHtml(item.titulo || "-")}</td>
+                        <td>${escapeHtml(item.frecuencia || "-")}</td>
+                        <td>${escapeHtml(item.responsable || "-")}</td>
+                        <td>${escapeHtml(item.estado || "-")}</td>
+                    </tr>
+                `).join("") : `<tr><td colspan="5">Sin actividades registradas</td></tr>`}
+            </tbody>
+        </table>
+
         <p style="margin-top:35px;"><strong>Firma responsable:</strong> ${responsable}</p>
     `;
 }
@@ -2070,6 +2209,8 @@ function exportarExcel(){
         return;
     }
 
+    const operativo = obtenerResumenOperativoReporte();
+
     const datos = DATASET_FILTRADO.map(row => ({
         Origen:row.origen,
         Fecha:row.fechaTexto,
@@ -2091,7 +2232,16 @@ function exportarExcel(){
         ["Cumplimiento", META_RANGO_ACTUAL > 0 ? ((ULTIMO_RESUMEN?.total || 0) / META_RANGO_ACTUAL) * 100 : 0],
         ["Registros API", DATASET_API.length],
         ["Registros Manuales", DATASET_MANUAL.length],
-        ["Estado API", API_STATUS.mensaje]
+        ["Estado API", API_STATUS.mensaje],
+        ["Energía kWh año", operativo.totalKwh],
+        ["Costo energía año", operativo.totalCosto],
+        ["Variación kWh vs año anterior", operativo.variacionKwh],
+        ["Vacaciones vencidas", operativo.vacacionesConteo.VENCIDA || 0],
+        ["Vacaciones programadas", operativo.vacacionesConteo.PROGRAMADA || 0],
+        ["Vacaciones disfrutadas", operativo.vacacionesConteo.DISFRUTADA || 0],
+        ["Vacaciones pendientes", operativo.vacacionesConteo.PENDIENTE || 0],
+        ["Agenda pendiente", operativo.agendaPendiente],
+        ["Agenda finiquitada", operativo.agendaFiniquitada]
     ];
 
     const parametros = [];
@@ -2099,12 +2249,44 @@ function exportarExcel(){
     Object.entries(PARAMETROS.categoria).forEach(([k,v]) => parametros.push({Tipo:"META_CATEGORIA", Nombre:k, Valor:v}));
     Object.entries(PARAMETROS.excedente).forEach(([k,v]) => parametros.push({Tipo:"META_EXCEDENTE", Nombre:k, Valor:v}));
 
+    const energia = operativo.energia.map(item => ({
+        Anio:item.anio,
+        Mes:nombreMes(item.mes),
+        Numero_Mes:Number(item.mes),
+        kWh:toNumber(item.kwh),
+        Costo:toNumber(item.costo),
+        Costo_kWh:toNumber(item.kwh) > 0 ? toNumber(item.costo) / toNumber(item.kwh) : 0,
+        Observacion:item.observacion || ""
+    })).sort((a,b) => Number(a.Anio) - Number(b.Anio) || Number(a.Numero_Mes) - Number(b.Numero_Mes));
+
+    const vacaciones = operativo.vacaciones.map(item => ({
+        Colaborador:item.nombre || "",
+        Cargo:item.cargo || "",
+        Fecha_Base:item.fechaBase || "",
+        Inicio:item.inicio || "",
+        Fin:item.fin || "",
+        Dias:toNumber(item.dias || 0),
+        Estado:estadoVacacion(item)
+    }));
+
+    const agenda = operativo.agenda.map(item => ({
+        Fecha:item.fecha || "",
+        Actividad:item.titulo || "",
+        Frecuencia:item.frecuencia || "",
+        Responsable:item.responsable || "",
+        Estado:item.estado || "",
+        Detalle:item.detalle || ""
+    })).sort((a,b) => String(a.Fecha).localeCompare(String(b.Fecha)));
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), "Resumen");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos), "Datos Filtrados");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(parametros), "Parametros");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(energia), "Energia");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vacaciones), "Vacaciones");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(agenda), "Agenda");
 
-    XLSX.writeFile(wb, "dashboard_homenajes.xlsx");
+    XLSX.writeFile(wb, "dashboard_gerencial_homenajes.xlsx");
 
     setHtml("estadoReporte", "Excel generado correctamente.");
     toast("Excel generado correctamente.");
@@ -2124,15 +2306,30 @@ function exportarCSV(){
 }
 
 function exportarJSON(){
+    const operativo = obtenerResumenOperativoReporte();
+
     const backup = {
         fecha:new Date().toISOString(),
         parametros:PARAMETROS,
         apiStatus:API_STATUS,
         registrosFiltrados:DATASET_FILTRADO,
-        registrosManuales:DATASET_MANUAL
+        registrosManuales:DATASET_MANUAL,
+        energia:operativo.energia,
+        vacaciones:operativo.vacaciones,
+        agenda:operativo.agenda,
+        resumenOperativo:{
+            anio:operativo.anio,
+            totalKwh:operativo.totalKwh,
+            totalCostoEnergia:operativo.totalCosto,
+            variacionKwh:operativo.variacionKwh,
+            vacaciones:operativo.vacacionesConteo,
+            agendaPendiente:operativo.agendaPendiente,
+            agendaFiniquitada:operativo.agendaFiniquitada,
+            agendaHoy:operativo.agendaHoy
+        }
     };
 
-    descargarArchivo("backup_dashboard_homenajes.json", JSON.stringify(backup, null, 2), "application/json;charset=utf-8;");
+    descargarArchivo("backup_dashboard_gerencial_homenajes.json", JSON.stringify(backup, null, 2), "application/json;charset=utf-8;");
     setHtml("estadoReporte", "Backup JSON generado correctamente.");
     toast("Backup JSON generado correctamente.");
 }
