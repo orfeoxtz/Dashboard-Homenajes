@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260623");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260624");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -1631,6 +1631,30 @@ function renderCumplimientoMensual(){
         coincideFiltrosNoFecha(row, f)
     )));
     const metas = labels.map(() => metaMensualTotal());
+    const ventaPeriodo = sumar(DATASET_FILTRADO);
+    const metaPeriodo = META_RANGO_ACTUAL;
+    const cumplimientoPeriodo = metaPeriodo > 0 ? (ventaPeriodo / metaPeriodo) * 100 : 0;
+    const faltantePeriodo = Math.max(metaPeriodo - ventaPeriodo, 0);
+    const mesesConVenta = ventas.filter(v => v > 0).length;
+    const mejorIndex = ventas.reduce((best, value, index) => value > ventas[best] ? index : best, 0);
+    const mejorMes = ventas[mejorIndex] > 0 ? `${nombreMes(meses[mejorIndex])} · ${formatMoney(ventas[mejorIndex])}` : "-";
+
+    setHtml("cumplimientoMetaVista", formatMoney(metaPeriodo));
+    setHtml("cumplimientoVentaVista", formatMoney(ventaPeriodo));
+    setHtml("cumplimientoPctVista", `${cumplimientoPeriodo.toFixed(1)}%`);
+    setHtml("cumplimientoFaltanteVista", formatMoney(faltantePeriodo));
+    setHtml("cumplimientoMejorMesVista", mejorMes);
+    setHtml("cumplimientoMesesVentaVista", mesesConVenta);
+    setHtml("textoCumplimientoVista", `
+        Datos tomados de Google Sheet para el rango filtrado. La venta real es
+        <strong>${formatMoney(ventaPeriodo)}</strong> frente a una meta de
+        <strong>${formatMoney(metaPeriodo)}</strong>, con cumplimiento de
+        <strong>${cumplimientoPeriodo.toFixed(1)}%</strong> y faltante de
+        <strong>${formatMoney(faltantePeriodo)}</strong>.
+    `);
+
+    const pctVista = $("cumplimientoPctVista");
+    if(pctVista) pctVista.style.color = colorPorPorcentaje(cumplimientoPeriodo);
 
     crearChartLine("graficoCumplimientoMensual", labels, [
         {label:"Venta", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
