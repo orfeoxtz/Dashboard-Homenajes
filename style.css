@@ -814,6 +814,10 @@ body.theme-sunset .ambient-btn{
     grid-template-columns:repeat(6,minmax(0,1fr));
 }
 
+.kpis-cumplimiento-vista{
+    grid-template-columns:repeat(6,minmax(0,1fr));
+}
+
 .card{
     background:linear-gradient(145deg,#ffffff 0%,#f4f9ff 100%);
     border:1px solid rgba(0,143,70,.10);
