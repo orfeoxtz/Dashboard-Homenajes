@@ -817,6 +817,7 @@ function renderTodo(resumen, metaInfo){
     renderEnergia();
     renderVacaciones();
     renderAgenda();
+    renderTiempoAfiliado();
     renderRegistrosManuales();
     renderReporteFormal();
     actualizarConfiguracion();
@@ -1891,6 +1892,204 @@ function limpiarAgenda(){
     toast("Agenda eliminada.");
 }
 
+function datosTiempoAfiliadoIniciales(){
+    return [
+        {
+            id:"afi_demo_1",
+            fallecido:"Ejemplo permanencia larga",
+            contrato:"Contrato ejemplo",
+            sede:"Montería",
+            fechaAfiliacion:"2018-03-15",
+            fechaFallecimiento:"2026-02-20",
+            observacion:"Registro de ejemplo"
+        },
+        {
+            id:"afi_demo_2",
+            fallecido:"Ejemplo permanencia corta",
+            contrato:"Plan ejemplo",
+            sede:"Cereté",
+            fechaAfiliacion:"2025-11-10",
+            fechaFallecimiento:"2026-03-05",
+            observacion:"Registro de ejemplo"
+        }
+    ];
+}
+
+function cargarTiempoAfiliado(){
+    return cargarColeccionLocal("tiempoAfiliadoFallecidos", datosTiempoAfiliadoIniciales());
+}
+
+function calcularTiempoAfiliado(item){
+    const inicio = parseFecha(item.fechaAfiliacion);
+    const fin = parseFecha(item.fechaFallecimiento);
+
+    if(!inicio || !fin || fin < inicio){
+        return {
+            valido:false,
+            dias:0,
+            meses:0,
+            anios:0,
+            texto:"Fecha inválida",
+            clasificacion:"REVISAR"
+        };
+    }
+
+    const dias = diasEntre(inicio, fin);
+    const meses = Math.floor(dias / 30.4375);
+    const anios = Math.floor(meses / 12);
+    const mesesRestantes = meses % 12;
+    const diasRestantes = Math.max(Math.round(dias - (meses * 30.4375)), 0);
+
+    let texto = "";
+    if(anios > 0) texto += `${anios} año${anios === 1 ? "" : "s"}`;
+    if(mesesRestantes > 0) texto += `${texto ? ", " : ""}${mesesRestantes} mes${mesesRestantes === 1 ? "" : "es"}`;
+    if(!texto) texto = `${dias} día${dias === 1 ? "" : "s"}`;
+    if(texto && anios === 0 && mesesRestantes > 0 && diasRestantes > 0) texto += `, ${diasRestantes} día${diasRestantes === 1 ? "" : "s"}`;
+
+    let clasificacion = "MÁS DE 5 AÑOS";
+    if(dias < 90) clasificacion = "MENOS DE 3 MESES";
+    else if(dias < 180) clasificacion = "3 A 6 MESES";
+    else if(dias < 365) clasificacion = "6 A 12 MESES";
+    else if(dias < 1095) clasificacion = "1 A 3 AÑOS";
+    else if(dias < 1825) clasificacion = "3 A 5 AÑOS";
+
+    return {
+        valido:true,
+        dias,
+        meses,
+        anios,
+        texto,
+        clasificacion
+    };
+}
+
+function badgeTiempoAfiliado(clasificacion){
+    const c = normalizarTexto(clasificacion);
+    if(c.includes("MENOS") || c.includes("3 A 6")) return `<span class="badge badge-danger">${escapeHtml(clasificacion)}</span>`;
+    if(c.includes("6 A 12") || c.includes("1 A 3")) return `<span class="badge badge-warning">${escapeHtml(clasificacion)}</span>`;
+    if(c === "REVISAR") return `<span class="badge badge-info">Revisar</span>`;
+    return `<span class="badge badge-ok">${escapeHtml(clasificacion)}</span>`;
+}
+
+function resumenTiempoAfiliado(){
+    const data = cargarTiempoAfiliado();
+    const enriquecidos = data.map(item => ({...item, tiempo:calcularTiempoAfiliado(item)}));
+    const validos = enriquecidos.filter(item => item.tiempo.valido);
+    const totalDias = validos.reduce((acc,item) => acc + item.tiempo.dias, 0);
+    const promedioDias = validos.length ? totalDias / validos.length : 0;
+    const menor = validos.slice().sort((a,b) => a.tiempo.dias - b.tiempo.dias)[0] || null;
+    const mayor = validos.slice().sort((a,b) => b.tiempo.dias - a.tiempo.dias)[0] || null;
+
+    const rangos = {
+        "MENOS DE 3 MESES":0,
+        "3 A 6 MESES":0,
+        "6 A 12 MESES":0,
+        "1 A 3 AÑOS":0,
+        "3 A 5 AÑOS":0,
+        "MÁS DE 5 AÑOS":0,
+        "REVISAR":0
+    };
+
+    enriquecidos.forEach(item => {
+        rangos[item.tiempo.clasificacion] = (rangos[item.tiempo.clasificacion] || 0) + 1;
+    });
+
+    return {
+        data,
+        enriquecidos,
+        validos,
+        promedioDias,
+        menor,
+        mayor,
+        rangos
+    };
+}
+
+function renderTiempoAfiliado(){
+    const resumen = resumenTiempoAfiliado();
+
+    setHtml("kpiAfiliadoCasos", resumen.enriquecidos.length);
+    setHtml("kpiAfiliadoPromedio", resumen.validos.length ? `${formatNumber(resumen.promedioDias)} días` : "0 días");
+    setHtml("kpiAfiliadoMenor", resumen.menor ? resumen.menor.tiempo.texto : "-");
+    setHtml("kpiAfiliadoMayor", resumen.mayor ? resumen.mayor.tiempo.texto : "-");
+
+    setHtml("textoTiempoAfiliado", `
+        Se registran <strong>${resumen.enriquecidos.length}</strong> casos.
+        El promedio de permanencia vivo estando afiliado es de <strong>${formatNumber(resumen.promedioDias)} días</strong>.
+        ${resumen.mayor ? `El mayor tiempo registrado corresponde a <strong>${escapeHtml(resumen.mayor.fallecido)}</strong> con <strong>${resumen.mayor.tiempo.texto}</strong>.` : ""}
+    `);
+
+    const labels = Object.keys(resumen.rangos);
+    const data = labels.map(label => resumen.rangos[label]);
+    crearChartBar("graficoTiempoAfiliado", labels, data, "Casos", "Casos por rango de permanencia", true);
+
+    const tbody = document.querySelector("#tablaTiempoAfiliado tbody");
+    if(tbody){
+        tbody.innerHTML = resumen.enriquecidos.length ? resumen.enriquecidos
+            .sort((a,b) => b.tiempo.dias - a.tiempo.dias)
+            .map(item => `
+                <tr>
+                    <td>${escapeHtml(item.fallecido || "-")}</td>
+                    <td>${escapeHtml(item.contrato || "-")}</td>
+                    <td>${escapeHtml(item.sede || "-")}</td>
+                    <td>${escapeHtml(item.fechaAfiliacion || "-")}</td>
+                    <td>${escapeHtml(item.fechaFallecimiento || "-")}</td>
+                    <td>${escapeHtml(item.tiempo.texto)}</td>
+                    <td>${formatNumber(item.tiempo.dias)}</td>
+                    <td>${badgeTiempoAfiliado(item.tiempo.clasificacion)}</td>
+                    <td><button class="danger-btn" onclick="eliminarTiempoAfiliado('${escapeHtml(item.id)}')">Eliminar</button></td>
+                </tr>
+            `).join("") : `<tr><td colspan="9">Sin casos registrados</td></tr>`;
+    }
+}
+
+function agregarTiempoAfiliado(){
+    const item = {
+        id:cryptoRandom(),
+        fallecido:($("afiFallecido")?.value || "").trim(),
+        contrato:$("afiContrato")?.value || "",
+        sede:$("afiSede")?.value || "",
+        fechaAfiliacion:$("afiFechaAfiliacion")?.value || "",
+        fechaFallecimiento:$("afiFechaFallecimiento")?.value || "",
+        observacion:$("afiObservacion")?.value || ""
+    };
+
+    if(!item.fallecido || !item.fechaAfiliacion || !item.fechaFallecimiento){
+        toast("Nombre, fecha de afiliación y fecha de fallecimiento son obligatorios.", "warning");
+        return;
+    }
+
+    const tiempo = calcularTiempoAfiliado(item);
+    if(!tiempo.valido){
+        toast("La fecha de fallecimiento debe ser igual o posterior a la fecha de afiliación.", "warning");
+        return;
+    }
+
+    const data = cargarTiempoAfiliado();
+    data.push(item);
+    guardarColeccionLocal("tiempoAfiliadoFallecidos", data);
+
+    ["afiFallecido","afiContrato","afiSede","afiFechaAfiliacion","afiFechaFallecimiento","afiObservacion"].forEach(id => setValue(id, ""));
+    renderTiempoAfiliado();
+    toast("Caso de tiempo afiliado agregado.");
+}
+
+function eliminarTiempoAfiliado(id){
+    const data = cargarTiempoAfiliado().filter(item => item.id !== id);
+    guardarColeccionLocal("tiempoAfiliadoFallecidos", data);
+    renderTiempoAfiliado();
+    toast("Caso eliminado.");
+}
+
+window.eliminarTiempoAfiliado = eliminarTiempoAfiliado;
+
+function limpiarTiempoAfiliado(){
+    if(!confirm("¿Deseas eliminar todos los casos registrados de tiempo afiliado?")) return;
+    guardarColeccionLocal("tiempoAfiliadoFallecidos", []);
+    renderTiempoAfiliado();
+    toast("Casos de tiempo afiliado eliminados.");
+}
+
 function renderRegistrosManuales(){
     const tbody = document.querySelector("#tablaRegistrosManuales tbody");
     if(!tbody) return;
@@ -1988,6 +2187,7 @@ function obtenerResumenOperativoReporte(){
     const agendaPendiente = agenda.filter(item => normalizarTexto(item.estado) !== "FINIQUITADA").length;
     const agendaFiniquitada = agenda.filter(item => normalizarTexto(item.estado) === "FINIQUITADA").length;
     const agendaHoy = agenda.filter(actividadEsHoy).length;
+    const tiempoAfiliado = resumenTiempoAfiliado();
 
     return {
         anio,
@@ -2002,7 +2202,8 @@ function obtenerResumenOperativoReporte(){
         agenda,
         agendaPendiente,
         agendaFiniquitada,
-        agendaHoy
+        agendaHoy,
+        tiempoAfiliado
     };
 }
 
@@ -2044,6 +2245,10 @@ function renderReporteFormal(){
             <div class="print-kpi"><span>Costo energía</span><strong>${formatMoney(operativo.totalCosto)}</strong></div>
             <div class="print-kpi"><span>Vacaciones vencidas</span><strong>${operativo.vacacionesConteo.VENCIDA || 0}</strong></div>
             <div class="print-kpi"><span>Agenda pendiente</span><strong>${operativo.agendaPendiente}</strong></div>
+            <div class="print-kpi"><span>Casos afiliación</span><strong>${operativo.tiempoAfiliado.enriquecidos.length}</strong></div>
+            <div class="print-kpi"><span>Promedio afiliado</span><strong>${formatNumber(operativo.tiempoAfiliado.promedioDias)} días</strong></div>
+            <div class="print-kpi"><span>Menor permanencia</span><strong>${operativo.tiempoAfiliado.menor ? operativo.tiempoAfiliado.menor.tiempo.texto : "-"}</strong></div>
+            <div class="print-kpi"><span>Mayor permanencia</span><strong>${operativo.tiempoAfiliado.mayor ? operativo.tiempoAfiliado.mayor.tiempo.texto : "-"}</strong></div>
         </div>
 
         <h2>Resumen ejecutivo</h2>
@@ -2177,6 +2382,37 @@ function renderReporteFormal(){
             </tbody>
         </table>
 
+        <h2>Tiempo vivo estando afiliado</h2>
+        <p>
+            Casos registrados: <strong>${operativo.tiempoAfiliado.enriquecidos.length}</strong>.
+            Promedio de permanencia: <strong>${formatNumber(operativo.tiempoAfiliado.promedioDias)} días</strong>.
+            ${operativo.tiempoAfiliado.mayor ? `Mayor permanencia: <strong>${escapeHtml(operativo.tiempoAfiliado.mayor.fallecido)}</strong> con <strong>${operativo.tiempoAfiliado.mayor.tiempo.texto}</strong>.` : ""}
+        </p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Ser querido</th>
+                    <th>Afiliación</th>
+                    <th>Fallecimiento</th>
+                    <th>Tiempo</th>
+                    <th>Días</th>
+                    <th>Clasificación</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${operativo.tiempoAfiliado.enriquecidos.length ? operativo.tiempoAfiliado.enriquecidos.slice().sort((a,b) => b.tiempo.dias - a.tiempo.dias).map(item => `
+                    <tr>
+                        <td>${escapeHtml(item.fallecido || "-")}</td>
+                        <td>${escapeHtml(item.fechaAfiliacion || "-")}</td>
+                        <td>${escapeHtml(item.fechaFallecimiento || "-")}</td>
+                        <td>${escapeHtml(item.tiempo.texto)}</td>
+                        <td>${formatNumber(item.tiempo.dias)}</td>
+                        <td>${escapeHtml(item.tiempo.clasificacion)}</td>
+                    </tr>
+                `).join("") : `<tr><td colspan="6">Sin registros de tiempo afiliado</td></tr>`}
+            </tbody>
+        </table>
+
         <p style="margin-top:35px;"><strong>Firma responsable:</strong> ${responsable}</p>
     `;
 }
@@ -2241,7 +2477,11 @@ function exportarExcel(){
         ["Vacaciones disfrutadas", operativo.vacacionesConteo.DISFRUTADA || 0],
         ["Vacaciones pendientes", operativo.vacacionesConteo.PENDIENTE || 0],
         ["Agenda pendiente", operativo.agendaPendiente],
-        ["Agenda finiquitada", operativo.agendaFiniquitada]
+        ["Agenda finiquitada", operativo.agendaFiniquitada],
+        ["Casos tiempo afiliado", operativo.tiempoAfiliado.enriquecidos.length],
+        ["Promedio días afiliado antes de fallecer", operativo.tiempoAfiliado.promedioDias],
+        ["Menor tiempo afiliado", operativo.tiempoAfiliado.menor ? operativo.tiempoAfiliado.menor.tiempo.dias : 0],
+        ["Mayor tiempo afiliado", operativo.tiempoAfiliado.mayor ? operativo.tiempoAfiliado.mayor.tiempo.dias : 0]
     ];
 
     const parametros = [];
@@ -2278,6 +2518,20 @@ function exportarExcel(){
         Detalle:item.detalle || ""
     })).sort((a,b) => String(a.Fecha).localeCompare(String(b.Fecha)));
 
+    const tiempoAfiliado = operativo.tiempoAfiliado.enriquecidos.map(item => ({
+        Fallecido:item.fallecido || "",
+        Contrato_Plan:item.contrato || "",
+        Sede:item.sede || "",
+        Fecha_Afiliacion:item.fechaAfiliacion || "",
+        Fecha_Fallecimiento:item.fechaFallecimiento || "",
+        Tiempo_Texto:item.tiempo.texto,
+        Dias:item.tiempo.dias,
+        Meses_Aproximados:item.tiempo.meses,
+        Anios_Aproximados:item.tiempo.anios,
+        Clasificacion:item.tiempo.clasificacion,
+        Observacion:item.observacion || ""
+    })).sort((a,b) => Number(b.Dias) - Number(a.Dias));
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumen), "Resumen");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos), "Datos Filtrados");
@@ -2285,6 +2539,7 @@ function exportarExcel(){
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(energia), "Energia");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vacaciones), "Vacaciones");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(agenda), "Agenda");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(tiempoAfiliado), "Tiempo Afiliado");
 
     XLSX.writeFile(wb, "dashboard_gerencial_homenajes.xlsx");
 
@@ -2317,6 +2572,7 @@ function exportarJSON(){
         energia:operativo.energia,
         vacaciones:operativo.vacaciones,
         agenda:operativo.agenda,
+        tiempoAfiliado:operativo.tiempoAfiliado.enriquecidos,
         resumenOperativo:{
             anio:operativo.anio,
             totalKwh:operativo.totalKwh,
@@ -2325,7 +2581,12 @@ function exportarJSON(){
             vacaciones:operativo.vacacionesConteo,
             agendaPendiente:operativo.agendaPendiente,
             agendaFiniquitada:operativo.agendaFiniquitada,
-            agendaHoy:operativo.agendaHoy
+            agendaHoy:operativo.agendaHoy,
+            tiempoAfiliado:{
+                casos:operativo.tiempoAfiliado.enriquecidos.length,
+                promedioDias:operativo.tiempoAfiliado.promedioDias,
+                rangos:operativo.tiempoAfiliado.rangos
+            }
         }
     };
 
@@ -2610,6 +2871,9 @@ $("btnAgregarActividad")?.addEventListener("click", agregarActividad);
 $("btnLimpiarAgenda")?.addEventListener("click", limpiarAgenda);
 $("btnAgendaAnterior")?.addEventListener("click", () => moverAgenda(-1));
 $("btnAgendaSiguiente")?.addEventListener("click", () => moverAgenda(1));
+
+$("btnAgregarAfiliado")?.addEventListener("click", agregarTiempoAfiliado);
+$("btnLimpiarAfiliados")?.addEventListener("click", limpiarTiempoAfiliado);
 
 $("btnGuardarMeta")?.addEventListener("click", guardarMeta);
 $("btnGuardarConfigVisual")?.addEventListener("click", guardarIdentidad);
