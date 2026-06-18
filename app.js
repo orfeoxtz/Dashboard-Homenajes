@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260617");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260618");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
@@ -2833,6 +2833,44 @@ function aplicarPreferencias(){
     if(localStorage.getItem("dashboardSidebar") === "collapsed") document.body.classList.add("sidebar-collapsed");
 }
 
+function obtenerItemsDeGrupoSidebar(titulo){
+    const items = [];
+    let actual = titulo.nextElementSibling;
+
+    while(actual && !actual.classList.contains("sidebar-section-title")){
+        if(actual.classList.contains("menu-item")) items.push(actual);
+        actual = actual.nextElementSibling;
+    }
+
+    return items;
+}
+
+function aplicarEstadoGrupoSidebar(titulo, colapsado){
+    titulo.classList.toggle("section-collapsed", colapsado);
+    obtenerItemsDeGrupoSidebar(titulo).forEach(item => {
+        item.classList.toggle("menu-hidden", colapsado);
+    });
+}
+
+function inicializarSidebarAcordeon(){
+    document.querySelectorAll(".sidebar-section-title").forEach(titulo => {
+        const key = "sidebarGroup_" + normalizarLlave(titulo.textContent);
+        const colapsado = localStorage.getItem(key) === "collapsed";
+
+        aplicarEstadoGrupoSidebar(titulo, colapsado);
+        titulo.setAttribute("title", "Contraer / expandir sección");
+
+        titulo.addEventListener("click", () => {
+            if(document.body.classList.contains("sidebar-collapsed")) return;
+
+            const nuevoEstado = !titulo.classList.contains("section-collapsed");
+            aplicarEstadoGrupoSidebar(titulo, nuevoEstado);
+            localStorage.setItem(key, nuevoEstado ? "collapsed" : "expanded");
+            setTimeout(redimensionarGraficos, 160);
+        });
+    });
+}
+
 document.querySelectorAll(".menu-item").forEach(item => {
     item.addEventListener("click", () => cambiarVista(item.dataset.seccion));
 });
@@ -2901,6 +2939,7 @@ $("busquedaGeneral")?.addEventListener("keyup", event => {
 });
 
 aplicarPreferencias();
+inicializarSidebarAcordeon();
 actualizarConfiguracion();
 validarAcceso();
 establecerFechasPorDefecto();
