@@ -67,6 +67,7 @@
         <li class="menu-item" data-seccion="energia"><i class="fas fa-bolt"></i> Energía eléctrica</li>
         <li class="menu-item" data-seccion="vacaciones"><i class="fas fa-umbrella-beach"></i> Vacaciones</li>
         <li class="menu-item" data-seccion="agenda"><i class="fas fa-calendar-check"></i> Agenda anual</li>
+        <li class="menu-item" data-seccion="tiempoAfiliado"><i class="fas fa-hourglass-half"></i> Tiempo afiliado</li>
 
         <li class="sidebar-section-title">CONTROL</li>
         <li class="menu-item" data-seccion="datos"><i class="fas fa-database"></i> Datos</li>
@@ -729,6 +730,69 @@
                     <th>Responsable</th>
                     <th>Estado</th>
                     <th>Detalle</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="tiempoAfiliado" class="vista">
+    <h1 class="vista-titulo">Tiempo Vivo Estando Afiliado</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Análisis de permanencia</h2>
+        <p id="textoTiempoAfiliado">Control para identificar cuántos días, meses o años permaneció afiliado un ser querido antes de fallecer.</p>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>👥 Casos registrados</h3><h2 id="kpiAfiliadoCasos">0</h2></div>
+        <div class="card"><h3>📆 Promedio</h3><h2 id="kpiAfiliadoPromedio">0 días</h2></div>
+        <div class="card"><h3>⏳ Menor tiempo</h3><h2 id="kpiAfiliadoMenor">-</h2></div>
+        <div class="card"><h3>🏆 Mayor tiempo</h3><h2 id="kpiAfiliadoMayor">-</h2></div>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Distribución por tiempo afiliado</h3>
+        <canvas id="graficoTiempoAfiliado"></canvas>
+    </div>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar caso</h2>
+            <p>Ingresa la fecha de afiliación y la fecha de fallecimiento. El dashboard calculará automáticamente el tiempo vivo estando afiliado.</p>
+            <input type="text" id="afiFallecido" placeholder="Nombre del ser querido">
+            <input type="text" id="afiContrato" placeholder="Contrato / plan / documento">
+            <input type="text" id="afiSede" placeholder="Sede">
+            <label class="input-label">Fecha de afiliación</label>
+            <input type="date" id="afiFechaAfiliacion">
+            <label class="input-label">Fecha de fallecimiento</label>
+            <input type="date" id="afiFechaFallecimiento">
+            <input type="text" id="afiObservacion" placeholder="Observación">
+            <button id="btnAgregarAfiliado" class="action-btn">Agregar caso</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Elimina los registros locales de esta sección si deseas cargar nuevamente la información.</p>
+            <button id="btnLimpiarAfiliados" class="danger-btn">Eliminar casos registrados</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle tiempo vivo estando afiliado</h2>
+        <table id="tablaTiempoAfiliado">
+            <thead>
+                <tr>
+                    <th>Ser querido</th>
+                    <th>Contrato / plan</th>
+                    <th>Sede</th>
+                    <th>Afiliación</th>
+                    <th>Fallecimiento</th>
+                    <th>Tiempo</th>
+                    <th>Días</th>
+                    <th>Clasificación</th>
                     <th>Acción</th>
                 </tr>
             </thead>
