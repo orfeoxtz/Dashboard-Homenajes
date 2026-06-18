@@ -745,7 +745,8 @@ body.dark-mode .card-big h3{
 #graficoParetoGestores,
 #graficoEnergiaComparativo,
 #graficoEnergiaCosto,
-#graficoVacacionesEstado{
+#graficoVacacionesEstado,
+#graficoTiempoAfiliado{
     width:100% !important;
     height:390px !important;
 }
@@ -1014,6 +1015,14 @@ body.dark-mode .agenda-item{
 .config-card textarea{
     min-height:120px;
     resize:vertical;
+}
+
+.input-label{
+    display:block;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:900;
+    margin:2px 0 6px;
 }
 
 .reportes-grid{
