@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260618");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260619");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 
@@ -101,11 +101,41 @@ function formatMoney(valor){
     return "$" + Math.round(toNumber(valor)).toLocaleString("es-CO");
 }
 
+function formatMoneyCompact(valor){
+    const numero = Math.round(toNumber(valor));
+    const abs = Math.abs(numero);
+
+    if(abs >= 1000000000) return "$" + (numero / 1000000000).toLocaleString("es-CO", {maximumFractionDigits:1}) + "MM";
+    if(abs >= 1000000) return "$" + (numero / 1000000).toLocaleString("es-CO", {maximumFractionDigits:1}) + "M";
+    if(abs >= 1000) return "$" + (numero / 1000).toLocaleString("es-CO", {maximumFractionDigits:0}) + "K";
+
+    return formatMoney(numero);
+}
+
 function formatNumber(valor, decimales=0){
     return Number(toNumber(valor)).toLocaleString("es-CO", {
         minimumFractionDigits:decimales,
         maximumFractionDigits:decimales
     });
+}
+
+function formatChartValue(valor, tipo="money"){
+    if(tipo === "number") return formatNumber(valor);
+    if(tipo === "kwh") return `${formatNumber(valor)} kWh`;
+    if(tipo === "percent") return `${Number(toNumber(valor)).toFixed(1)}%`;
+    if(tipo === "days") return `${formatNumber(valor)} días`;
+    return formatMoneyCompact(valor);
+}
+
+function chartTextColor(){
+    return document.body.classList.contains("dark-mode") ? "#e5e7eb" : "#0f172a";
+}
+
+function registrarPluginGraficas(){
+    if(typeof Chart !== "undefined" && typeof ChartDataLabels !== "undefined" && !Chart.__dashboardDataLabels){
+        Chart.register(ChartDataLabels);
+        Chart.__dashboardDataLabels = true;
+    }
 }
 
 function getCampo(item, posibles){
@@ -917,10 +947,11 @@ function destruirChart(id){
     }
 }
 
-function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false){
+function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, tipoValor="money"){
     const canvas = $(idCanvas);
     if(!canvas || typeof Chart === "undefined") return;
 
+    registrarPluginGraficas();
     destruirChart(idCanvas);
 
     charts[idCanvas] = new Chart(canvas, {
@@ -930,8 +961,12 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false){
             datasets:[{
                 label,
                 data,
-                backgroundColor:"rgba(0,166,81,.90)",
-                borderRadius:10
+                backgroundColor:"rgba(0,143,70,.92)",
+                borderColor:"rgba(0,79,42,.95)",
+                borderWidth:1,
+                borderRadius:10,
+                barPercentage:.72,
+                categoryPercentage:.72
             }]
         },
         options:{
@@ -939,21 +974,37 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false){
             maintainAspectRatio:false,
             indexAxis:horizontal ? "y" : "x",
             plugins:{
-                title:{display:true,text:titulo},
-                legend:{display:true,position:"top"}
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:13}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800"}}},
+                tooltip:{
+                    callbacks:{
+                        label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed[horizontal ? "x" : "y"], tipoValor)}`
+                    }
+                },
+                datalabels:{
+                    display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                    anchor:"end",
+                    align:horizontal ? "right" : "top",
+                    offset:horizontal ? 4 : 2,
+                    clip:false,
+                    color:chartTextColor(),
+                    font:{size:10,weight:"900"},
+                    formatter:value => formatChartValue(value, tipoValor)
+                }
             },
             scales:{
-                y:{beginAtZero:true},
-                x:{grid:{display:false}}
+                y:{beginAtZero:true,ticks:{color:chartTextColor(),font:{size:10,weight:"700"}},grid:{color:"rgba(148,163,184,.16)"}},
+                x:{grid:{display:false},ticks:{color:chartTextColor(),font:{size:10,weight:"700"}}}
             }
         }
     });
 }
 
-function crearChartLine(idCanvas, labels, datasets, titulo){
+function crearChartLine(idCanvas, labels, datasets, titulo, tipoValor="money"){
     const canvas = $(idCanvas);
     if(!canvas || typeof Chart === "undefined") return;
 
+    registrarPluginGraficas();
     destruirChart(idCanvas);
 
     charts[idCanvas] = new Chart(canvas, {
@@ -963,21 +1014,36 @@ function crearChartLine(idCanvas, labels, datasets, titulo){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{
-                title:{display:true,text:titulo},
-                legend:{display:true,position:"top"}
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:13}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800"}}},
+                tooltip:{
+                    callbacks:{
+                        label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed.y, tipoValor)}`
+                    }
+                },
+                datalabels:{
+                    display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                    align:"top",
+                    anchor:"end",
+                    offset:3,
+                    color:chartTextColor(),
+                    font:{size:9,weight:"900"},
+                    formatter:value => formatChartValue(value, tipoValor)
+                }
             },
             scales:{
-                y:{beginAtZero:true},
-                x:{grid:{display:false}}
+                y:{beginAtZero:true,ticks:{color:chartTextColor(),font:{size:10,weight:"700"}},grid:{color:"rgba(148,163,184,.16)"}},
+                x:{grid:{display:false},ticks:{color:chartTextColor(),font:{size:10,weight:"700"},maxRotation:0}}
             }
         }
     });
 }
 
-function crearChartDoughnut(idCanvas, labels, data, titulo){
+function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
     const canvas = $(idCanvas);
     if(!canvas || typeof Chart === "undefined") return;
 
+    registrarPluginGraficas();
     destruirChart(idCanvas);
 
     charts[idCanvas] = new Chart(canvas, {
@@ -1000,8 +1066,21 @@ function crearChartDoughnut(idCanvas, labels, data, titulo){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{
-                title:{display:true,text:titulo},
-                legend:{display:true,position:"top"}
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:13}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800"}}},
+                tooltip:{
+                    callbacks:{
+                        label:ctx => `${ctx.label}: ${formatChartValue(ctx.parsed, tipoValor)}`
+                    }
+                },
+                datalabels:{
+                    display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                    color:"#ffffff",
+                    textStrokeColor:"rgba(15,23,42,.45)",
+                    textStrokeWidth:2,
+                    font:{size:10,weight:"900"},
+                    formatter:value => formatChartValue(value, tipoValor)
+                }
             }
         }
     });
@@ -1527,7 +1606,7 @@ function renderEnergia(){
     crearChartLine("graficoEnergiaComparativo", labels, [
         {label:String(anioActual), data:kwhActual, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
         {label:String(anioAnterior), data:kwhAnterior, borderColor:"#2563eb", backgroundColor:"rgba(37,99,235,.10)", fill:true, tension:.3}
-    ], "Consumo kWh año actual vs anterior");
+    ], "Consumo kWh año actual vs anterior", "kwh");
 
     crearChartBar("graficoEnergiaCosto", labels, costoActual, "Costo", `Costo mensual ${anioActual}`);
 
@@ -1640,7 +1719,8 @@ function renderVacaciones(){
         "graficoVacacionesEstado",
         ["VENCIDA","PROGRAMADA","DISFRUTADA","PENDIENTE"],
         [conteo.VENCIDA, conteo.PROGRAMADA, conteo.DISFRUTADA, conteo.PENDIENTE],
-        "Estado vacaciones"
+        "Estado vacaciones",
+        "number"
     );
 
     const tbody = document.querySelector("#tablaVacaciones tbody");
@@ -2021,7 +2101,7 @@ function renderTiempoAfiliado(){
 
     const labels = Object.keys(resumen.rangos);
     const data = labels.map(label => resumen.rangos[label]);
-    crearChartBar("graficoTiempoAfiliado", labels, data, "Casos", "Casos por rango de permanencia", true);
+    crearChartBar("graficoTiempoAfiliado", labels, data, "Casos", "Casos por rango de permanencia", true, "number");
 
     const tbody = document.querySelector("#tablaTiempoAfiliado tbody");
     if(tbody){
