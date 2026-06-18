@@ -1,6 +1,7 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260619");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260620");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
+const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
 
 let ACCESS_CODE = localStorage.getItem("dashboardAccessCode") || "JKFH2026";
 let META_MENSUAL_BASE = Number(localStorage.getItem("metaMensualBase")) || 219133881;
@@ -31,6 +32,7 @@ let charts = {};
 let ULTIMO_RESUMEN = null;
 let ULTIMA_META_INFO = null;
 let AGENDA_CURSOR = new Date();
+let AGENDA_DIA_SELECCIONADO = fechaISO(new Date());
 
 const $ = id => document.getElementById(id);
 
@@ -157,7 +159,7 @@ function getFechaItem(item){
 }
 
 function getValorItem(item){
-    return getCampo(item, ["Valor","VALOR","valor","Valor_Homenaje","Valor Homenaje","Total","TOTAL","Venta","VENTA","Valor Total"]);
+    return getCampo(item, ["Valor","VALOR","valor","Valor_Homenaje","Valor Homenaje","Total","TOTAL","Venta","VENTA","Valor Total","VALOR SERVICIO","Valor Servicio","VALOR_SERVICIO","VALOR EXCEDENTE","Valor Excedente","VALOR_EXCEDENTE"]);
 }
 
 function getGestorItem(item){
@@ -169,7 +171,7 @@ function getCategoriaItem(item){
 }
 
 function getServicioItem(item){
-    return getCampo(item, ["Tipo_Excedente","TIPO_EXCEDENTE","Tipo Excedente","Servicio","SERVICIO","Excedente","EXCEDENTE","Producto"]);
+    return getCampo(item, ["Tipo_Excedente","TIPO_EXCEDENTE","Tipo Excedente","TIPO_SERVICIO_TIPOSRV","Tipo Servicio TipoSrv","Tipo Servicio","Servicio","SERVICIO","Excedente","EXCEDENTE","Producto"]);
 }
 
 function getSedeItem(item){
@@ -178,6 +180,42 @@ function getSedeItem(item){
 
 function getObservacionItem(item){
     return getCampo(item, ["Observacion","Observación","OBSERVACION","Nota","Detalle"]);
+}
+
+function getOrdenServicioItem(item){
+    return getCampo(item, ["ORDEN_SERVICIO_FUNERARIO","Orden Servicio Funerario","Orden Servicio","Orden","OSF"]);
+}
+
+function getTipoServicioItem(item){
+    return getCampo(item, ["TIPO_SERVICIO_TIPOSRV","Tipo Servicio TipoSrv","Tipo Servicio","TIPO SERVICIO","Servicio"]);
+}
+
+function getClinicaItem(item){
+    return getCampo(item, ["CLINICA","Clínica","Clinica","IPS","Hospital"]);
+}
+
+function getMunicipioItem(item){
+    return getCampo(item, ["MUNICIPIO","Municipio","Ciudad"]);
+}
+
+function getTipoMuerteItem(item){
+    return getCampo(item, ["TIPO_MUERTE","Tipo Muerte","Tipo de Muerte"]);
+}
+
+function getCementerioItem(item){
+    return getCampo(item, ["CEMENTERIO","Cementerio"]);
+}
+
+function getDestinoFinalItem(item){
+    return getCampo(item, ["TIPO_DESTINO_FINAL","Tipo Destino Final","Destino Final"]);
+}
+
+function getValorServicioItem(item){
+    return getCampo(item, ["VALOR SERVICIO","Valor Servicio","VALOR_SERVICIO"]);
+}
+
+function getValorExcedenteItem(item){
+    return getCampo(item, ["VALOR EXCEDENTE","Valor Excedente","VALOR_EXCEDENTE"]);
 }
 
 function convertirArrayAObjetos(tabla){
@@ -195,6 +233,66 @@ function convertirArrayAObjetos(tabla){
     }
 
     return [];
+}
+
+function detectarDelimitador(texto){
+    const primeraLinea = String(texto || "").split(/\r?\n/).find(linea => linea.trim()) || "";
+    const tabs = (primeraLinea.match(/\t/g) || []).length;
+    const commas = (primeraLinea.match(/,/g) || []).length;
+    const semis = (primeraLinea.match(/;/g) || []).length;
+
+    if(tabs >= commas && tabs >= semis) return "\t";
+    if(semis > commas) return ";";
+    return ",";
+}
+
+function parseTablaTexto(texto){
+    const contenido = String(texto || "").trim();
+    if(!contenido) return [];
+
+    const delimitador = detectarDelimitador(contenido);
+    const filas = [];
+    let fila = [];
+    let celda = "";
+    let dentroComillas = false;
+
+    for(let i = 0; i < contenido.length; i++){
+        const char = contenido[i];
+        const siguiente = contenido[i + 1];
+
+        if(char === '"' && dentroComillas && siguiente === '"'){
+            celda += '"';
+            i++;
+            continue;
+        }
+
+        if(char === '"'){
+            dentroComillas = !dentroComillas;
+            continue;
+        }
+
+        if(char === delimitador && !dentroComillas){
+            fila.push(celda.trim());
+            celda = "";
+            continue;
+        }
+
+        if((char === "\n" || char === "\r") && !dentroComillas){
+            if(char === "\r" && siguiente === "\n") i++;
+            fila.push(celda.trim());
+            if(fila.some(valor => String(valor).trim() !== "")) filas.push(fila);
+            fila = [];
+            celda = "";
+            continue;
+        }
+
+        celda += char;
+    }
+
+    fila.push(celda.trim());
+    if(fila.some(valor => String(valor).trim() !== "")) filas.push(fila);
+
+    return convertirArrayAObjetos(filas);
 }
 
 function obtenerDatosDesdeApi(json){
@@ -470,7 +568,7 @@ function obtenerCategoriaGerencial(row){
     const categoria = normalizarTexto(row.categoria);
     const servicio = normalizarTexto(row.servicio);
 
-    if(categoria.includes("PLAN")) return "PLAN";
+    if(categoria.includes("PLAN") || categoria.includes("PREVISION") || categoria.includes("PREVISIÓN")) return "PLAN";
     if(categoria.includes("PARTICULAR")) return "PARTICULAR";
     if(categoria.includes("RED")) return "RED";
     if(categoria.includes("EXCEDENTE")) return "EXCEDENTES";
@@ -487,7 +585,11 @@ function categoriaGeneraVenta(categoria){
 
 function normalizarRegistro(item, origen="API"){
     const fecha = parseFecha(getFechaItem(item));
-    const valorOriginal = toNumber(getValorItem(item));
+    const valorServicio = toNumber(getValorServicioItem(item));
+    const valorExcedente = toNumber(getValorExcedenteItem(item));
+    const valorBase = toNumber(getValorItem(item));
+    const valorOriginal = (valorServicio + valorExcedente) > 0 ? valorServicio + valorExcedente : valorBase;
+    const tipoServicio = String(getTipoServicioItem(item) || "").trim();
 
     const row = {
         id:item.id || cryptoRandom(),
@@ -496,10 +598,19 @@ function normalizarRegistro(item, origen="API"){
         fecha,
         fechaTexto:getFechaItem(item),
         valorOriginal,
+        valorServicio,
+        valorExcedente,
+        ordenServicio:String(getOrdenServicioItem(item) || "").trim(),
         gestor:String(getGestorItem(item) || "").trim(),
         categoria:String(getCategoriaItem(item) || "").trim(),
-        servicio:String(getServicioItem(item) || "").trim(),
+        servicio:String(getServicioItem(item) || tipoServicio || "").trim(),
+        tipoServicio,
         sede:String(getSedeItem(item) || "").trim(),
+        clinica:String(getClinicaItem(item) || "").trim(),
+        municipio:String(getMunicipioItem(item) || "").trim(),
+        tipoMuerte:String(getTipoMuerteItem(item) || "").trim(),
+        cementerio:String(getCementerioItem(item) || "").trim(),
+        destinoFinal:String(getDestinoFinalItem(item) || "").trim(),
         observacion:String(getObservacionItem(item) || "").trim()
     };
 
@@ -518,8 +629,15 @@ function cargarManuales(){
 
 function validarEstructuraApi(datos){
     const columnas = datos.length ? Object.keys(datos[0]) : [];
-    const requeridas = ["Fecha","Gestor","Tipo_Homenaje","Tipo_Excedente","Valor","Sede"];
-    const faltantes = requeridas.filter(req => !columnas.some(c => normalizarLlave(c) === normalizarLlave(req)));
+    const existe = nombres => nombres.some(req => columnas.some(c => normalizarLlave(c) === normalizarLlave(req)));
+    const faltantes = [];
+
+    if(!existe(["Fecha","FECHA"])) faltantes.push("FECHA");
+    if(!existe(["Gestor","GESTOR"])) faltantes.push("GESTOR");
+    if(!existe(["Tipo_Homenaje","TIPO_HOMENAJE"])) faltantes.push("TIPO_HOMENAJE");
+    if(!existe(["Tipo_Excedente","TIPO_EXCEDENTE","TIPO_SERVICIO_TIPOSRV"])) faltantes.push("TIPO_EXCEDENTE / TIPO_SERVICIO_TIPOSRV");
+    if(!existe(["Valor","VALOR","VALOR SERVICIO","Valor Servicio","VALOR_EXCEDENTE","VALOR EXCEDENTE"])) faltantes.push("VALOR SERVICIO / VALOR EXCEDENTE");
+    if(!existe(["Sede","SEDE"])) faltantes.push("SEDE");
 
     return {
         ok:datos.length > 0 && faltantes.length === 0,
@@ -530,16 +648,42 @@ function validarEstructuraApi(datos){
     };
 }
 
+async function cargarDatosRemotos(){
+    const fuentes = [
+        {nombre:"Apps Script", url:API_URL, tipo:"json"},
+        {nombre:"Google Sheets CSV", url:GOOGLE_SHEET_CSV_URL, tipo:"csv"}
+    ];
+
+    const errores = [];
+
+    for(const fuente of fuentes){
+        try{
+            const response = await fetch(fuente.url, { cache:"no-store" });
+            if(!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const texto = await response.text();
+            const datos = fuente.tipo === "json" ? obtenerDatosDesdeApi(JSON.parse(texto)) : parseTablaTexto(texto);
+
+            if(datos.length > 0){
+                return {datos, fuente:fuente.nombre};
+            }
+
+            errores.push(`${fuente.nombre}: sin registros`);
+        }catch(error){
+            errores.push(`${fuente.nombre}: ${error.message}`);
+        }
+    }
+
+    throw new Error(errores.join(" | "));
+}
+
 async function cargarDashboard(){
     setEstadoApi("cargando", "Cargando...");
     showLoading(true);
 
     try{
-        const response = await fetch(API_URL, { cache:"no-store" });
-        if(!response.ok) throw new Error(`Error HTTP ${response.status}`);
-
-        const json = await response.json();
-        const datosCompletos = obtenerDatosDesdeApi(json);
+        const remoto = await cargarDatosRemotos();
+        const datosCompletos = remoto.datos;
 
         procesarParametros(datosCompletos);
 
@@ -555,7 +699,7 @@ async function cargarDashboard(){
         poblarFiltros();
         aplicarFiltrosYRender();
 
-        setEstadoApi("ok", "Conectado");
+        setEstadoApi("ok", `Conectado · ${remoto.fuente}`);
         toast("Dashboard actualizado correctamente.");
 
     }catch(error){
@@ -800,6 +944,79 @@ function agruparExcedentes(rows){
         if(row.categoriaGerencial !== "EXCEDENTES") return;
 
         const nombre = normalizarTexto(row.servicio) || "EXCEDENTES";
+
+        if(!obj[nombre]){
+            obj[nombre] = {nombre, cantidad:0, valor:0};
+        }
+
+        obj[nombre].cantidad += 1;
+        obj[nombre].valor += toNumber(row.valorVenta);
+    });
+
+    return obj;
+}
+
+function anioReferenciaFiltros(){
+    const f = obtenerFiltros();
+
+    if(f.anio) return Number(f.anio);
+
+    const fechaFin = f.fechaFin ? new Date(`${f.fechaFin}T00:00:00`) : null;
+    if(fechaFin && !isNaN(fechaFin.getTime())) return fechaFin.getFullYear();
+
+    const fechaInicio = f.fechaInicio ? new Date(`${f.fechaInicio}T00:00:00`) : null;
+    if(fechaInicio && !isNaN(fechaInicio.getTime())) return fechaInicio.getFullYear();
+
+    return new Date().getFullYear();
+}
+
+function subcategoriaParticular(row){
+    if(normalizarTexto(row.categoriaGerencial) !== "PARTICULAR") return "";
+
+    const texto = normalizarTexto(`${row.tipoServicio || ""} ${row.servicio || ""} ${row.categoria || ""}`);
+
+    if(texto.includes("SOAT")) return "PARTICULAR SOAT";
+    if(texto.includes("PENSION")) return "PARTICULAR PENSIONADO";
+    if(texto.includes("EMPRESA")) return "PARTICULAR EMPRESA";
+    if(texto.includes("PERSONA")) return "PARTICULAR PERSONA";
+
+    const limpio = normalizarTexto(row.tipoServicio || row.servicio || row.categoria)
+        .replace(/^PARTICULAR(ES)?\s*/,"")
+        .replace(/^PARTICULAR\s*/,"")
+        .trim();
+
+    return limpio ? `PARTICULAR ${limpio}` : "PARTICULAR OTROS";
+}
+
+function agruparParticularesDetalle(rows){
+    const obj = {
+        "PARTICULAR SOAT":{nombre:"PARTICULAR SOAT", cantidad:0, valor:0},
+        "PARTICULAR PENSIONADO":{nombre:"PARTICULAR PENSIONADO", cantidad:0, valor:0},
+        "PARTICULAR PERSONA":{nombre:"PARTICULAR PERSONA", cantidad:0, valor:0},
+        "PARTICULAR EMPRESA":{nombre:"PARTICULAR EMPRESA", cantidad:0, valor:0}
+    };
+
+    rows.forEach(row => {
+        const nombre = subcategoriaParticular(row);
+        if(!nombre) return;
+
+        if(!obj[nombre]){
+            obj[nombre] = {nombre, cantidad:0, valor:0};
+        }
+
+        obj[nombre].cantidad += 1;
+        obj[nombre].valor += toNumber(row.valorVenta);
+    });
+
+    return obj;
+}
+
+function agruparClinicas(rows){
+    const obj = {};
+
+    rows.forEach(row => {
+        const nombre = normalizarTexto(row.clinica) || "";
+        if(!nombre) return;
 
         if(!obj[nombre]){
             obj[nombre] = {nombre, cantidad:0, valor:0};
@@ -1182,6 +1399,63 @@ function renderCategorias(){
         ],
         "Ventas por categoría gerencial"
     );
+
+    const particulares = Object.values(agruparParticularesDetalle(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor || b.cantidad - a.cantidad);
+    const totalParticulares = particulares.reduce((acc,item) => acc + item.valor, 0);
+    const tbodyParticulares = document.querySelector("#tablaParticularesDetalle tbody");
+
+    if(tbodyParticulares){
+        tbodyParticulares.innerHTML = particulares.length ? particulares.map(item => {
+            const participacion = totalParticulares > 0 ? (item.valor / totalParticulares) * 100 : 0;
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(item.nombre)}</strong></td>
+                    <td>${formatNumber(item.cantidad)}</td>
+                    <td>${formatMoney(item.valor)}</td>
+                    <td>${participacion.toFixed(1)}%</td>
+                </tr>
+            `;
+        }).join("") : `<tr><td colspan="4">Sin particulares registrados</td></tr>`;
+    }
+
+    crearChartBar(
+        "graficoParticularesDetalle",
+        particulares.slice(0,12).map(item => item.nombre),
+        particulares.slice(0,12).map(item => item.valor),
+        "Venta",
+        "Particulares por tipo de servicio",
+        true
+    );
+
+    const clinicas = Object.values(agruparClinicas(DATASET_FILTRADO)).sort((a,b) => b.cantidad - a.cantidad || b.valor - a.valor);
+    const totalClinicas = clinicas.reduce((acc,item) => acc + item.cantidad, 0);
+    const tbodyClinicas = document.querySelector("#tablaClinicas tbody");
+
+    if(tbodyClinicas){
+        tbodyClinicas.innerHTML = clinicas.length ? clinicas.slice(0,30).map(item => {
+            const participacion = totalClinicas > 0 ? (item.cantidad / totalClinicas) * 100 : 0;
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(item.nombre)}</strong></td>
+                    <td>${formatNumber(item.cantidad)}</td>
+                    <td>${formatMoney(item.valor)}</td>
+                    <td>${participacion.toFixed(1)}%</td>
+                </tr>
+            `;
+        }).join("") : `<tr><td colspan="4">Sin clínicas registradas</td></tr>`;
+    }
+
+    crearChartBar(
+        "graficoClinicas",
+        clinicas.slice(0,15).map(item => item.nombre),
+        clinicas.slice(0,15).map(item => item.cantidad),
+        "Reportes",
+        "Clínicas que más reportan homenajes",
+        true,
+        "number"
+    );
 }
 
 function renderGestores(){
@@ -1296,29 +1570,53 @@ function renderMetas(){
         }).join("");
     }
 
-    const labels = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
-    const metas = labels.map((_, index) => metaMensualTotal() * (index + 1));
+    const f = obtenerFiltros();
+    const anio = anioReferenciaFiltros();
+    const meses = Array.from({length:12}, (_,i) => i + 1);
+    const labels = meses.map(m => nombreMes(m).slice(0,3));
+    const ventasMensuales = meses.map(m => sumar(DATASET_NORMAL.filter(row =>
+        row.fecha &&
+        row.fecha.getFullYear() === anio &&
+        row.fecha.getMonth() + 1 === m &&
+        coincideFiltrosNoFecha(row, f)
+    )));
+    const ventasAcumuladas = [];
+    const metas = [];
+    let acumuladoVenta = 0;
+
+    ventasMensuales.forEach((venta, index) => {
+        acumuladoVenta += venta;
+        ventasAcumuladas.push(acumuladoVenta);
+        metas.push(metaMensualTotal() * (index + 1));
+    });
 
     crearChartLine("graficoMetas", labels, [
-        {label:"Meta acumulada", data:metas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.25}
-    ], "Meta acumulada anual");
+        {label:"Producción acumulada", data:ventasAcumuladas, borderColor:"#006b3f", backgroundColor:"rgba(0,107,63,.14)", fill:true, tension:.25},
+        {label:"Meta acumulada", data:metas, borderColor:"#ef4444", borderDash:[8,6], fill:false, pointRadius:3, tension:.25}
+    ], `Producción vs meta acumulada ${anio}`);
 }
 
 function renderCumplimientoMensual(){
-    const mensual = agruparMensual(DATASET_FILTRADO);
-    const labels = ordenarMeses(Object.keys(mensual));
-
-    const ventas = labels.map(k => mensual[k].venta);
+    const f = obtenerFiltros();
+    const anio = anioReferenciaFiltros();
+    const meses = Array.from({length:12}, (_,i) => i + 1);
+    const labels = meses.map(m => `${nombreMes(m)} ${anio}`);
+    const ventas = meses.map(m => sumar(DATASET_NORMAL.filter(row =>
+        row.fecha &&
+        row.fecha.getFullYear() === anio &&
+        row.fecha.getMonth() + 1 === m &&
+        coincideFiltrosNoFecha(row, f)
+    )));
     const metas = labels.map(() => metaMensualTotal());
 
     crearChartLine("graficoCumplimientoMensual", labels, [
         {label:"Venta", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
         {label:"Meta", data:metas, borderColor:"#ef4444", borderDash:[8,6], fill:false, pointRadius:0}
-    ], "Cumplimiento mensual");
+    ], `Cumplimiento mensual ${anio}`);
 
     const tbody = document.querySelector("#tablaCumplimientoMensual tbody");
     if(tbody){
-        tbody.innerHTML = labels.length ? labels.map((k, i) => {
+        tbody.innerHTML = labels.map((k, i) => {
             const venta = ventas[i];
             const meta = metas[i];
             const pct = meta > 0 ? (venta / meta) * 100 : 0;
@@ -1334,7 +1632,7 @@ function renderCumplimientoMensual(){
                     <td>${badgeEstado(pct)}</td>
                 </tr>
             `;
-        }).join("") : `<tr><td colspan="6">Sin registros</td></tr>`;
+        }).join("");
     }
 }
 
@@ -1700,6 +1998,11 @@ function badgeVacacion(estado){
     return `<span class="badge badge-warning">Pendiente</span>`;
 }
 
+function opcionesEstadoVacacion(actual){
+    const estados = ["VENCIDA","PENDIENTE","PROGRAMADA","DISFRUTADA"];
+    return estados.map(estado => `<option value="${estado}" ${estado === actual ? "selected" : ""}>${estado}</option>`).join("");
+}
+
 function renderVacaciones(){
     const data = cargarVacaciones();
     const conteo = {VENCIDA:0, PROGRAMADA:0, DISFRUTADA:0, PENDIENTE:0};
@@ -1735,7 +2038,12 @@ function renderVacaciones(){
                     <td>${escapeHtml(item.inicio || "-")}</td>
                     <td>${escapeHtml(item.fin || "-")}</td>
                     <td>${formatNumber(item.dias || 0)}</td>
-                    <td>${badgeVacacion(estado)}</td>
+                    <td>
+                        ${badgeVacacion(estado)}
+                        <select class="inline-select" onchange="actualizarEstadoVacacion('${escapeHtml(item.id)}', this.value)">
+                            ${opcionesEstadoVacacion(estado)}
+                        </select>
+                    </td>
                     <td><button class="danger-btn" onclick="eliminarVacacion('${escapeHtml(item.id)}')">Eliminar</button></td>
                 </tr>
             `;
@@ -1777,7 +2085,15 @@ function eliminarVacacion(id){
     toast("Registro de vacaciones eliminado.");
 }
 
+function actualizarEstadoVacacion(id, estado){
+    const data = cargarVacaciones().map(item => item.id === id ? {...item, estado:normalizarTexto(estado)} : item);
+    guardarColeccionLocal("vacacionesPersonal", data);
+    renderVacaciones();
+    toast("Estado de vacaciones actualizado.");
+}
+
 window.eliminarVacacion = eliminarVacacion;
+window.actualizarEstadoVacacion = actualizarEstadoVacacion;
 
 function limpiarVacaciones(){
     if(!confirm("¿Deseas eliminar todos los registros de vacaciones?")) return;
@@ -1789,11 +2105,11 @@ function limpiarVacaciones(){
 function datosAgendaIniciales(){
     const anio = new Date().getFullYear();
     return [
-        {id:"act_preoperacional", fecha:`${anio}-01-02`, titulo:"Verificar reporte preoperacional de vehículos", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Control diario antes de entregar turno."},
-        {id:"act_bitacora", fecha:`${anio}-01-02`, titulo:"Revisar bitácora de parque automotor", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Confirmar novedades y entrega de llaves."},
-        {id:"act_implementos", fecha:`${anio}-06-20`, titulo:"Seguimiento implementos de velación en casa", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Gestores", detalle:"Validar elementos vigentes, por recoger y recogidos."},
-        {id:"act_residuos", fecha:`${anio}-07-01`, titulo:"Capacitación residuos y desinfección", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Talento Humano / Homenajes", detalle:"Refuerzo obligatorio para el equipo operativo."},
-        {id:"act_auditoria", fecha:`${anio}-11-10`, titulo:"Preparación auditoría interna", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Revisar R-15, R-56, RH1 y soportes operativos."}
+        {id:"act_preoperacional", fecha:`${anio}-01-02`, hora:"06:00", titulo:"Verificar reporte preoperacional de vehículos", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Control diario antes de entregar turno."},
+        {id:"act_bitacora", fecha:`${anio}-01-02`, hora:"07:00", titulo:"Revisar bitácora de parque automotor", frecuencia:"DIARIA", estado:"EN PROCESO", responsable:"Coordinación Homenajes", detalle:"Confirmar novedades y entrega de llaves."},
+        {id:"act_implementos", fecha:`${anio}-06-20`, hora:"09:00", titulo:"Seguimiento implementos de velación en casa", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Gestores", detalle:"Validar elementos vigentes, por recoger y recogidos."},
+        {id:"act_residuos", fecha:`${anio}-07-01`, hora:"10:00", titulo:"Capacitación residuos y desinfección", frecuencia:"ANUAL", estado:"CUMPLIDA", responsable:"Talento Humano / Homenajes", detalle:"Refuerzo obligatorio para el equipo operativo."},
+        {id:"act_auditoria", fecha:`${anio}-11-10`, hora:"08:00", titulo:"Preparación auditoría interna", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Revisar R-15, R-56, RH1 y soportes operativos."}
     ];
 }
 
@@ -1812,9 +2128,31 @@ function actividadEsHoy(item){
 }
 
 function badgeActividad(estado){
-    return normalizarTexto(estado) === "FINIQUITADA"
-        ? `<span class="badge badge-ok">Finiquitada</span>`
-        : `<span class="badge badge-warning">Pendiente</span>`;
+    const valor = normalizarTexto(estado);
+
+    if(valor === "FINIQUITADA") return `<span class="badge badge-ok">Finiquitada</span>`;
+    if(valor === "CUMPLIDA") return `<span class="badge badge-ok">Cumplida</span>`;
+    if(valor === "EN PROCESO") return `<span class="badge badge-info">En proceso</span>`;
+
+    return `<span class="badge badge-warning">Pendiente</span>`;
+}
+
+function opcionesEstadoActividad(actual){
+    const estadoActual = normalizarTexto(actual) || "PENDIENTE";
+    return ["PENDIENTE","EN PROCESO","CUMPLIDA","FINIQUITADA"]
+        .map(estado => `<option value="${estado}" ${estado === estadoActual ? "selected" : ""}>${estado}</option>`)
+        .join("");
+}
+
+function horaActividad(item){
+    return String(item.hora || "08:00").slice(0,5);
+}
+
+function formatoHoraAgenda(hora){
+    const [h,m] = String(hora || "08:00").split(":").map(Number);
+    const periodo = h >= 12 ? "PM" : "AM";
+    const hora12 = h % 12 || 12;
+    return `${hora12}:${String(m || 0).padStart(2,"0")} ${periodo}`;
 }
 
 function renderAgenda(){
@@ -1822,7 +2160,9 @@ function renderAgenda(){
     const anio = AGENDA_CURSOR.getFullYear();
     const mes = AGENDA_CURSOR.getMonth() + 1;
     const actividadesMes = data.filter(item => actividadEnMes(item, anio, mes));
-    const pendientes = data.filter(item => normalizarTexto(item.estado) !== "FINIQUITADA").length;
+    const pendientes = data.filter(item => normalizarTexto(item.estado) === "PENDIENTE").length;
+    const enProceso = data.filter(item => normalizarTexto(item.estado) === "EN PROCESO").length;
+    const cumplidas = data.filter(item => normalizarTexto(item.estado) === "CUMPLIDA").length;
     const finiquitadas = data.filter(item => normalizarTexto(item.estado) === "FINIQUITADA").length;
     const hoy = data.filter(actividadEsHoy).length;
 
@@ -1831,13 +2171,15 @@ function renderAgenda(){
     setHtml("kpiAgendaHoy", hoy);
     setHtml("kpiAgendaMes", actividadesMes.length);
     setHtml("textoAgenda", `
-        Agenda activa con <strong>${pendientes}</strong> actividades pendientes y <strong>${finiquitadas}</strong> finiquitadas.
+        Agenda activa con <strong>${pendientes}</strong> pendientes, <strong>${enProceso}</strong> en proceso,
+        <strong>${cumplidas}</strong> cumplidas y <strong>${finiquitadas}</strong> finiquitadas.
         Para <strong>${nombreMes(mes)} ${anio}</strong> hay <strong>${actividadesMes.length}</strong> actividades programadas.
     `);
     setHtml("agendaMesTitulo", `${nombreMes(mes)} ${anio}`);
 
     renderCalendarioAgenda(data, anio, mes);
     renderListaAgenda(actividadesMes);
+    renderDiaAgenda(data);
     renderTablaAgenda(data);
 }
 
@@ -1862,10 +2204,11 @@ function renderCalendarioAgenda(data, anio, mes){
         const actividadesDia = data.filter(item => item.fecha === iso);
         const clases = ["agenda-day"];
         if(iso === hoy) clases.push("today");
+        if(iso === AGENDA_DIA_SELECCIONADO) clases.push("selected");
         if(actividadesDia.length) clases.push("has-events");
 
         celdas.push(`
-            <div class="${clases.join(" ")}">
+            <div class="${clases.join(" ")}" onclick="seleccionarDiaAgenda('${iso}')">
                 <strong>${dia}</strong>
                 ${actividadesDia.length ? `<span>${actividadesDia.length} act.</span>` : ""}
             </div>
@@ -1888,11 +2231,51 @@ function renderListaAgenda(actividades){
         <div class="agenda-item">
             <div>
                 <strong>${escapeHtml(item.titulo)}</strong>
-                <p>${escapeHtml(item.fecha)} · ${escapeHtml(item.frecuencia)} · ${escapeHtml(item.responsable || "Sin responsable")}</p>
+                <p>${escapeHtml(item.fecha)} · ${formatoHoraAgenda(horaActividad(item))} · ${escapeHtml(item.frecuencia)} · ${escapeHtml(item.responsable || "Sin responsable")}</p>
             </div>
             ${badgeActividad(item.estado)}
         </div>
     `).join("");
+}
+
+function renderDiaAgenda(data){
+    const contenedor = $("agendaDiaHoras");
+    if(!contenedor) return;
+
+    const fecha = AGENDA_DIA_SELECCIONADO || fechaISO(new Date());
+    const actividadesDia = data
+        .filter(item => item.fecha === fecha)
+        .sort((a,b) => horaActividad(a).localeCompare(horaActividad(b)));
+
+    setHtml("agendaDiaTitulo", `Agenda diaria · ${fecha}`);
+
+    const filas = [];
+
+    for(let hora = 6; hora <= 19; hora++){
+        const horaTexto = `${String(hora).padStart(2,"0")}:00`;
+        const actividadesHora = actividadesDia.filter(item => Number(horaActividad(item).split(":")[0]) === hora);
+
+        filas.push(`
+            <div class="agenda-hour-row">
+                <div class="agenda-hour-label">${formatoHoraAgenda(horaTexto)}</div>
+                <div class="agenda-hour-content">
+                    ${actividadesHora.length ? actividadesHora.map(item => `
+                        <div class="agenda-hour-activity">
+                            <div>
+                                <strong>${escapeHtml(item.titulo)}</strong>
+                                <p>${escapeHtml(item.responsable || "Sin responsable")} · ${escapeHtml(item.frecuencia || "ÚNICA")} · ${escapeHtml(item.detalle || "")}</p>
+                            </div>
+                            <select class="inline-select" onchange="actualizarEstadoActividad('${escapeHtml(item.id)}', this.value)">
+                                ${opcionesEstadoActividad(item.estado)}
+                            </select>
+                        </div>
+                    `).join("") : `<span class="mini-text">Sin actividad programada</span>`}
+                </div>
+            </div>
+        `);
+    }
+
+    contenedor.innerHTML = filas.join("");
 }
 
 function renderTablaAgenda(data){
@@ -1902,23 +2285,30 @@ function renderTablaAgenda(data){
     tbody.innerHTML = data.length ? data.map(item => `
         <tr>
             <td>${escapeHtml(item.fecha || "-")}</td>
+            <td>${formatoHoraAgenda(horaActividad(item))}</td>
             <td>${escapeHtml(item.titulo || "-")}</td>
             <td>${escapeHtml(item.frecuencia || "-")}</td>
             <td>${escapeHtml(item.responsable || "-")}</td>
-            <td>${badgeActividad(item.estado)}</td>
+            <td>
+                ${badgeActividad(item.estado)}
+                <select class="inline-select" onchange="actualizarEstadoActividad('${escapeHtml(item.id)}', this.value)">
+                    ${opcionesEstadoActividad(item.estado)}
+                </select>
+            </td>
             <td>${escapeHtml(item.detalle || "-")}</td>
             <td>
                 <button class="action-btn" onclick="alternarEstadoActividad('${escapeHtml(item.id)}')">Cambiar</button>
                 <button class="danger-btn" onclick="eliminarActividad('${escapeHtml(item.id)}')">Eliminar</button>
             </td>
         </tr>
-    `).join("") : `<tr><td colspan="7">Sin actividades registradas</td></tr>`;
+    `).join("") : `<tr><td colspan="8">Sin actividades registradas</td></tr>`;
 }
 
 function agregarActividad(){
     const item = {
         id:cryptoRandom(),
         fecha:$("actFecha")?.value || "",
+        hora:$("actHora")?.value || "08:00",
         titulo:($("actTitulo")?.value || "").trim(),
         frecuencia:$("actFrecuencia")?.value || "UNICA",
         estado:$("actEstado")?.value || "PENDIENTE",
@@ -1935,19 +2325,33 @@ function agregarActividad(){
     data.push(item);
     guardarColeccionLocal("agendaHomenajes", data);
 
+    AGENDA_DIA_SELECCIONADO = item.fecha;
+    AGENDA_CURSOR = parseFecha(item.fecha) || AGENDA_CURSOR;
+
     ["actFecha","actTitulo","actFrecuencia","actEstado","actResponsable","actDetalle"].forEach(id => setValue(id, ""));
+    setValue("actHora", "08:00");
     setValue("actEstado", "PENDIENTE");
     renderAgenda();
     toast("Actividad agregada.");
 }
 
 function alternarEstadoActividad(id){
+    const ciclo = ["PENDIENTE","EN PROCESO","CUMPLIDA","FINIQUITADA"];
     const data = cargarAgenda().map(item => {
         if(item.id !== id) return item;
-        return {...item, estado:normalizarTexto(item.estado) === "FINIQUITADA" ? "PENDIENTE" : "FINIQUITADA"};
+        const actual = normalizarTexto(item.estado) || "PENDIENTE";
+        const siguiente = ciclo[(ciclo.indexOf(actual) + 1) % ciclo.length] || "PENDIENTE";
+        return {...item, estado:siguiente};
     });
     guardarColeccionLocal("agendaHomenajes", data);
     renderAgenda();
+}
+
+function actualizarEstadoActividad(id, estado){
+    const data = cargarAgenda().map(item => item.id === id ? {...item, estado:normalizarTexto(estado)} : item);
+    guardarColeccionLocal("agendaHomenajes", data);
+    renderAgenda();
+    toast("Estado de actividad actualizado.");
 }
 
 function eliminarActividad(id){
@@ -1958,7 +2362,22 @@ function eliminarActividad(id){
 }
 
 window.alternarEstadoActividad = alternarEstadoActividad;
+window.actualizarEstadoActividad = actualizarEstadoActividad;
 window.eliminarActividad = eliminarActividad;
+
+function seleccionarDiaAgenda(fecha){
+    AGENDA_DIA_SELECCIONADO = fecha;
+    const seleccion = parseFecha(fecha);
+
+    if(seleccion){
+        AGENDA_CURSOR = new Date(seleccion.getFullYear(), seleccion.getMonth(), 1);
+        setValue("actFecha", fecha);
+    }
+
+    renderAgenda();
+}
+
+window.seleccionarDiaAgenda = seleccionarDiaAgenda;
 
 function moverAgenda(meses){
     AGENDA_CURSOR = new Date(AGENDA_CURSOR.getFullYear(), AGENDA_CURSOR.getMonth() + meses, 1);
@@ -2264,7 +2683,7 @@ function obtenerResumenOperativoReporte(){
     });
 
     const agenda = cargarAgenda();
-    const agendaPendiente = agenda.filter(item => normalizarTexto(item.estado) !== "FINIQUITADA").length;
+    const agendaPendiente = agenda.filter(item => !["CUMPLIDA","FINIQUITADA"].includes(normalizarTexto(item.estado))).length;
     const agendaFiniquitada = agenda.filter(item => normalizarTexto(item.estado) === "FINIQUITADA").length;
     const agendaHoy = agenda.filter(actividadEsHoy).length;
     const tiempoAfiliado = resumenTiempoAfiliado();
@@ -2443,6 +2862,7 @@ function renderReporteFormal(){
             <thead>
                 <tr>
                     <th>Fecha</th>
+                    <th>Hora</th>
                     <th>Actividad</th>
                     <th>Frecuencia</th>
                     <th>Responsable</th>
@@ -2453,12 +2873,13 @@ function renderReporteFormal(){
                 ${operativo.agenda.length ? operativo.agenda.slice().sort((a,b) => String(a.fecha).localeCompare(String(b.fecha))).slice(0,20).map(item => `
                     <tr>
                         <td>${escapeHtml(item.fecha || "-")}</td>
+                        <td>${formatoHoraAgenda(horaActividad(item))}</td>
                         <td>${escapeHtml(item.titulo || "-")}</td>
                         <td>${escapeHtml(item.frecuencia || "-")}</td>
                         <td>${escapeHtml(item.responsable || "-")}</td>
                         <td>${escapeHtml(item.estado || "-")}</td>
                     </tr>
-                `).join("") : `<tr><td colspan="5">Sin actividades registradas</td></tr>`}
+                `).join("") : `<tr><td colspan="6">Sin actividades registradas</td></tr>`}
             </tbody>
         </table>
 
@@ -2530,11 +2951,20 @@ function exportarExcel(){
     const datos = DATASET_FILTRADO.map(row => ({
         Origen:row.origen,
         Fecha:row.fechaTexto,
+        Orden_Servicio:row.ordenServicio,
         Gestor:row.gestor,
         Categoria_Original:row.categoria,
         Categoria_Gerencial:row.categoriaGerencial,
+        Tipo_Servicio:row.tipoServicio,
         Servicio:row.servicio,
+        Clinica:row.clinica,
+        Municipio:row.municipio,
+        Tipo_Muerte:row.tipoMuerte,
+        Cementerio:row.cementerio,
+        Destino_Final:row.destinoFinal,
         Sede:row.sede,
+        Valor_Servicio:row.valorServicio,
+        Valor_Excedente:row.valorExcedente,
         Valor_Original:row.valorOriginal,
         Valor_Venta:row.valorVenta,
         Genera_Venta:row.generaVenta ? "SI" : "NO"
@@ -2591,12 +3021,13 @@ function exportarExcel(){
 
     const agenda = operativo.agenda.map(item => ({
         Fecha:item.fecha || "",
+        Hora:horaActividad(item),
         Actividad:item.titulo || "",
         Frecuencia:item.frecuencia || "",
         Responsable:item.responsable || "",
         Estado:item.estado || "",
         Detalle:item.detalle || ""
-    })).sort((a,b) => String(a.Fecha).localeCompare(String(b.Fecha)));
+    })).sort((a,b) => String(a.Fecha + a.Hora).localeCompare(String(b.Fecha + b.Hora)));
 
     const tiempoAfiliado = operativo.tiempoAfiliado.enriquecidos.map(item => ({
         Fallecido:item.fallecido || "",
