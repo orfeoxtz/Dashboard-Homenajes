@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260622");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260623");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -1094,10 +1094,10 @@ function actualizarKPIs(resumen, metaInfo){
     const ventaTotal = resumen.total;
     const cumplimientoGeneral = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
+    const faltantePct = META_RANGO_ACTUAL > 0 ? (faltante / META_RANGO_ACTUAL) * 100 : 0;
 
     const diasAnalizados = Math.max(Math.min(DIAS_RANGO_ACTUAL, diasEntre(metaInfo.inicio, new Date())), 1);
     const promedioDiarioReal = ventaTotal / diasAnalizados;
-    const proyeccion = promedioDiarioReal * DIAS_RANGO_ACTUAL;
 
     const categorias = agruparCategorias(DATASET_FILTRADO);
     const particular = categorias["PARTICULAR"];
@@ -1105,9 +1105,13 @@ function actualizarKPIs(resumen, metaInfo){
     const excedentes = categorias["EXCEDENTES"];
     const plan = categorias["PLAN"];
 
-    const pParticular = ventaTotal > 0 ? (particular.valor / ventaTotal) * 100 : 0;
-    const pRed = ventaTotal > 0 ? (red.valor / ventaTotal) * 100 : 0;
-    const pExcedentes = ventaTotal > 0 ? (excedentes.valor / ventaTotal) * 100 : 0;
+    const metaParticular = metaCategoriaMensual("PARTICULAR") * MESES_EQUIVALENTES_ACTUAL;
+    const metaRed = metaCategoriaMensual("RED") * MESES_EQUIVALENTES_ACTUAL;
+    const metaExcedentes = metaCategoriaMensual("EXCEDENTES") * MESES_EQUIVALENTES_ACTUAL;
+
+    const cParticular = metaParticular > 0 ? (particular.valor / metaParticular) * 100 : 0;
+    const cRed = metaRed > 0 ? (red.valor / metaRed) * 100 : 0;
+    const cExcedentes = metaExcedentes > 0 ? (excedentes.valor / metaExcedentes) * 100 : 0;
 
     const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
     const mejorGestor = gestores[0];
@@ -1116,8 +1120,10 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("ventas", formatMoney(ventaTotal));
     setHtml("cumplimiento", `${cumplimientoGeneral.toFixed(1)}%`);
     setHtml("faltante", formatMoney(faltante));
-    setHtml("proyeccion", formatMoney(proyeccion));
     setHtml("estadoCumplimientoTexto", textoEstado(cumplimientoGeneral));
+    setHtml("ventasCumplimientoPill", `${cumplimientoGeneral.toFixed(1)}%`);
+    setHtml("estadoCumplimientoPill", textoEstado(cumplimientoGeneral));
+    setHtml("faltantePctPill", `${faltantePct.toFixed(1)}%`);
 
     setHtml("metaMensual", formatMoney(metaMensualTotal()));
     setHtml("metaAnual", formatMoney(metaMensualTotal() * 12));
@@ -1125,16 +1131,18 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
     setHtml("mejorGestor", mejorGestor ? mejorGestor.nombre : "-");
     setHtml("totalRegistros", DATASET_FILTRADO.length);
-    setHtml("kpiCalidadDatos", calcularCalidadDatos().calidad.toFixed(1) + "%");
 
     setHtml("kpiParticularValor", formatMoney(particular.valor));
-    setHtml("kpiParticularCantidad", `${particular.cantidad} homenajes atendidos | ${pParticular.toFixed(1)}%`);
+    setHtml("kpiParticularCumplimiento", `${cParticular.toFixed(1)}%`);
+    setHtml("kpiParticularCantidad", `${particular.cantidad} homenajes | Meta ${formatMoney(metaParticular)}`);
 
     setHtml("kpiRedValor", formatMoney(red.valor));
-    setHtml("kpiRedCantidad", `${red.cantidad} homenajes atendidos | ${pRed.toFixed(1)}%`);
+    setHtml("kpiRedCumplimiento", `${cRed.toFixed(1)}%`);
+    setHtml("kpiRedCantidad", `${red.cantidad} homenajes | Meta ${formatMoney(metaRed)}`);
 
     setHtml("kpiExcedentesValor", formatMoney(excedentes.valor));
-    setHtml("kpiExcedentesCantidad", `${excedentes.cantidad} unidades | ${pExcedentes.toFixed(1)}%`);
+    setHtml("kpiExcedentesCumplimiento", `${cExcedentes.toFixed(1)}%`);
+    setHtml("kpiExcedentesCantidad", `${excedentes.cantidad} unidades | Meta ${formatMoney(metaExcedentes)}`);
 
     setHtml("kpiPlanCantidad", plan.cantidad);
     setHtml("metaRangoDetalle", `${fechaISO(metaInfo.inicio)} a ${fechaISO(metaInfo.fin)}`);
@@ -1142,6 +1150,19 @@ function actualizarKPIs(resumen, metaInfo){
 
     const cumplimientoEl = $("cumplimiento");
     if(cumplimientoEl) cumplimientoEl.style.color = colorPorPorcentaje(cumplimientoGeneral);
+
+    [
+        ["ventasCumplimientoPill", cumplimientoGeneral],
+        ["estadoCumplimientoPill", cumplimientoGeneral],
+        ["kpiParticularCumplimiento", cParticular],
+        ["kpiRedCumplimiento", cRed],
+        ["kpiExcedentesCumplimiento", cExcedentes]
+    ].forEach(([id, pct]) => {
+        const el = $(id);
+        if(!el) return;
+        el.classList.remove("ok","warning","danger");
+        el.classList.add(pct >= 100 ? "ok" : pct >= 80 ? "warning" : "danger");
+    });
 }
 
 function crearResumenEjecutivo(resumen, metaInfo){
