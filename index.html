@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260622">
+<link rel="stylesheet" href="./style.css?v=20260623">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -195,77 +195,98 @@
         <p id="resumenEjecutivoTexto">Cargando análisis gerencial...</p>
     </section>
 
-    <section class="kpis">
-        <div class="card">
-            <span class="card-icon green"><i class="fas fa-flag-checkered"></i></span>
-            <h3>Meta del Rango</h3>
-            <h2 id="metaGrupal">$0</h2>
+    <section class="kpis kpis-principales">
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon green"><i class="fas fa-flag-checkered"></i></span>
+                <h3>Meta del Rango</h3>
+            </div>
+            <div class="card-value-row">
+                <h2 id="metaGrupal">$0</h2>
+                <span class="kpi-pill neutral">100%</span>
+            </div>
             <p class="mini-text" id="metaRangoDetalle">-</p>
         </div>
 
-        <div class="card">
-            <span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span>
-            <h3>Ventas Acumuladas</h3>
-            <h2 id="ventas">$0</h2>
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span>
+                <h3>Ventas Acumuladas</h3>
+            </div>
+            <div class="card-value-row">
+                <h2 id="ventas">$0</h2>
+                <span class="kpi-pill" id="ventasCumplimientoPill">0%</span>
+            </div>
             <p class="mini-text">Particular + Red + Excedentes</p>
         </div>
 
-        <div class="card">
-            <span class="card-icon violet"><i class="fas fa-percent"></i></span>
-            <h3>Cumplimiento</h3>
-            <h2 id="cumplimiento">0%</h2>
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon violet"><i class="fas fa-percent"></i></span>
+                <h3>Cumplimiento</h3>
+            </div>
+            <div class="card-value-row">
+                <h2 id="cumplimiento">0%</h2>
+                <span class="kpi-pill" id="estadoCumplimientoPill">Bajo</span>
+            </div>
             <p class="mini-text" id="estadoCumplimientoTexto">Sin datos</p>
         </div>
 
-        <div class="card">
-            <span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span>
-            <h3>Faltante</h3>
-            <h2 id="faltante">$0</h2>
-            <p class="mini-text">Para cumplir meta</p>
-        </div>
-
-        <div class="card">
-            <span class="card-icon amber"><i class="fas fa-chart-simple"></i></span>
-            <h3>Proyección</h3>
-            <h2 id="proyeccion">$0</h2>
-            <p class="mini-text">Ritmo actual</p>
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span>
+                <h3>Faltante</h3>
+            </div>
+            <div class="card-value-row">
+                <h2 id="faltante">$0</h2>
+                <span class="kpi-pill danger" id="faltantePctPill">0%</span>
+            </div>
+            <p class="mini-text">Valor pendiente para cumplir</p>
         </div>
     </section>
 
     <section class="kpis-secundarios categoria-kpis">
-        <div class="card card-categoria particular">
+        <div class="card card-categoria particular kpi-compact">
             <h3>🧾 Particular</h3>
-            <h2 id="kpiParticularValor">$0</h2>
-            <p class="mini-text" id="kpiParticularCantidad">0 homenajes atendidos | 0%</p>
+            <div class="card-value-row">
+                <h2 id="kpiParticularValor">$0</h2>
+                <span class="kpi-pill" id="kpiParticularCumplimiento">0%</span>
+            </div>
+            <p class="mini-text" id="kpiParticularCantidad">0 homenajes | Meta $0</p>
         </div>
 
-        <div class="card card-categoria red">
+        <div class="card card-categoria red kpi-compact">
             <h3>🌐 Red</h3>
-            <h2 id="kpiRedValor">$0</h2>
-            <p class="mini-text" id="kpiRedCantidad">0 homenajes atendidos | 0%</p>
+            <div class="card-value-row">
+                <h2 id="kpiRedValor">$0</h2>
+                <span class="kpi-pill" id="kpiRedCumplimiento">0%</span>
+            </div>
+            <p class="mini-text" id="kpiRedCantidad">0 homenajes | Meta $0</p>
         </div>
 
-        <div class="card card-categoria excedentes">
+        <div class="card card-categoria excedentes kpi-compact">
             <h3>➕ Excedentes</h3>
-            <h2 id="kpiExcedentesValor">$0</h2>
-            <p class="mini-text" id="kpiExcedentesCantidad">0 unidades | 0%</p>
+            <div class="card-value-row">
+                <h2 id="kpiExcedentesValor">$0</h2>
+                <span class="kpi-pill" id="kpiExcedentesCumplimiento">0%</span>
+            </div>
+            <p class="mini-text" id="kpiExcedentesCantidad">0 unidades | Meta $0</p>
         </div>
 
-        <div class="card card-categoria plan">
+        <div class="card card-categoria plan kpi-compact">
             <h3>📋 Plan</h3>
             <h2 id="kpiPlanCantidad">0</h2>
             <p class="mini-text">Cantidad atendida | No suma ventas</p>
         </div>
     </section>
 
-    <section class="kpis-secundarios">
-        <div class="card"><h3>📅 Meta Mensual</h3><h2 id="metaMensual">$0</h2></div>
-        <div class="card"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
-        <div class="card"><h3>⏱ Meses Equiv.</h3><h2 id="mesesEquivalentes">0</h2></div>
-        <div class="card"><h3>📈 Promedio Diario</h3><h2 id="promedioDiarioReal">$0</h2></div>
-        <div class="card"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
-        <div class="card"><h3>📊 Registros</h3><h2 id="totalRegistros">0</h2></div>
-        <div class="card"><h3>🔐 Calidad Datos</h3><h2 id="kpiCalidadDatos">0%</h2></div>
+    <section class="kpis-secundarios kpis-operativos">
+        <div class="card kpi-mini"><h3>📅 Meta Mensual</h3><h2 id="metaMensual">$0</h2></div>
+        <div class="card kpi-mini"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
+        <div class="card kpi-mini"><h3>⏱ Meses Equiv.</h3><h2 id="mesesEquivalentes">0</h2></div>
+        <div class="card kpi-mini"><h3>📈 Promedio Diario</h3><h2 id="promedioDiarioReal">$0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
+        <div class="card kpi-mini"><h3>📊 Registros</h3><h2 id="totalRegistros">0</h2></div>
     </section>
 
     <section class="graficos">
@@ -1014,6 +1035,6 @@
 
 </main>
 
-<script src="./app.js?v=20260622"></script>
+<script src="./app.js?v=20260623"></script>
 </body>
 </html>
