@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260620");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260621");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -33,6 +33,8 @@ let ULTIMO_RESUMEN = null;
 let ULTIMA_META_INFO = null;
 let AGENDA_CURSOR = new Date();
 let AGENDA_DIA_SELECCIONADO = fechaISO(new Date());
+
+const AMBIENTES_DASHBOARD = ["normal","ocean","sunset"];
 
 const $ = id => document.getElementById(id);
 
@@ -3126,8 +3128,9 @@ function limpiarCache(){
 
     [
         "dashboardTema",
-        "dashboardSidebar",
-        "dashboardTitulo",
+            "dashboardSidebar",
+            "dashboardAmbiente",
+            "dashboardTitulo",
         "dashboardSubtitulo",
         "dashboardEmpresa",
         "dashboardArea",
@@ -3211,9 +3214,53 @@ function alternarSidebar(){
     setTimeout(redimensionarGraficos, 200);
 }
 
+function ambienteDashboardActual(){
+    const guardado = localStorage.getItem("dashboardAmbiente") || "normal";
+    return AMBIENTES_DASHBOARD.includes(guardado) ? guardado : "normal";
+}
+
+function aplicarAmbienteDashboard(ambiente){
+    const valor = AMBIENTES_DASHBOARD.includes(ambiente) ? ambiente : "normal";
+    document.body.classList.remove("theme-ocean","theme-sunset","dark-mode");
+
+    if(valor === "ocean") document.body.classList.add("theme-ocean");
+    if(valor === "sunset") document.body.classList.add("theme-sunset");
+
+    localStorage.setItem("dashboardAmbiente", valor);
+
+    const boton = $("btnTema");
+    if(boton){
+        const icono = boton.querySelector("i");
+        boton.classList.toggle("ambient-active", valor !== "normal");
+
+        if(valor === "ocean"){
+            boton.title = "Ambiente visual: mar";
+            if(icono) icono.className = "fas fa-water";
+        }else if(valor === "sunset"){
+            boton.title = "Ambiente visual: atardecer";
+            if(icono) icono.className = "fas fa-sun";
+        }else{
+            boton.title = "Ambiente visual: normal";
+            if(icono) icono.className = "fas fa-circle-half-stroke";
+        }
+    }
+
+    setTimeout(redimensionarGraficos, 180);
+}
+
 function alternarTema(){
-    document.body.classList.toggle("dark-mode");
-    localStorage.setItem("dashboardTema", document.body.classList.contains("dark-mode") ? "dark" : "light");
+    const actual = ambienteDashboardActual();
+    const indice = AMBIENTES_DASHBOARD.indexOf(actual);
+    const siguiente = AMBIENTES_DASHBOARD[(indice + 1) % AMBIENTES_DASHBOARD.length];
+    aplicarAmbienteDashboard(siguiente);
+
+    const nombres = {
+        normal:"normal",
+        ocean:"agua de mar",
+        sunset:"atardecer suave"
+    };
+
+    toast(`Ambiente aplicado: ${nombres[siguiente]}.`);
 }
 
 function pantallaCompleta(){
@@ -3340,7 +3387,7 @@ function actualizarConfiguracion(){
 }
 
 function aplicarPreferencias(){
-    if(localStorage.getItem("dashboardTema") === "dark") document.body.classList.add("dark-mode");
+    aplicarAmbienteDashboard(ambienteDashboardActual());
     if(localStorage.getItem("dashboardSidebar") === "collapsed") document.body.classList.add("sidebar-collapsed");
 }
 
