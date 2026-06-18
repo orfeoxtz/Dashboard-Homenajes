@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260624");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260625");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -1624,15 +1624,20 @@ function renderCumplimientoMensual(){
     const anio = anioReferenciaFiltros();
     const meses = Array.from({length:12}, (_,i) => i + 1);
     const labels = meses.map(m => `${nombreMes(m)} ${anio}`);
-    const ventas = meses.map(m => sumar(DATASET_NORMAL.filter(row =>
+    const rowsBase = DATASET_FILTRADO.length ? DATASET_FILTRADO : DATASET_NORMAL.filter(row =>
         row.fecha &&
         row.fecha.getFullYear() === anio &&
-        row.fecha.getMonth() + 1 === m &&
         coincideFiltrosNoFecha(row, f)
+    );
+    const metaFallback = calcularMetaPorRango(f.fechaInicio, f.fechaFin);
+    const metaPeriodo = META_RANGO_ACTUAL || metaFallback.meta || metaMensualTotal();
+    const ventas = meses.map(m => sumar(rowsBase.filter(row =>
+        row.fecha &&
+        row.fecha.getFullYear() === anio &&
+        row.fecha.getMonth() + 1 === m
     )));
     const metas = labels.map(() => metaMensualTotal());
-    const ventaPeriodo = sumar(DATASET_FILTRADO);
-    const metaPeriodo = META_RANGO_ACTUAL;
+    const ventaPeriodo = sumar(rowsBase);
     const cumplimientoPeriodo = metaPeriodo > 0 ? (ventaPeriodo / metaPeriodo) * 100 : 0;
     const faltantePeriodo = Math.max(metaPeriodo - ventaPeriodo, 0);
     const mesesConVenta = ventas.filter(v => v > 0).length;
@@ -1646,7 +1651,8 @@ function renderCumplimientoMensual(){
     setHtml("cumplimientoMejorMesVista", mejorMes);
     setHtml("cumplimientoMesesVentaVista", mesesConVenta);
     setHtml("textoCumplimientoVista", `
-        Datos tomados de Google Sheet para el rango filtrado. La venta real es
+        Datos tomados de Google Sheet${DATASET_FILTRADO.length ? " para el rango filtrado" : " para el año seleccionado"}.
+        La venta real es
         <strong>${formatMoney(ventaPeriodo)}</strong> frente a una meta de
         <strong>${formatMoney(metaPeriodo)}</strong>, con cumplimiento de
         <strong>${cumplimientoPeriodo.toFixed(1)}%</strong> y faltante de
@@ -3244,7 +3250,12 @@ function cambiarVista(seccion){
     const vista = $(seccion);
     if(vista) vista.classList.add("active-view");
 
-    setTimeout(redimensionarGraficos, 150);
+    setTimeout(() => {
+        if(seccion === "cumplimiento") renderCumplimientoMensual();
+        if(seccion === "metas") renderMetas();
+        if(seccion === "comparativo") renderComparativoAnual();
+        redimensionarGraficos();
+    }, 180);
 }
 
 function redimensionarGraficos(){
