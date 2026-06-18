@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260621");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260622");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -3228,22 +3228,26 @@ function aplicarAmbienteDashboard(ambiente){
 
     localStorage.setItem("dashboardAmbiente", valor);
 
-    const boton = $("btnTema");
-    if(boton){
+    const botones = [$("btnTema"), $("btnAmbiente")].filter(Boolean);
+
+    botones.forEach(boton => {
         const icono = boton.querySelector("i");
         boton.classList.toggle("ambient-active", valor !== "normal");
 
         if(valor === "ocean"){
             boton.title = "Ambiente visual: mar";
             if(icono) icono.className = "fas fa-water";
+            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-water"></i> Mar`;
         }else if(valor === "sunset"){
             boton.title = "Ambiente visual: atardecer";
             if(icono) icono.className = "fas fa-sun";
+            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-sun"></i> Atardecer`;
         }else{
             boton.title = "Ambiente visual: normal";
             if(icono) icono.className = "fas fa-circle-half-stroke";
+            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-water"></i> Ambiente`;
         }
-    }
+    });
 
     setTimeout(redimensionarGraficos, 180);
 }
@@ -3443,6 +3447,7 @@ $("btnRecargar")?.addEventListener("click", cargarDashboard);
 $("btnPdf")?.addEventListener("click", exportarPDF);
 $("btnExcel")?.addEventListener("click", exportarExcel);
 $("btnTema")?.addEventListener("click", alternarTema);
+$("btnAmbiente")?.addEventListener("click", alternarTema);
 $("btnSidebar")?.addEventListener("click", alternarSidebar);
 $("btnFull")?.addEventListener("click", pantallaCompleta);
 $("btnLogout")?.addEventListener("click", cerrarSesion);
