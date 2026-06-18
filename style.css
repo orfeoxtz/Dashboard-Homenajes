@@ -1,1018 +1,1428 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>General Report Jkfh | Dashboard Gerencial</title>
-
-<link rel="stylesheet" href="./style.css?v=20260620">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-</head>
-
-<body>
-
-<section id="accessPanel" class="access-panel">
-    <div class="access-card">
-        <h1>General Report Jkfh</h1>
-        <p>Acceso gerencial al dashboard</p>
-
-        <input type="email" id="accessEmail" placeholder="Correo autorizado">
-        <input type="password" id="accessCode" placeholder="Código de acceso">
-
-        <button id="btnAccess">Ingresar</button>
-        <small>Clave inicial: JKFH2026</small>
-    </div>
-</section>
-
-<div id="loadingOverlay" class="loading-overlay">
-    <div class="loader-card">
-        <div class="loader-spinner"></div>
-        <h3>Cargando dashboard</h3>
-        <p>Procesando información gerencial...</p>
-    </div>
-</div>
-
-<div id="toastContainer" class="toast-container"></div>
-
-<aside class="sidebar">
-    <div class="logo">
-        <img id="sidebarLogo" src="" alt="" class="sidebar-logo-img">
-        <h2 id="sidebarEmpresa">General Report</h2>
-        <h3>George Korfan</h3>
-        <p>Dashboard Gerencial</p>
-    </div>
-
-    <ul class="sidebar-menu">
-        <li class="sidebar-section-title">GENERAL</li>
-        <li class="menu-item active" data-seccion="dashboard"><i class="fas fa-home"></i> Dashboard</li>
-        <li class="menu-item" data-seccion="categorias"><i class="fas fa-layer-group"></i> Categorías</li>
-        <li class="menu-item" data-seccion="excedentes"><i class="fas fa-plus-circle"></i> Excedentes</li>
-        <li class="menu-item" data-seccion="gestores"><i class="fas fa-users"></i> Gestores</li>
-
-        <li class="sidebar-section-title">METAS</li>
-        <li class="menu-item" data-seccion="metas"><i class="fas fa-bullseye"></i> Metas</li>
-        <li class="menu-item" data-seccion="cumplimiento"><i class="fas fa-chart-line"></i> Cumplimiento</li>
-
-        <li class="sidebar-section-title">ANÁLISIS</li>
-        <li class="menu-item" data-seccion="comparativo"><i class="fas fa-scale-balanced"></i> Comparativo</li>
-        <li class="menu-item" data-seccion="pareto"><i class="fas fa-chart-pie"></i> Pareto 80/20</li>
-        <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas</li>
-        <li class="menu-item" data-seccion="tiempoAfiliado"><i class="fas fa-hourglass-half"></i> Tiempo afiliado</li>
-
-        <li class="sidebar-section-title">OPERACIÓN</li>
-        <li class="menu-item" data-seccion="energia"><i class="fas fa-bolt"></i> Energía eléctrica</li>
-        <li class="menu-item" data-seccion="vacaciones"><i class="fas fa-umbrella-beach"></i> Vacaciones</li>
-        <li class="menu-item" data-seccion="agenda"><i class="fas fa-calendar-check"></i> Agenda anual</li>
-
-        <li class="sidebar-section-title">CONTROL</li>
-        <li class="menu-item" data-seccion="datos"><i class="fas fa-database"></i> Datos</li>
-        <li class="menu-item" data-seccion="registroManual"><i class="fas fa-pen-to-square"></i> Registro Manual</li>
-        <li class="menu-item" data-seccion="reportes"><i class="fas fa-file-export"></i> Reportes</li>
-        <li class="menu-item" data-seccion="configuracion"><i class="fas fa-cogs"></i> Configuración</li>
-    </ul>
-</aside>
-
-<main class="main" id="panelExportar">
-
-<header class="topbar">
-    <div class="brand-head">
-        <img id="logoTopbar" src="" alt="" class="top-logo-img">
-        <div>
-            <h1 id="tituloDashboard">General Report Jkfh</h1>
-            <p id="subtituloDashboard">Dashboard gerencial de homenajes, metas, categorías y excedentes</p>
-        </div>
-    </div>
-
-    <div class="header-right">
-        <div class="estado-api cargando" id="estadoApi"><i class="fas fa-circle"></i> Conectando...</div>
-        <div class="ultima-act">Última actualización: <span id="ultimaActualizacion">-</span></div>
-
-        <div class="header-actions">
-            <button id="btnSidebar" class="icon-btn" title="Colapsar menú"><i class="fas fa-bars"></i></button>
-            <button id="btnTema" class="icon-btn" title="Modo oscuro"><i class="fas fa-moon"></i></button>
-            <button id="btnFull" class="icon-btn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
-            <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
-            <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
-            <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
-            <button id="btnLogout" class="danger-btn"><i class="fas fa-right-from-bracket"></i> Salir</button>
-        </div>
-    </div>
-</header>
-
-<section class="filtros">
-    <div class="quick-filters">
-        <button class="quick-btn" data-rango="hoy">Hoy</button>
-        <button class="quick-btn" data-rango="mes">Mes actual</button>
-        <button class="quick-btn" data-rango="trimestre">Trimestre</button>
-        <button class="quick-btn" data-rango="semestre">Semestre</button>
-        <button class="quick-btn" data-rango="anio">Año actual</button>
-    </div>
-
-    <div class="filtro-item">
-        <label>Fecha inicial</label>
-        <input type="date" id="fechaInicio">
-    </div>
-
-    <div class="filtro-item">
-        <label>Fecha final</label>
-        <input type="date" id="fechaFin">
-    </div>
-
-    <div class="filtro-item">
-        <label>Gestor</label>
-        <select id="filtroGestor"><option value="">Todos</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Categoría</label>
-        <select id="filtroCategoria">
-            <option value="">Todas</option>
-            <option value="PARTICULAR">PARTICULAR</option>
-            <option value="RED">RED</option>
-            <option value="EXCEDENTES">EXCEDENTES</option>
-            <option value="PLAN">PLAN</option>
-        </select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Excedente / Servicio</label>
-        <select id="filtroServicio"><option value="">Todos</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Sede</label>
-        <select id="filtroSede"><option value="">Todas</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Año</label>
-        <select id="filtroAnio"><option value="">Todos</option></select>
-    </div>
-
-    <div class="filtro-item">
-        <label>Mes</label>
-        <select id="filtroMes">
-            <option value="">Todos</option>
-            <option value="1">Enero</option>
-            <option value="2">Febrero</option>
-            <option value="3">Marzo</option>
-            <option value="4">Abril</option>
-            <option value="5">Mayo</option>
-            <option value="6">Junio</option>
-            <option value="7">Julio</option>
-            <option value="8">Agosto</option>
-            <option value="9">Septiembre</option>
-            <option value="10">Octubre</option>
-            <option value="11">Noviembre</option>
-            <option value="12">Diciembre</option>
-        </select>
-    </div>
-
-    <div class="filtro-item filtro-grow">
-        <label>Búsqueda general</label>
-        <input type="text" id="busquedaGeneral" placeholder="Gestor, sede, categoría, servicio u observación">
-    </div>
-
-    <div class="filtro-item">
-        <button id="btnFiltrar">Filtrar</button>
-    </div>
-
-    <div class="filtro-item">
-        <button id="btnLimpiar" class="btn-secundario">Limpiar</button>
-    </div>
-</section>
-
-<section id="dashboard" class="vista active-view">
-    <section class="resumen-ejecutivo">
-        <h2>Resumen Ejecutivo</h2>
-        <p id="resumenEjecutivoTexto">Cargando análisis gerencial...</p>
-    </section>
-
-    <section class="kpis">
-        <div class="card">
-            <span class="card-icon green"><i class="fas fa-flag-checkered"></i></span>
-            <h3>Meta del Rango</h3>
-            <h2 id="metaGrupal">$0</h2>
-            <p class="mini-text" id="metaRangoDetalle">-</p>
-        </div>
-
-        <div class="card">
-            <span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span>
-            <h3>Ventas Acumuladas</h3>
-            <h2 id="ventas">$0</h2>
-            <p class="mini-text">Particular + Red + Excedentes</p>
-        </div>
-
-        <div class="card">
-            <span class="card-icon violet"><i class="fas fa-percent"></i></span>
-            <h3>Cumplimiento</h3>
-            <h2 id="cumplimiento">0%</h2>
-            <p class="mini-text" id="estadoCumplimientoTexto">Sin datos</p>
-        </div>
-
-        <div class="card">
-            <span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span>
-            <h3>Faltante</h3>
-            <h2 id="faltante">$0</h2>
-            <p class="mini-text">Para cumplir meta</p>
-        </div>
-
-        <div class="card">
-            <span class="card-icon amber"><i class="fas fa-chart-simple"></i></span>
-            <h3>Proyección</h3>
-            <h2 id="proyeccion">$0</h2>
-            <p class="mini-text">Ritmo actual</p>
-        </div>
-    </section>
-
-    <section class="kpis-secundarios categoria-kpis">
-        <div class="card card-categoria particular">
-            <h3>🧾 Particular</h3>
-            <h2 id="kpiParticularValor">$0</h2>
-            <p class="mini-text" id="kpiParticularCantidad">0 homenajes atendidos | 0%</p>
-        </div>
-
-        <div class="card card-categoria red">
-            <h3>🌐 Red</h3>
-            <h2 id="kpiRedValor">$0</h2>
-            <p class="mini-text" id="kpiRedCantidad">0 homenajes atendidos | 0%</p>
-        </div>
-
-        <div class="card card-categoria excedentes">
-            <h3>➕ Excedentes</h3>
-            <h2 id="kpiExcedentesValor">$0</h2>
-            <p class="mini-text" id="kpiExcedentesCantidad">0 unidades | 0%</p>
-        </div>
-
-        <div class="card card-categoria plan">
-            <h3>📋 Plan</h3>
-            <h2 id="kpiPlanCantidad">0</h2>
-            <p class="mini-text">Cantidad atendida | No suma ventas</p>
-        </div>
-    </section>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>📅 Meta Mensual</h3><h2 id="metaMensual">$0</h2></div>
-        <div class="card"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
-        <div class="card"><h3>⏱ Meses Equiv.</h3><h2 id="mesesEquivalentes">0</h2></div>
-        <div class="card"><h3>📈 Promedio Diario</h3><h2 id="promedioDiarioReal">$0</h2></div>
-        <div class="card"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
-        <div class="card"><h3>📊 Registros</h3><h2 id="totalRegistros">0</h2></div>
-        <div class="card"><h3>🔐 Calidad Datos</h3><h2 id="kpiCalidadDatos">0%</h2></div>
-    </section>
-
-    <section class="graficos">
-        <div class="grafico-card">
-            <h3>Meta del Rango vs Venta Real</h3>
-            <canvas id="graficoMetaReal"></canvas>
-        </div>
-
-        <div class="grafico-card">
-            <h3>Participación por Categoría</h3>
-            <canvas id="graficoCategoriasDashboard"></canvas>
-        </div>
-
-        <div class="grafico-card grafico-ancho">
-            <h3>Ventas Mensuales vs Meta Mensual</h3>
-            <canvas id="graficoMensual"></canvas>
-        </div>
-    </section>
-
-    <section class="tabla-cumplimiento">
-        <h2>Tabla Gerencial Consolidada</h2>
-        <table id="tablaConsolidada">
-            <thead>
-                <tr>
-                    <th>Periodo</th>
-                    <th>Meta</th>
-                    <th>Venta Real</th>
-                    <th>%</th>
-                    <th>Faltante</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </section>
-</section>
-
-<section id="categorias" class="vista">
-    <h1 class="vista-titulo">Categorías Gerenciales</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Regla aplicada</h2>
-        <p>PARTICULAR, RED y EXCEDENTES generan ventas. PLAN solo cuenta cantidad atendida y no suma para la meta.</p>
-    </section>
-
-    <div class="grafico-card grafico-full">
-        <h3>Categorías que generan ventas</h3>
-        <canvas id="graficoCategoriasVista"></canvas>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de Categorías</h2>
-        <table id="tablaCategoriasVista">
-            <thead>
-                <tr>
-                    <th>Categoría</th>
-                    <th>Tipo</th>
-                    <th>Cantidad atendida</th>
-                    <th>Ventas generadas</th>
-                    <th>Participación</th>
-                    <th>Meta</th>
-                    <th>Cumplimiento</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <section class="graficos">
-        <div class="grafico-card grafico-full">
-            <h3>Particulares por tipo de servicio</h3>
-            <canvas id="graficoParticularesDetalle"></canvas>
-        </div>
-
-        <div class="grafico-card grafico-full">
-            <h3>Clínicas que más reportan homenajes</h3>
-            <canvas id="graficoClinicas"></canvas>
-        </div>
-    </section>
-
-    <div class="tabla-cumplimiento">
-        <h2>Detalle de particulares</h2>
-        <table id="tablaParticularesDetalle">
-            <thead>
-                <tr>
-                    <th>Tipo particular</th>
-                    <th>Cantidad</th>
-                    <th>Venta</th>
-                    <th>Participación</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Clínicas que más reportan homenajes</h2>
-        <table id="tablaClinicas">
-            <thead>
-                <tr>
-                    <th>Clínica</th>
-                    <th>Reportes</th>
-                    <th>Venta asociada</th>
-                    <th>Participación</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="excedentes" class="vista">
-    <h1 class="vista-titulo">Excedentes</h1>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>Total Excedentes</h3><h2 id="vistaExcedentesValor">$0</h2></div>
-        <div class="card"><h3>Cantidad Excedentes</h3><h2 id="vistaExcedentesCantidad">0</h2></div>
-        <div class="card"><h3>Meta Excedentes</h3><h2 id="vistaExcedentesMeta">$0</h2></div>
-        <div class="card"><h3>Cumplimiento Excedentes</h3><h2 id="vistaExcedentesCumplimiento">0%</h2></div>
-    </section>
-
-    <div class="grafico-card grafico-full">
-        <h3>Excedentes por valor vendido</h3>
-        <canvas id="graficoExcedentes"></canvas>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Metas por Excedente</h2>
-        <table id="tablaExcedentesVista">
-            <thead>
-                <tr>
-                    <th>Excedente</th>
-                    <th>Meta</th>
-                    <th>Cantidad</th>
-                    <th>Venta</th>
-                    <th>%</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="gestores" class="vista">
-    <h1 class="vista-titulo">Gestores</h1>
-
-    <div class="grafico-card grafico-full">
-        <h3>Ranking de gestores</h3>
-        <canvas id="graficoGestores"></canvas>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Metas por Gestor</h2>
-        <table id="tablaGestoresVista">
-            <thead>
-                <tr>
-                    <th>Gestor</th>
-                    <th>Meta</th>
-                    <th>Cantidad</th>
-                    <th>Venta</th>
-                    <th>%</th>
-                    <th>Faltante</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="metas" class="vista">
-    <h1 class="vista-titulo">Metas</h1>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>Meta Particular</h3><h2 id="metaParticularVista">$0</h2></div>
-        <div class="card"><h3>Meta Red</h3><h2 id="metaRedVista">$0</h2></div>
-        <div class="card"><h3>Meta Excedentes</h3><h2 id="metaExcedentesVista">$0</h2></div>
-        <div class="card"><h3>Meta Mensual Total</h3><h2 id="metaMensualVista">$0</h2></div>
-    </section>
-
-    <div class="grafico-card grafico-full">
-        <h3>Meta acumulada por meses</h3>
-        <canvas id="graficoMetas"></canvas>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Metas por Categoría</h2>
-        <table id="tablaMetasCategoria">
-            <thead>
-                <tr>
-                    <th>Categoría</th>
-                    <th>Meta</th>
-                    <th>Venta</th>
-                    <th>%</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="cumplimiento" class="vista">
-    <h1 class="vista-titulo">Cumplimiento</h1>
-
-    <div class="grafico-card grafico-full">
-        <h3>Cumplimiento mensual</h3>
-        <canvas id="graficoCumplimientoMensual"></canvas>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Detalle mensual</h2>
-        <table id="tablaCumplimientoMensual">
-            <thead>
-                <tr>
-                    <th>Mes</th>
-                    <th>Meta</th>
-                    <th>Venta</th>
-                    <th>%</th>
-                    <th>Faltante</th>
-                    <th>Estado</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="comparativo" class="vista">
-    <h1 class="vista-titulo">Comparativo Año Actual vs Anterior</h1>
-
-    <div class="grafico-card grafico-full">
-        <h3>Comparativo mensual</h3>
-        <canvas id="graficoComparativoAnual"></canvas>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Detalle comparativo</h2>
-        <table id="tablaComparativoAnual">
-            <thead>
-                <tr>
-                    <th>Mes</th>
-                    <th>Año Actual</th>
-                    <th>Año Anterior</th>
-                    <th>Diferencia</th>
-                    <th>Crecimiento</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="pareto" class="vista">
-    <h1 class="vista-titulo">Pareto 80/20</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Lectura Gerencial</h2>
-        <p id="textoPareto">Cargando análisis Pareto...</p>
-    </section>
-
-    <div class="grafico-card grafico-full">
-        <h3>Pareto por Gestor</h3>
-        <canvas id="graficoParetoGestores"></canvas>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Pareto Gestores</h2>
-        <table id="tablaParetoGestores">
-            <thead>
-                <tr>
-                    <th>Gestor</th>
-                    <th>Venta</th>
-                    <th>Participación</th>
-                    <th>Acumulado</th>
-                    <th>Clasificación</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="alertas" class="vista">
-    <h1 class="vista-titulo">Alertas Gerenciales</h1>
-    <div id="alertasGerencialesVista" class="alertas-box card-big">
-        <p>Sin alertas por el momento.</p>
-    </div>
-</section>
-
-<section id="energia" class="vista">
-    <h1 class="vista-titulo">Consumo Energía Eléctrica Homenajes</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Lectura operativa</h2>
-        <p id="textoEnergia">Comparativo anual del consumo eléctrico del área de homenajes, con seguimiento mensual de kWh, costo y variación frente al año anterior.</p>
-    </section>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>⚡ Consumo año actual</h3><h2 id="kpiEnergiaKwh">0 kWh</h2></div>
-        <div class="card"><h3>💰 Costo año actual</h3><h2 id="kpiEnergiaCosto">$0</h2></div>
-        <div class="card"><h3>📊 Promedio mensual</h3><h2 id="kpiEnergiaPromedio">0 kWh</h2></div>
-        <div class="card"><h3>🔁 Variación anual</h3><h2 id="kpiEnergiaVariacion">0%</h2></div>
-    </section>
-
-    <section class="graficos">
-        <div class="grafico-card grafico-full">
-            <h3>Comparativo mensual de consumo kWh</h3>
-            <canvas id="graficoEnergiaComparativo"></canvas>
-        </div>
-
-        <div class="grafico-card grafico-full">
-            <h3>Costo mensual de energía</h3>
-            <canvas id="graficoEnergiaCosto"></canvas>
-        </div>
-    </section>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Registrar consumo</h2>
-            <p>Agrega el consumo mensual de energía del área de homenajes. La información queda guardada localmente en este navegador.</p>
-            <input type="number" id="energiaAnio" placeholder="Año, ejemplo 2026">
-            <select id="energiaMes">
-                <option value="">Mes</option>
-                <option value="1">Enero</option>
-                <option value="2">Febrero</option>
-                <option value="3">Marzo</option>
-                <option value="4">Abril</option>
-                <option value="5">Mayo</option>
-                <option value="6">Junio</option>
-                <option value="7">Julio</option>
-                <option value="8">Agosto</option>
-                <option value="9">Septiembre</option>
-                <option value="10">Octubre</option>
-                <option value="11">Noviembre</option>
-                <option value="12">Diciembre</option>
-            </select>
-            <input type="number" id="energiaKwh" placeholder="Consumo kWh">
-            <input type="number" id="energiaCosto" placeholder="Valor factura">
-            <input type="text" id="energiaObservacion" placeholder="Observación">
-            <button id="btnAgregarEnergia" class="action-btn">Agregar consumo</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Control de datos</h2>
-            <p>Úsalo solo si deseas borrar los consumos manuales guardados en esta sección.</p>
-            <button id="btnLimpiarEnergia" class="danger-btn">Eliminar consumos de energía</button>
-        </div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Detalle mensual energía</h2>
-        <table id="tablaEnergia">
-            <thead>
-                <tr>
-                    <th>Año</th>
-                    <th>Mes</th>
-                    <th>kWh</th>
-                    <th>Costo</th>
-                    <th>Costo/kWh</th>
-                    <th>Observación</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="vacaciones" class="vista">
-    <h1 class="vista-titulo">Vacaciones del Personal</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Control de vencimientos</h2>
-        <p id="textoVacaciones">Seguimiento del personal con vacaciones vencidas, programadas, pendientes y vacaciones ya otorgadas.</p>
-    </section>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>🚨 Vencidas</h3><h2 id="kpiVacacionesVencidas">0</h2></div>
-        <div class="card"><h3>🗓 Programadas</h3><h2 id="kpiVacacionesProgramadas">0</h2></div>
-        <div class="card"><h3>✅ Disfrutadas</h3><h2 id="kpiVacacionesDisfrutadas">0</h2></div>
-        <div class="card"><h3>⏳ Pendientes</h3><h2 id="kpiVacacionesPendientes">0</h2></div>
-    </section>
-
-    <div class="grafico-card grafico-full">
-        <h3>Estado de vacaciones del equipo</h3>
-        <canvas id="graficoVacacionesEstado"></canvas>
-    </div>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Registrar vacaciones</h2>
-            <p>Ingresa o actualiza el estado de vacaciones de cada colaborador.</p>
-            <input type="text" id="vacNombre" placeholder="Nombre del colaborador">
-            <input type="text" id="vacCargo" placeholder="Cargo / área">
-            <input type="date" id="vacFechaBase" title="Fecha de ingreso o último periodo causado">
-            <select id="vacEstado">
-                <option value="">Estado</option>
-                <option value="VENCIDA">VENCIDA</option>
-                <option value="PENDIENTE">PENDIENTE</option>
-                <option value="PROGRAMADA">PROGRAMADA</option>
-                <option value="DISFRUTADA">DISFRUTADA</option>
-            </select>
-            <input type="date" id="vacInicio" title="Inicio vacaciones">
-            <input type="date" id="vacFin" title="Fin vacaciones">
-            <input type="number" id="vacDias" placeholder="Días otorgados">
-            <button id="btnAgregarVacacion" class="action-btn">Agregar / actualizar</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Control de datos</h2>
-            <p>Elimina los registros locales de vacaciones si necesitas cargar una base nueva.</p>
-            <button id="btnLimpiarVacaciones" class="danger-btn">Eliminar vacaciones</button>
-        </div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Detalle vacaciones personal</h2>
-        <table id="tablaVacaciones">
-            <thead>
-                <tr>
-                    <th>Colaborador</th>
-                    <th>Cargo</th>
-                    <th>Fecha base</th>
-                    <th>Inicio</th>
-                    <th>Fin</th>
-                    <th>Días</th>
-                    <th>Estado</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="agenda" class="vista">
-    <h1 class="vista-titulo">Agenda Interna Anual</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Actividades por cumplir</h2>
-        <p id="textoAgenda">Calendario interno para visualizar actividades diarias, mensuales, anuales, pendientes y finiquitadas.</p>
-    </section>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>📌 Pendientes</h3><h2 id="kpiAgendaPendientes">0</h2></div>
-        <div class="card"><h3>✅ Finiquitadas</h3><h2 id="kpiAgendaFiniquitadas">0</h2></div>
-        <div class="card"><h3>📅 Actividades hoy</h3><h2 id="kpiAgendaHoy">0</h2></div>
-        <div class="card"><h3>🗓 Actividades mes</h3><h2 id="kpiAgendaMes">0</h2></div>
-    </section>
-
-    <div class="agenda-layout">
-        <div class="card-big agenda-panel">
-            <div class="agenda-header">
-                <button id="btnAgendaAnterior" class="btn-secundario"><i class="fas fa-chevron-left"></i></button>
-                <h3 id="agendaMesTitulo">Mes</h3>
-                <button id="btnAgendaSiguiente" class="btn-secundario"><i class="fas fa-chevron-right"></i></button>
-            </div>
-            <div id="agendaCalendario" class="agenda-calendar"></div>
-        </div>
-
-        <div class="card-big agenda-panel">
-            <h3>Actividades del periodo</h3>
-            <div id="agendaLista" class="agenda-lista"></div>
-        </div>
-    </div>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Nueva actividad</h2>
-            <p>Registra actividades diarias, mensuales o anuales y marca su cumplimiento.</p>
-            <input type="date" id="actFecha">
-            <input type="time" id="actHora" value="08:00">
-            <input type="text" id="actTitulo" placeholder="Actividad">
-            <select id="actFrecuencia">
-                <option value="">Frecuencia</option>
-                <option value="DIARIA">DIARIA</option>
-                <option value="MENSUAL">MENSUAL</option>
-                <option value="ANUAL">ANUAL</option>
-                <option value="UNICA">ÚNICA</option>
-            </select>
-            <select id="actEstado">
-                <option value="PENDIENTE">PENDIENTE</option>
-                <option value="EN PROCESO">EN PROCESO</option>
-                <option value="CUMPLIDA">CUMPLIDA</option>
-                <option value="FINIQUITADA">FINIQUITADA</option>
-            </select>
-            <input type="text" id="actResponsable" placeholder="Responsable">
-            <textarea id="actDetalle" placeholder="Detalle u observación"></textarea>
-            <button id="btnAgregarActividad" class="action-btn">Agregar actividad</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Control de datos</h2>
-            <p>Elimina la agenda local si necesitas reiniciar la programación anual.</p>
-            <button id="btnLimpiarAgenda" class="danger-btn">Eliminar agenda</button>
-        </div>
-    </div>
-
-    <div class="card-big agenda-day-detail">
-        <div class="agenda-header">
-            <h3 id="agendaDiaTitulo">Agenda diaria</h3>
-            <span class="mini-text">Haz clic en un día del calendario para ver la agenda completa por horas.</span>
-        </div>
-        <div id="agendaDiaHoras" class="agenda-hours"></div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Listado general de actividades</h2>
-        <table id="tablaAgenda">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Hora</th>
-                    <th>Actividad</th>
-                    <th>Frecuencia</th>
-                    <th>Responsable</th>
-                    <th>Estado</th>
-                    <th>Detalle</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="tiempoAfiliado" class="vista">
-    <h1 class="vista-titulo">Tiempo Vivo Estando Afiliado</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Análisis de permanencia</h2>
-        <p id="textoTiempoAfiliado">Control para identificar cuántos días, meses o años permaneció afiliado un ser querido antes de fallecer.</p>
-    </section>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>👥 Casos registrados</h3><h2 id="kpiAfiliadoCasos">0</h2></div>
-        <div class="card"><h3>📆 Promedio</h3><h2 id="kpiAfiliadoPromedio">0 días</h2></div>
-        <div class="card"><h3>⏳ Menor tiempo</h3><h2 id="kpiAfiliadoMenor">-</h2></div>
-        <div class="card"><h3>🏆 Mayor tiempo</h3><h2 id="kpiAfiliadoMayor">-</h2></div>
-    </section>
-
-    <div class="grafico-card grafico-full">
-        <h3>Distribución por tiempo afiliado</h3>
-        <canvas id="graficoTiempoAfiliado"></canvas>
-    </div>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Registrar caso</h2>
-            <p>Ingresa la fecha de afiliación y la fecha de fallecimiento. El dashboard calculará automáticamente el tiempo vivo estando afiliado.</p>
-            <input type="text" id="afiFallecido" placeholder="Nombre del ser querido">
-            <input type="text" id="afiContrato" placeholder="Contrato / plan / documento">
-            <input type="text" id="afiSede" placeholder="Sede">
-            <label class="input-label">Fecha de afiliación</label>
-            <input type="date" id="afiFechaAfiliacion">
-            <label class="input-label">Fecha de fallecimiento</label>
-            <input type="date" id="afiFechaFallecimiento">
-            <input type="text" id="afiObservacion" placeholder="Observación">
-            <button id="btnAgregarAfiliado" class="action-btn">Agregar caso</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Control de datos</h2>
-            <p>Elimina los registros locales de esta sección si deseas cargar nuevamente la información.</p>
-            <button id="btnLimpiarAfiliados" class="danger-btn">Eliminar casos registrados</button>
-        </div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Detalle tiempo vivo estando afiliado</h2>
-        <table id="tablaTiempoAfiliado">
-            <thead>
-                <tr>
-                    <th>Ser querido</th>
-                    <th>Contrato / plan</th>
-                    <th>Sede</th>
-                    <th>Afiliación</th>
-                    <th>Fallecimiento</th>
-                    <th>Tiempo</th>
-                    <th>Días</th>
-                    <th>Clasificación</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="datos" class="vista">
-    <h1 class="vista-titulo">Datos y Diagnóstico</h1>
-
-    <section class="kpis-secundarios">
-        <div class="card"><h3>Estado API</h3><h2 id="diagEstadoApi">-</h2></div>
-        <div class="card"><h3>Registros API</h3><h2 id="diagTotalApi">0</h2></div>
-        <div class="card"><h3>Registros Manuales</h3><h2 id="diagManual">0</h2></div>
-        <div class="card"><h3>Filtrados</h3><h2 id="diagFiltrados">0</h2></div>
-        <div class="card"><h3>Fechas Inválidas</h3><h2 id="diagFechasInvalidas">0</h2></div>
-        <div class="card"><h3>Valores Cero</h3><h2 id="diagValoresCero">0</h2></div>
-        <div class="card"><h3>Calidad</h3><h2 id="diagCalidad">0%</h2></div>
-    </section>
-
-    <div class="tabla-cumplimiento">
-        <h2>Parámetros detectados desde Google Sheets</h2>
-        <table id="tablaParametros">
-            <thead>
-                <tr>
-                    <th>Tipo</th>
-                    <th>Nombre</th>
-                    <th>Valor mensual</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Vista previa de datos</h2>
-        <table id="tablaBaseDatos">
-            <thead>
-                <tr>
-                    <th>Origen</th>
-                    <th>Fecha</th>
-                    <th>Gestor</th>
-                    <th>Categoría</th>
-                    <th>Servicio</th>
-                    <th>Sede</th>
-                    <th>Valor venta</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="registroManual" class="vista">
-    <h1 class="vista-titulo">Registro Manual</h1>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Nuevo registro</h2>
-            <p>Se guarda localmente en el navegador y se suma al dashboard.</p>
-
-            <input type="date" id="regFecha">
-            <input type="text" id="regGestor" placeholder="Gestor">
-            <select id="regCategoria">
-                <option value="">Categoría</option>
-                <option value="PARTICULAR">PARTICULAR</option>
-                <option value="RED">RED</option>
-                <option value="PLAN">PLAN</option>
-                <option value="EXCEDENTES">EXCEDENTES</option>
-            </select>
-            <input type="text" id="regServicio" placeholder="Servicio / Excedente">
-            <input type="text" id="regSede" placeholder="Sede">
-            <input type="number" id="regValor" placeholder="Valor">
-            <input type="text" id="regObservacion" placeholder="Observación">
-
-            <button id="btnAgregarRegistro" class="action-btn">Agregar Registro</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Control</h2>
-            <p>Elimina todos los registros manuales guardados localmente.</p>
-            <button id="btnEliminarManuales" class="danger-btn">Eliminar Registros Manuales</button>
-        </div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Registros manuales</h2>
-        <table id="tablaRegistrosManuales">
-            <thead>
-                <tr>
-                    <th>Fecha</th>
-                    <th>Gestor</th>
-                    <th>Categoría</th>
-                    <th>Servicio</th>
-                    <th>Sede</th>
-                    <th>Valor</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="reportes" class="vista">
-    <h1 class="vista-titulo">Reportes</h1>
-
-    <div class="reportes-grid">
-        <button class="reporte-btn" id="reporteExcelResumen"><i class="fas fa-file-excel"></i> Exportar Excel</button>
-        <button class="reporte-btn" id="reportePdfGeneral"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
-        <button class="reporte-btn" id="reporteCsv"><i class="fas fa-file-csv"></i> Exportar CSV</button>
-        <button class="reporte-btn" id="reporteJson"><i class="fas fa-code"></i> Backup JSON</button>
-        <button class="reporte-btn" id="reporteRecargar"><i class="fas fa-rotate"></i> Actualizar</button>
-        <button class="reporte-btn danger-report" id="reporteLimpiarCache"><i class="fas fa-broom"></i> Limpiar Caché</button>
-    </div>
-
-    <div class="card-big">
-        <h3>Estado del Reporte</h3>
-        <p id="estadoReporte">Listo para generar reportes.</p>
-    </div>
-</section>
-
-<section id="configuracion" class="vista">
-    <h1 class="vista-titulo">Configuración</h1>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Meta mensual base</h2>
-            <p>Si la hoja trae META_CATEGORIA, el sistema usa automáticamente la suma de PARTICULAR + RED + EXCEDENTES.</p>
-            <input type="number" id="configMetaMensual" placeholder="219133881">
-            <button id="btnGuardarMeta" class="action-btn">Guardar Meta</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Identidad</h2>
-            <input type="text" id="configTitulo" placeholder="Título del dashboard">
-            <input type="text" id="configSubtitulo" placeholder="Subtítulo">
-            <input type="text" id="configEmpresa" placeholder="Empresa">
-            <input type="text" id="configArea" placeholder="Área">
-            <input type="text" id="configResponsable" placeholder="Responsable">
-            <input type="text" id="configLogoUrl" placeholder="URL del logo">
-            <button id="btnGuardarConfigVisual" class="action-btn">Guardar Identidad</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Acceso</h2>
-            <input type="text" id="configAccessCode" placeholder="Código de acceso">
-            <textarea id="configEmails" placeholder="correos autorizados separados por coma"></textarea>
-            <button id="btnGuardarAccess" class="action-btn">Guardar Acceso</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Parámetros manuales</h2>
-            <p>Solo úsalo si Google Sheets no trae Tipo, Nombre y Valor.</p>
-            <textarea id="configMetasManual" placeholder="META_CATEGORIA|PARTICULAR|69090369&#10;META_CATEGORIA|RED|127371072&#10;META_CATEGORIA|EXCEDENTES|22672440"></textarea>
-            <button id="btnGuardarParametrosManual" class="action-btn">Guardar Parámetros</button>
-        </div>
-    </div>
-</section>
-
-<div id="reporteFormal" class="print-report"></div>
-
-</main>
-
-<script src="./app.js?v=20260620"></script>
-</body>
-</html>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Inter,'Segoe UI',system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+}
+
+:root{
+    --bg:#e9eef5;
+    --bg-card:#ffffff;
+    --text:#0f172a;
+    --muted:#64748b;
+    --green:#008f46;
+    --green-dark:#004f2a;
+    --green-vivid:#00c853;
+    --green-deep:#003f22;
+    --blue:#2563eb;
+    --violet:#7c3aed;
+    --amber:#f59e0b;
+    --red:#ef4444;
+    --cyan:#06b6d4;
+    --border:rgba(15,23,42,.08);
+    --shadow:0 16px 38px rgba(15,23,42,.12);
+    --shadow-soft:0 8px 20px rgba(15,23,42,.08);
+}
+
+body{
+    min-height:100vh;
+    background:
+        radial-gradient(circle at top left, rgba(0,143,70,.14), transparent 30%),
+        radial-gradient(circle at top right, rgba(37,99,235,.08), transparent 25%),
+        linear-gradient(180deg,#f8fbff 0%,var(--bg) 100%);
+    display:flex;
+    color:var(--text);
+    overflow-x:hidden;
+}
+
+body::before,
+body::after{
+    content:"";
+    position:fixed;
+    width:230px;
+    height:230px;
+    pointer-events:none;
+    z-index:0;
+    opacity:.72;
+    background:
+        radial-gradient(circle at 18% 22%, rgba(255,255,255,.95) 0 1px, transparent 2px),
+        radial-gradient(circle at 42% 14%, rgba(0,200,83,.65) 0 1.5px, transparent 3px),
+        radial-gradient(circle at 72% 32%, rgba(255,255,255,.90) 0 1px, transparent 2.5px),
+        radial-gradient(circle at 28% 68%, rgba(0,143,70,.55) 0 1px, transparent 2.5px),
+        radial-gradient(circle at 78% 78%, rgba(255,255,255,.85) 0 1.5px, transparent 3px);
+    filter:drop-shadow(0 0 8px rgba(0,200,83,.30));
+    animation:dashboardSparkle 4.8s ease-in-out infinite alternate;
+}
+
+body::before{
+    top:88px;
+    right:18px;
+}
+
+body::after{
+    bottom:22px;
+    left:232px;
+    transform:rotate(180deg);
+    animation-delay:1.2s;
+}
+
+@keyframes dashboardSparkle{
+    0%{opacity:.28; transform:translateY(0) scale(.98);}
+    45%{opacity:.82;}
+    100%{opacity:.48; transform:translateY(-8px) scale(1.03);}
+}
+
+body.dark-mode{
+    --bg:#0f172a;
+    --bg-card:#111827;
+    --text:#e5e7eb;
+    --muted:#94a3b8;
+    background:
+        radial-gradient(circle at top left, rgba(0,200,83,.16), transparent 30%),
+        radial-gradient(circle at top right, rgba(37,99,235,.13), transparent 25%),
+        linear-gradient(180deg,#0b1220 0%,#111827 100%);
+}
+
+.access-panel{
+    position:fixed;
+    inset:0;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(0,200,83,.28), transparent 34%),
+        linear-gradient(135deg,var(--green-dark) 0%,#07131f 100%);
+    z-index:9999;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+}
+
+.access-panel.hidden{
+    display:none;
+}
+
+.access-card{
+    background:#fff;
+    border-radius:24px;
+    padding:32px;
+    width:min(430px,100%);
+    box-shadow:0 24px 70px rgba(0,0,0,.25);
+    text-align:center;
+}
+
+.access-card h1{
+    color:var(--green-dark);
+    font-size:28px;
+    font-weight:900;
+    margin-bottom:8px;
+}
+
+.access-card p{
+    color:#475569;
+    margin-bottom:18px;
+    font-weight:700;
+}
+
+.access-card input{
+    width:100%;
+    padding:13px 15px;
+    border:1px solid #cbd5e1;
+    border-radius:13px;
+    outline:none;
+    margin-bottom:12px;
+    font-size:14px;
+}
+
+.access-card button{
+    width:100%;
+    border:none;
+    border-radius:13px;
+    background:linear-gradient(135deg,var(--green-dark) 0%,var(--green-vivid) 100%);
+    color:#fff;
+    padding:13px;
+    font-weight:900;
+    cursor:pointer;
+    margin-bottom:10px;
+}
+
+.access-card small{
+    color:#64748b;
+    font-weight:700;
+}
+
+.loading-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(15,23,42,.40);
+    backdrop-filter:blur(8px);
+    z-index:8000;
+    display:none;
+    align-items:center;
+    justify-content:center;
+}
+
+.loading-overlay.show{
+    display:flex;
+}
+
+.loader-card{
+    background:#fff;
+    padding:28px;
+    border-radius:22px;
+    text-align:center;
+    width:min(330px,90%);
+    box-shadow:0 24px 70px rgba(0,0,0,.25);
+}
+
+.loader-spinner{
+    width:52px;
+    height:52px;
+    border-radius:999px;
+    border:6px solid #e2e8f0;
+    border-top-color:var(--green);
+    margin:0 auto 16px;
+    animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+    to{transform:rotate(360deg);}
+}
+
+.toast-container{
+    position:fixed;
+    right:18px;
+    bottom:18px;
+    z-index:9000;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+}
+
+.toast{
+    background:#0f172a;
+    color:#fff;
+    border-left:5px solid var(--green);
+    padding:13px 15px;
+    border-radius:13px;
+    box-shadow:0 14px 34px rgba(15,23,42,.22);
+    min-width:260px;
+    font-weight:800;
+}
+
+.toast.error{border-left-color:#ef4444;}
+.toast.warning{border-left-color:#f59e0b;}
+
+.sidebar{
+    width:205px;
+    min-height:100vh;
+    position:fixed;
+    left:0;
+    top:0;
+    background:
+        radial-gradient(circle at top left, rgba(0,200,83,.25), transparent 32%),
+        linear-gradient(180deg,#008542 0%,#006332 46%,#003f22 100%);
+    color:#fff;
+    padding:9px 7px;
+    box-shadow:18px 0 42px rgba(15,23,42,.18);
+    overflow:hidden;
+    z-index:20;
+    transition:.25s ease;
+}
+
+.logo{
+    text-align:center;
+    padding:7px 6px 9px;
+    margin-bottom:6px;
+    border-bottom:1px solid rgba(255,255,255,.20);
+}
+
+.sidebar-logo-img{
+    display:none;
+    width:56px;
+    height:56px;
+    object-fit:contain;
+    margin:0 auto 8px;
+    border-radius:14px;
+    background:rgba(255,255,255,.14);
+    padding:5px;
+}
+
+.logo h2{
+    font-size:14px;
+    font-weight:900;
+    line-height:1.05;
+}
+
+.logo h3{
+    font-size:10px;
+    font-weight:800;
+    margin-top:4px;
+}
+
+.logo p{
+    font-size:8.5px;
+    margin-top:5px;
+    opacity:.9;
+}
+
+.sidebar-menu{
+    list-style:none;
+    max-height:calc(100vh - 84px);
+    overflow-y:auto;
+    padding-right:4px;
+}
+
+.sidebar-menu::-webkit-scrollbar{
+    width:5px;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb{
+    background:rgba(255,255,255,.35);
+    border-radius:999px;
+}
+
+.sidebar-section-title{
+    font-size:8.2px;
+    font-weight:900;
+    opacity:.95;
+    letter-spacing:.75px;
+    padding:7px 8px 5px;
+    text-transform:uppercase;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-radius:9px;
+    margin:5px 0 3px;
+    color:rgba(255,255,255,.82);
+    background:rgba(255,255,255,.08);
+    transition:.2s ease;
+    user-select:none;
+}
+
+.sidebar-section-title:hover{
+    background:rgba(255,255,255,.14);
+    color:#ffffff;
+}
+
+.sidebar-section-title::after{
+    content:"▾";
+    font-size:9px;
+    line-height:1;
+    opacity:.9;
+    transition:.2s ease;
+}
+
+.sidebar-section-title.section-collapsed::after{
+    transform:rotate(-90deg);
+}
+
+.sidebar li.menu-item{
+    padding:6.5px 8px;
+    margin-bottom:2px;
+    border-radius:9px;
+    font-size:10px;
+    line-height:1.15;
+    cursor:pointer;
+    transition:.22s ease;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    color:#f8fffb;
+    border:1px solid transparent;
+}
+
+.sidebar li.menu-item.menu-hidden{
+    display:none;
+}
+
+.sidebar li.menu-item:hover{
+    background:rgba(255,255,255,.14);
+    border-color:rgba(255,255,255,.12);
+    transform:translateX(2px);
+}
+
+.sidebar i{
+    width:14px;
+    text-align:center;
+    font-size:11px;
+}
+
+.menu-item.active{
+    background:linear-gradient(135deg,#ffffff 0%,#eafff3 100%);
+    color:var(--green-dark) !important;
+    font-weight:900;
+    box-shadow:0 10px 20px rgba(0,0,0,.14);
+}
+
+.sidebar-collapsed .sidebar{
+    width:70px;
+}
+
+.sidebar-collapsed .main{
+    margin-left:70px;
+    width:calc(100% - 70px);
+}
+
+.sidebar-collapsed .logo h2,
+.sidebar-collapsed .logo h3,
+.sidebar-collapsed .logo p,
+.sidebar-collapsed .sidebar-section-title,
+.sidebar-collapsed .sidebar-logo-img,
+.sidebar-collapsed .sidebar li.menu-item span{
+    display:none;
+}
+
+.sidebar-collapsed .sidebar li.menu-item{
+    justify-content:center;
+}
+
+.sidebar-collapsed .sidebar li.menu-item i{
+    font-size:14px;
+}
+
+.main{
+    margin-left:205px;
+    width:calc(100% - 205px);
+    padding:10px;
+    min-width:0;
+    transition:.25s ease;
+    position:relative;
+    z-index:1;
+}
+
+.topbar{
+    background:linear-gradient(135deg,rgba(255,255,255,.96) 0%,rgba(248,251,255,.92) 100%);
+    border:1px solid var(--border);
+    box-shadow:0 14px 34px rgba(15,23,42,.10);
+    border-radius:16px;
+    padding:10px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:14px;
+    position:sticky;
+    top:8px;
+    z-index:10;
+    backdrop-filter:blur(12px);
+}
+
+body.dark-mode .topbar,
+body.dark-mode .filtros,
+body.dark-mode .card,
+body.dark-mode .grafico-card,
+body.dark-mode .tabla-cumplimiento,
+body.dark-mode .alertas-box,
+body.dark-mode .card-big,
+body.dark-mode .config-card,
+body.dark-mode .resumen-ejecutivo,
+body.dark-mode .agenda-day{
+    background:linear-gradient(180deg,#111827 0%,#0f172a 100%);
+    color:var(--text);
+    border-color:rgba(148,163,184,.20);
+}
+
+.brand-head{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    min-width:0;
+}
+
+.top-logo-img{
+    display:none;
+    width:50px;
+    height:50px;
+    object-fit:contain;
+    border-radius:14px;
+    background:#f1f5f9;
+    padding:5px;
+}
+
+.topbar h1{
+    color:var(--green-dark);
+    font-size:21px;
+    font-weight:900;
+    line-height:1.05;
+    letter-spacing:-.3px;
+}
+
+.topbar p{
+    color:var(--muted);
+    margin-top:3px;
+    font-size:10.5px;
+}
+
+.header-right{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+}
+
+.estado-api{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 9px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:900;
+    background:#f1f5f9;
+    color:#334155;
+}
+
+.estado-api.ok i{color:#16a34a;}
+.estado-api.error i{color:#dc2626;}
+.estado-api.cargando i{color:#f59e0b;}
+
+.ultima-act{
+    font-weight:800;
+    color:var(--text);
+    font-size:11px;
+}
+
+.header-actions{
+    display:flex;
+    gap:6px;
+    align-items:center;
+    flex-wrap:wrap;
+}
+
+.icon-btn,
+.action-btn,
+.btn-secundario,
+.reporte-btn,
+.danger-btn,
+.quick-btn{
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:900;
+    transition:.2s ease;
+}
+
+.icon-btn{
+    width:32px;
+    height:32px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#f1f5f9;
+    color:#0f172a;
+    box-shadow:var(--shadow-soft);
+}
+
+.action-btn{
+    padding:7px 10px;
+    background:linear-gradient(135deg,var(--green-dark) 0%,var(--green-vivid) 100%);
+    color:#fff;
+    box-shadow:0 10px 22px rgba(0,166,81,.20);
+    font-size:11px;
+}
+
+.danger-btn{
+    padding:7px 10px;
+    background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%);
+    color:#fff;
+    box-shadow:0 10px 22px rgba(239,68,68,.20);
+    font-size:11px;
+}
+
+.btn-secundario{
+    padding:7px 10px;
+    background:#e2e8f0;
+    color:#0f172a;
+    font-size:11px;
+}
+
+.icon-btn:hover,
+.action-btn:hover,
+.btn-secundario:hover,
+.reporte-btn:hover,
+.danger-btn:hover,
+.quick-btn:hover{
+    transform:translateY(-1px);
+}
+
+.filtros{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    align-items:flex-end;
+    background:var(--bg-card);
+    border:1px solid var(--border);
+    box-shadow:var(--shadow-soft);
+    padding:9px 10px;
+    border-radius:16px;
+    margin-top:10px;
+}
+
+.quick-filters{
+    width:100%;
+    display:flex;
+    gap:7px;
+    flex-wrap:wrap;
+}
+
+.quick-btn{
+    padding:6px 8px;
+    background:#e8fff1;
+    color:var(--green-dark);
+    border:1px solid rgba(0,143,70,.18);
+    font-size:10px;
+}
+
+.filtro-item{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+}
+
+.filtro-grow{
+    flex:1;
+    min-width:220px;
+}
+
+.filtro-item label{
+    font-weight:800;
+    color:var(--text);
+    font-size:10px;
+}
+
+.filtro-item input,
+.filtro-item select,
+.config-card input,
+.config-card select,
+.config-card textarea{
+    padding:7px 9px;
+    border:1px solid #d9e2ef;
+    border-radius:9px;
+    min-width:120px;
+    background:#fff;
+    color:#0f172a;
+    outline:none;
+    transition:.2s ease;
+    font-size:11px;
+}
+
+.filtro-item input:focus,
+.filtro-item select:focus,
+.config-card input:focus,
+.config-card select:focus,
+.config-card textarea:focus{
+    border-color:var(--green);
+    box-shadow:0 0 0 3px rgba(0,166,81,.12);
+}
+
+#btnFiltrar{
+    border:none;
+    border-radius:9px;
+    padding:7px 15px;
+    min-width:90px;
+    cursor:pointer;
+    color:#fff;
+    font-weight:900;
+    background:linear-gradient(135deg,var(--green-dark) 0%,var(--green-vivid) 100%);
+    box-shadow:0 10px 22px rgba(0,166,81,.20);
+    font-size:11px;
+}
+
+.vista{
+    display:none;
+}
+
+.active-view{
+    display:block;
+}
+
+.vista-titulo{
+    margin-top:12px;
+    font-size:20px;
+    color:var(--green-dark);
+    font-weight:900;
+}
+
+.resumen-ejecutivo{
+    margin-top:10px;
+    background:linear-gradient(135deg,#ffffff 0%,#f3fff8 100%);
+    border:1px solid rgba(0,143,70,.14);
+    border-left:5px solid var(--green);
+    box-shadow:var(--shadow-soft);
+    border-radius:16px;
+    padding:11px 12px;
+}
+
+.resumen-ejecutivo h2{
+    color:var(--green-dark);
+    font-size:14px;
+    margin-bottom:6px;
+}
+
+.resumen-ejecutivo p{
+    color:var(--text);
+    line-height:1.55;
+    font-size:11.5px;
+    font-weight:600;
+}
+
+.kpis,
+.kpis-secundarios{
+    display:grid;
+    gap:9px;
+    margin-top:10px;
+}
+
+.kpis{
+    grid-template-columns:repeat(auto-fit,minmax(165px,1fr));
+}
+
+.kpis-secundarios{
+    grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+}
+
+.card{
+    background:linear-gradient(145deg,#ffffff 0%,#f4f9ff 100%);
+    border:1px solid rgba(0,143,70,.10);
+    border-radius:14px;
+    padding:9px 11px;
+    min-height:80px;
+    box-shadow:var(--shadow-soft);
+    position:relative;
+    overflow:hidden;
+    transition:.25s ease;
+}
+
+.card:hover{
+    transform:translateY(-2px);
+    box-shadow:0 15px 30px rgba(15,23,42,.12);
+}
+
+.card::before{
+    content:"";
+    position:absolute;
+    inset:auto -28px -28px auto;
+    width:84px;
+    height:84px;
+    border-radius:999px;
+    background:radial-gradient(circle,rgba(0,166,81,.12) 0%,rgba(0,166,81,0) 72%);
+    pointer-events:none;
+}
+
+.card-icon{
+    width:26px;
+    height:26px;
+    border-radius:8px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    margin-bottom:6px;
+}
+
+.card-icon.green{background:var(--green);}
+.card-icon.blue{background:var(--blue);}
+.card-icon.violet{background:var(--violet);}
+.card-icon.red{background:var(--red);}
+.card-icon.amber{background:var(--amber);}
+
+.card h3{
+    color:var(--muted);
+    font-size:10px;
+    margin-bottom:5px;
+    font-weight:800;
+}
+
+.card h2{
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:-.4px;
+    line-height:1.05;
+    color:#0f172a;
+    word-break:break-word;
+}
+
+body.dark-mode .card h2,
+body.dark-mode .grafico-card h3,
+body.dark-mode .card-big h3{
+    color:#e5e7eb;
+}
+
+.mini-text{
+    color:var(--muted);
+    font-size:9.5px;
+    margin-top:4px;
+    font-weight:700;
+}
+
+.card-categoria.particular{
+    border-top:5px solid #2563eb;
+}
+
+.card-categoria.red{
+    border-top:5px solid #00a651;
+}
+
+.card-categoria.excedentes{
+    border-top:5px solid #f59e0b;
+}
+
+.card-categoria.plan{
+    border-top:5px solid #64748b;
+}
+
+.graficos{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:10px;
+}
+
+.grafico-ancho,
+.grafico-full{
+    grid-column:1 / -1;
+}
+
+.grafico-card,
+.tabla-cumplimiento,
+.card-big,
+.config-card,
+.alertas-box{
+    background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);
+    border:1px solid var(--border);
+    border-radius:16px;
+    box-shadow:var(--shadow-soft);
+}
+
+.grafico-card{
+    padding:11px;
+    min-height:292px;
+    overflow:hidden;
+}
+
+.grafico-card h3,
+.card-big h3,
+.tabla-cumplimiento h2{
+    font-size:13px;
+    margin-bottom:9px;
+    color:#0f172a;
+    font-weight:900;
+}
+
+.grafico-card canvas{
+    width:100% !important;
+    height:265px !important;
+    max-width:100%;
+}
+
+.grafico-full canvas,
+#graficoMensual,
+#graficoGestores,
+#graficoExcedentes,
+#graficoMetas,
+#graficoCumplimientoMensual,
+#graficoComparativoAnual,
+#graficoParetoGestores,
+#graficoEnergiaComparativo,
+#graficoEnergiaCosto,
+#graficoVacacionesEstado,
+#graficoTiempoAfiliado,
+#graficoParticularesDetalle,
+#graficoClinicas{
+    width:100% !important;
+    height:350px !important;
+}
+
+.tabla-cumplimiento{
+    margin-top:10px;
+    padding:11px;
+    overflow:auto;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+}
+
+th{
+    background:linear-gradient(135deg,var(--green-dark) 0%,var(--green) 100%);
+    color:white;
+    padding:7px 6px;
+    font-size:10px;
+    text-align:center;
+    letter-spacing:.2px;
+}
+
+td{
+    padding:6px 6px;
+    border-bottom:1px solid #e5ecf5;
+    text-align:center;
+    font-size:10px;
+    word-break:break-word;
+    color:#111827;
+}
+
+body.dark-mode td{
+    color:#e5e7eb;
+    border-color:rgba(148,163,184,.16);
+}
+
+tr:hover{
+    background:#f4fbf7;
+}
+
+body.dark-mode tr:hover{
+    background:rgba(0,166,81,.08);
+}
+
+.badge{
+    display:inline-block;
+    padding:3px 7px;
+    border-radius:999px;
+    font-size:10px;
+    font-weight:900;
+}
+
+.badge-ok{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.badge-warning{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+.badge-danger{
+    background:#fee2e2;
+    color:#991b1b;
+}
+
+.badge-info{
+    background:#dbeafe;
+    color:#1d4ed8;
+}
+
+.inline-select{
+    display:block;
+    width:100%;
+    margin-top:5px;
+    padding:5px 7px;
+    border:1px solid rgba(0,107,63,.22);
+    border-radius:10px;
+    background:#ffffff;
+    color:#0f172a;
+    font-size:10px;
+    font-weight:800;
+    outline:none;
+}
+
+body.dark-mode .inline-select{
+    background:#0f172a;
+    color:#e5e7eb;
+    border-color:rgba(34,197,94,.25);
+}
+
+.alertas-box{
+    padding:11px;
+}
+
+.alerta-item{
+    display:flex;
+    align-items:flex-start;
+    gap:9px;
+    padding:10px 0;
+    border-bottom:1px solid #e5ecf5;
+    font-size:12px;
+    color:#111827;
+}
+
+.alerta-item:last-child{
+    border-bottom:none;
+}
+
+.alerta-item i{
+    margin-top:3px;
+    color:#ef4444;
+}
+
+.card-big{
+    padding:11px;
+    margin-top:10px;
+}
+
+.agenda-layout{
+    display:grid;
+    grid-template-columns:1.15fr .85fr;
+    gap:14px;
+    margin-top:12px;
+}
+
+.agenda-panel{
+    margin-top:0;
+}
+
+.agenda-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:12px;
+}
+
+.agenda-header h3{
+    margin:0;
+    color:var(--green-dark);
+    font-size:17px;
+}
+
+.agenda-calendar{
+    display:grid;
+    grid-template-columns:repeat(7,minmax(0,1fr));
+    gap:7px;
+}
+
+.agenda-weekday{
+    color:var(--muted);
+    font-size:10px;
+    font-weight:900;
+    text-align:center;
+    padding:4px 0;
+}
+
+.agenda-day{
+    min-height:68px;
+    border:1px solid rgba(148,163,184,.22);
+    border-radius:14px;
+    background:#f8fbff;
+    padding:8px;
+    display:flex;
+    flex-direction:column;
+    justify-content:space-between;
+    transition:.2s ease;
+    cursor:pointer;
+}
+
+.agenda-day strong{
+    font-size:13px;
+    color:var(--text);
+}
+
+.agenda-day span{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:max-content;
+    padding:3px 7px;
+    border-radius:999px;
+    background:#dcfce7;
+    color:#166534;
+    font-size:9px;
+    font-weight:900;
+}
+
+.agenda-day.empty{
+    opacity:.35;
+    background:transparent;
+    border-style:dashed;
+}
+
+.agenda-day.today{
+    border-color:var(--green);
+    box-shadow:0 0 0 3px rgba(0,166,81,.12);
+}
+
+.agenda-day.selected{
+    border-color:var(--green-dark);
+    background:linear-gradient(145deg,#ecfdf3 0%,#ffffff 100%);
+    box-shadow:0 14px 34px rgba(0,107,63,.16);
+}
+
+.agenda-day.has-events{
+    background:linear-gradient(145deg,#ffffff 0%,#effdf5 100%);
+}
+
+.agenda-lista{
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+    max-height:450px;
+    overflow:auto;
+}
+
+.agenda-item{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    padding:10px;
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:14px;
+    background:#f8fbff;
+}
+
+body.dark-mode .agenda-item{
+    background:rgba(15,23,42,.55);
+}
+
+.agenda-item strong{
+    display:block;
+    color:var(--text);
+    font-size:12px;
+    margin-bottom:4px;
+}
+
+.agenda-item p{
+    color:var(--muted);
+    font-size:10px;
+    font-weight:700;
+    line-height:1.35;
+}
+
+.agenda-day-detail{
+    margin-top:12px;
+}
+
+.agenda-hours{
+    display:flex;
+    flex-direction:column;
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:16px;
+    overflow:hidden;
+    background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+}
+
+body.dark-mode .agenda-hours{
+    background:rgba(15,23,42,.55);
+}
+
+.agenda-hour-row{
+    display:grid;
+    grid-template-columns:94px 1fr;
+    min-height:58px;
+    border-bottom:1px solid rgba(148,163,184,.16);
+}
+
+.agenda-hour-row:last-child{
+    border-bottom:none;
+}
+
+.agenda-hour-label{
+    padding:11px 9px;
+    background:rgba(0,107,63,.07);
+    color:var(--green-dark);
+    font-size:11px;
+    font-weight:900;
+    text-align:center;
+    border-right:1px solid rgba(148,163,184,.16);
+}
+
+.agenda-hour-content{
+    padding:8px;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+}
+
+.agenda-hour-activity{
+    display:grid;
+    grid-template-columns:1fr 160px;
+    align-items:center;
+    gap:10px;
+    padding:8px 10px;
+    border:1px solid rgba(0,107,63,.14);
+    border-radius:14px;
+    background:#ffffff;
+    box-shadow:0 8px 20px rgba(15,23,42,.05);
+}
+
+body.dark-mode .agenda-hour-activity{
+    background:rgba(2,6,23,.42);
+}
+
+.agenda-hour-activity strong{
+    display:block;
+    font-size:12px;
+    color:var(--text);
+}
+
+.agenda-hour-activity p{
+    margin-top:3px;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:700;
+    line-height:1.35;
+}
+
+.tabla-cumplimiento .action-btn,
+.tabla-cumplimiento .danger-btn{
+    margin:2px;
+    padding:6px 8px;
+    font-size:10px;
+}
+
+.config-grid,
+.reportes-grid{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:12px;
+    margin-top:12px;
+}
+
+.config-card{
+    padding:14px;
+}
+
+.config-card h2{
+    color:#00a651;
+    margin-bottom:9px;
+    font-size:15px;
+    font-weight:900;
+}
+
+.config-card p{
+    color:var(--muted);
+    font-size:11px;
+    margin-bottom:9px;
+    line-height:1.5;
+    font-weight:600;
+}
+
+.config-card input,
+.config-card select,
+.config-card textarea{
+    width:100%;
+    margin-bottom:10px;
+}
+
+.config-card textarea{
+    min-height:120px;
+    resize:vertical;
+}
+
+.input-label{
+    display:block;
+    color:var(--muted);
+    font-size:10px;
+    font-weight:900;
+    margin:2px 0 6px;
+}
+
+.reportes-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+.reporte-btn{
+    min-height:92px;
+    background:linear-gradient(135deg,#ffffff 0%,#f4f9ff 100%);
+    border:1px solid rgba(148,163,184,.18);
+    box-shadow:var(--shadow-soft);
+    color:#0f172a;
+    font-size:13px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+}
+
+.reporte-btn i{
+    color:var(--green);
+    font-size:26px;
+}
+
+.danger-report i{
+    color:#ef4444;
+}
+
+.print-report{
+    position:absolute;
+    left:-99999px;
+    top:0;
+    width:1120px;
+    background:#ffffff;
+    color:#111827;
+    padding:38px;
+}
+
+.print-header{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    border-bottom:3px solid #00a651;
+    padding-bottom:18px;
+    margin-bottom:22px;
+}
+
+.print-logo{
+    width:90px;
+    height:90px;
+    object-fit:contain;
+}
+
+.print-report h1{
+    color:#007f3f;
+    font-size:30px;
+    margin-bottom:8px;
+}
+
+.print-report h2{
+    color:#007f3f;
+    margin:26px 0 10px;
+    font-size:20px;
+}
+
+.print-report p{
+    line-height:1.55;
+    font-size:14px;
+}
+
+.print-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+    margin:18px 0;
+}
+
+.print-kpi{
+    border:1px solid #dbe5ef;
+    border-radius:14px;
+    padding:14px;
+    background:#f8fafc;
+}
+
+.print-kpi span{
+    display:block;
+    color:#64748b;
+    font-size:12px;
+    font-weight:800;
+}
+
+.print-kpi strong{
+    display:block;
+    color:#0f172a;
+    font-size:21px;
+    margin-top:6px;
+}
+
+.print-report table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:12px;
+}
+
+.print-report th{
+    background:#00a651;
+    color:#fff;
+    padding:9px;
+    font-size:12px;
+}
+
+.print-report td{
+    padding:8px;
+    border:1px solid #e2e8f0;
+    font-size:12px;
+}
+
+@media(max-width:1200px){
+    .sidebar{
+        width:195px;
+    }
+
+    .main{
+        margin-left:195px;
+        width:calc(100% - 195px);
+    }
+
+    .sidebar li.menu-item{
+        font-size:9.8px;
+        padding:6px 7px;
+    }
+
+    .topbar h1{
+        font-size:20px;
+    }
+
+    .kpis,
+    .kpis-secundarios{
+        grid-template-columns:repeat(auto-fit,minmax(145px,1fr));
+    }
+
+    .graficos{
+        grid-template-columns:1fr;
+    }
+
+    .config-grid,
+    .reportes-grid{
+        grid-template-columns:1fr;
+    }
+
+    .agenda-layout{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:768px){
+    body{
+        display:block;
+    }
+
+    .sidebar{
+        width:100%;
+        position:relative;
+        min-height:auto;
+    }
+
+    .sidebar-menu{
+        max-height:360px;
+    }
+
+    .main{
+        margin-left:0;
+        width:100%;
+        padding:10px;
+    }
+
+    .topbar{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+
+    .header-right{
+        width:100%;
+        justify-content:flex-start;
+    }
+
+    .kpis,
+    .kpis-secundarios{
+        grid-template-columns:1fr;
+    }
+
+    .filtros{
+        flex-direction:column;
+        align-items:stretch;
+    }
+
+    .filtro-item input,
+    .filtro-item select,
+    #btnFiltrar,
+    .btn-secundario{
+        width:100%;
+    }
+
+    .grafico-card canvas,
+    .grafico-full canvas{
+        height:270px !important;
+    }
+
+    .agenda-calendar{
+        gap:5px;
+    }
+
+    .agenda-day{
+        min-height:54px;
+        padding:6px;
+        border-radius:11px;
+    }
+}
