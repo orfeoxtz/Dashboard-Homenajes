@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260625");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260626");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -121,6 +121,29 @@ function formatNumber(valor, decimales=0){
         minimumFractionDigits:decimales,
         maximumFractionDigits:decimales
     });
+}
+
+function formatFechaProfesional(fecha, fallback="-"){
+    const f = fecha instanceof Date ? fecha : parseFecha(fecha);
+    if(!f || isNaN(f.getTime())) return fallback;
+
+    return f.toLocaleDateString("es-CO", {
+        year:"numeric",
+        month:"2-digit",
+        day:"2-digit"
+    });
+}
+
+function nombreGestorCorto(nombre){
+    const partes = String(nombre || "").trim().split(/\s+/).filter(Boolean);
+    if(partes.length === 0) return "-";
+    if(partes.length === 1) return partes[0];
+
+    const primerNombre = partes[0];
+    const primerApellido = partes.length >= 3 ? partes[2] : partes[1];
+    const inicial = primerApellido ? primerApellido.charAt(0).toUpperCase() + "." : "";
+
+    return `${primerNombre} ${inicial}`.trim();
 }
 
 function formatChartValue(valor, tipo="money"){
@@ -1064,6 +1087,7 @@ function renderTodo(resumen, metaInfo){
     renderDatos();
     renderAlertas(resumen);
     renderEnergia();
+    renderMantenimientos();
     renderVacaciones();
     renderAgenda();
     renderTiempoAfiliado();
@@ -1619,7 +1643,49 @@ function renderMetas(){
     ], `Producción vs meta acumulada ${anio}`);
 }
 
+function asegurarVistaCumplimiento(){
+    const vista = $("cumplimiento");
+    if(!vista || $("cumplimientoMetaVista")) return;
+
+    vista.innerHTML = `
+        <h1 class="vista-titulo">Cumplimiento</h1>
+        <section class="resumen-ejecutivo">
+            <h2>Lectura de cumplimiento</h2>
+            <p id="textoCumplimientoVista">Cargando cumplimiento desde Google Sheet...</p>
+        </section>
+        <section class="kpis-secundarios kpis-cumplimiento-vista">
+            <div class="card kpi-mini"><h3>🎯 Meta del periodo</h3><h2 id="cumplimientoMetaVista">$0</h2></div>
+            <div class="card kpi-mini"><h3>💰 Venta real</h3><h2 id="cumplimientoVentaVista">$0</h2></div>
+            <div class="card kpi-mini"><h3>📈 Cumplimiento</h3><h2 id="cumplimientoPctVista">0%</h2></div>
+            <div class="card kpi-mini"><h3>⚠️ Faltante</h3><h2 id="cumplimientoFaltanteVista">$0</h2></div>
+            <div class="card kpi-mini"><h3>🏆 Mejor mes</h3><h2 id="cumplimientoMejorMesVista">-</h2></div>
+            <div class="card kpi-mini"><h3>📅 Meses con venta</h3><h2 id="cumplimientoMesesVentaVista">0</h2></div>
+        </section>
+        <div class="grafico-card grafico-full">
+            <h3>Cumplimiento mensual</h3>
+            <canvas id="graficoCumplimientoMensual"></canvas>
+        </div>
+        <div class="tabla-cumplimiento">
+            <h2>Detalle mensual</h2>
+            <table id="tablaCumplimientoMensual">
+                <thead>
+                    <tr>
+                        <th>Mes</th>
+                        <th>Meta</th>
+                        <th>Venta</th>
+                        <th>%</th>
+                        <th>Faltante</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderCumplimientoMensual(){
+    asegurarVistaCumplimiento();
     const f = obtenerFiltros();
     const anio = anioReferenciaFiltros();
     const meses = Array.from({length:12}, (_,i) => i + 1);
@@ -1825,14 +1891,14 @@ function renderDatos(){
     if(tbody){
         const muestra = DATASET_FILTRADO.slice(0, 70);
 
-        tbody.innerHTML = muestra.length ? muestra.map(row => `
-            <tr>
-                <td>${row.origen}</td>
-                <td>${row.fechaTexto || "-"}</td>
-                <td>${row.gestor || "-"}</td>
-                <td>${row.categoriaGerencial || "-"}</td>
-                <td>${row.servicio || "-"}</td>
-                <td>${row.sede || "-"}</td>
+            tbody.innerHTML = muestra.length ? muestra.map(row => `
+                <tr>
+                    <td>${row.origen}</td>
+                    <td>${formatFechaProfesional(row.fecha, row.fechaTexto || "-")}</td>
+                    <td title="${escapeHtml(row.gestor || "-")}">${escapeHtml(nombreGestorCorto(row.gestor))}</td>
+                    <td>${row.categoriaGerencial || "-"}</td>
+                    <td>${row.servicio || "-"}</td>
+                    <td>${row.sede || "-"}</td>
                 <td>${formatMoney(row.valorVenta)}</td>
             </tr>
         `).join("") : `<tr><td colspan="7">Sin registros</td></tr>`;
@@ -1862,6 +1928,13 @@ function renderAlertas(resumen){
     if((PARAMETROS.categoria["PARTICULAR"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para PARTICULAR.");
     if((PARAMETROS.categoria["RED"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para RED.");
     if((PARAMETROS.categoria["EXCEDENTES"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para EXCEDENTES.");
+
+    cargarMantenimientos().forEach(item => {
+        const info = estadoMantenimiento(item);
+        if(["VENCIDO","ALERTA 5 DÍAS","ALERTA 10 DÍAS"].includes(info.estado)){
+            alertas.push(`${info.estado}: ${item.tipo} de ${item.activo} con fecha ${formatFechaProfesional(item.fecha)}.`);
+        }
+    });
 
     const html = alertas.map(a => `
         <div class="alerta-item">
@@ -2018,6 +2091,158 @@ function limpiarEnergia(){
     guardarColeccionLocal("energiaHomenajes", []);
     renderEnergia();
     toast("Registros de energía eliminados.");
+}
+
+function datosMantenimientosIniciales(){
+    const anio = new Date().getFullYear();
+    return [
+        {id:"mant_soat_demo", tipo:"SOAT", activo:"Vehículo operativo 1", fecha:`${anio}-07-10`, responsable:"Coordinación Homenajes", observacion:"Registro inicial"},
+        {id:"mant_tecno_demo", tipo:"TECNOMECANICA", activo:"Vehículo operativo 1", fecha:`${anio}-07-15`, responsable:"Coordinación Homenajes", observacion:"Revisión preventiva"},
+        {id:"mant_aceite_demo", tipo:"CAMBIO ACEITE", activo:"Vehículo operativo 2", fecha:`${anio}-06-30`, responsable:"Conductores", observacion:"Cambio por kilometraje"},
+        {id:"mant_jardin_demo", tipo:"JARDINERIA", activo:"Sede principal", fecha:`${anio}-07-05`, responsable:"Servicios Generales", observacion:"Mantenimiento mensual"}
+    ];
+}
+
+function cargarMantenimientos(){
+    return cargarColeccionLocal("mantenimientosOperacion", datosMantenimientosIniciales());
+}
+
+function estadoMantenimiento(item){
+    const fecha = parseFecha(item.fecha);
+    if(!fecha) return {estado:"SIN FECHA", dias:null, clase:"warning"};
+
+    const hoy = inicioDia(new Date());
+    const vencimiento = inicioDia(fecha);
+    const dias = Math.ceil((vencimiento - hoy) / 86400000);
+
+    if(dias < 0) return {estado:"VENCIDO", dias, clase:"danger"};
+    if(dias <= 5) return {estado:"ALERTA 5 DÍAS", dias, clase:"danger"};
+    if(dias <= 10) return {estado:"ALERTA 10 DÍAS", dias, clase:"warning"};
+    return {estado:"AL DÍA", dias, clase:"ok"};
+}
+
+function badgeMantenimiento(info){
+    if(info.clase === "ok") return `<span class="badge badge-ok">${info.estado}</span>`;
+    if(info.clase === "danger") return `<span class="badge badge-danger">${info.estado}</span>`;
+    return `<span class="badge badge-warning">${info.estado}</span>`;
+}
+
+function renderMantenimientos(){
+    const data = cargarMantenimientos().sort((a,b) => String(a.fecha || "").localeCompare(String(b.fecha || "")));
+    const conteo = {vencidos:0, cinco:0, diez:0, ok:0};
+    const alertas = [];
+
+    data.forEach(item => {
+        const info = estadoMantenimiento(item);
+        if(info.estado === "VENCIDO") conteo.vencidos++;
+        else if(info.estado === "ALERTA 5 DÍAS") conteo.cinco++;
+        else if(info.estado === "ALERTA 10 DÍAS") conteo.diez++;
+        else if(info.estado === "AL DÍA") conteo.ok++;
+
+        if(["VENCIDO","ALERTA 5 DÍAS","ALERTA 10 DÍAS"].includes(info.estado)){
+            alertas.push({item, info});
+        }
+    });
+
+    setHtml("kpiMantVencidos", conteo.vencidos);
+    setHtml("kpiMantCinco", conteo.cinco);
+    setHtml("kpiMantDiez", conteo.diez);
+    setHtml("kpiMantOk", conteo.ok);
+    setHtml("textoMantenimientos", `
+        Control operativo con <strong>${conteo.vencidos}</strong> vencidos,
+        <strong>${conteo.cinco}</strong> alertas a 5 días,
+        <strong>${conteo.diez}</strong> alertas a 10 días y
+        <strong>${conteo.ok}</strong> controles al día.
+    `);
+
+    const alertasBox = $("alertasMantenimiento");
+    if(alertasBox){
+        alertasBox.innerHTML = alertas.length ? alertas.map(({item, info}) => `
+            <div class="alerta-item">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span>
+                    <strong>${escapeHtml(item.tipo)}</strong> · ${escapeHtml(item.activo)}
+                    vence el <strong>${formatFechaProfesional(item.fecha)}</strong>
+                    (${info.dias < 0 ? `${Math.abs(info.dias)} días vencido` : `faltan ${info.dias} días`}).
+                </span>
+            </div>
+        `).join("") : `<p>Sin alertas de mantenimiento por el momento.</p>`;
+    }
+
+    const tbody = document.querySelector("#tablaMantenimientos tbody");
+    if(tbody){
+        tbody.innerHTML = data.length ? data.map(item => {
+            const info = estadoMantenimiento(item);
+
+            return `
+                <tr>
+                    <td>${escapeHtml(item.tipo || "-")}</td>
+                    <td>${escapeHtml(item.activo || "-")}</td>
+                    <td>${formatFechaProfesional(item.fecha)}</td>
+                    <td>${info.dias === null ? "-" : info.dias}</td>
+                    <td>${escapeHtml(item.responsable || "-")}</td>
+                    <td>${badgeMantenimiento(info)}</td>
+                    <td>${escapeHtml(item.observacion || "-")}</td>
+                    <td><button class="danger-btn" onclick="eliminarMantenimiento('${escapeHtml(item.id)}')">Eliminar</button></td>
+                </tr>
+            `;
+        }).join("") : `<tr><td colspan="8">Sin controles de mantenimiento</td></tr>`;
+    }
+}
+
+function agregarMantenimiento(){
+    const item = {
+        id:cryptoRandom(),
+        tipo:$("mantTipo")?.value || "",
+        activo:($("mantActivo")?.value || "").trim(),
+        fecha:$("mantFecha")?.value || "",
+        responsable:$("mantResponsable")?.value || "",
+        observacion:$("mantObservacion")?.value || ""
+    };
+
+    if(!item.tipo || !item.activo || !item.fecha){
+        toast("Tipo, activo y fecha son obligatorios.", "warning");
+        return;
+    }
+
+    const data = cargarMantenimientos();
+    data.push(item);
+    guardarColeccionLocal("mantenimientosOperacion", data);
+
+    ["mantTipo","mantActivo","mantFecha","mantResponsable","mantObservacion"].forEach(id => setValue(id, ""));
+    renderMantenimientos();
+    toast("Control de mantenimiento agregado.");
+}
+
+function eliminarMantenimiento(id){
+    const data = cargarMantenimientos().filter(item => item.id !== id);
+    guardarColeccionLocal("mantenimientosOperacion", data);
+    renderMantenimientos();
+    toast("Control de mantenimiento eliminado.");
+}
+
+window.eliminarMantenimiento = eliminarMantenimiento;
+
+function limpiarMantenimientos(){
+    if(!confirm("¿Deseas eliminar todos los mantenimientos?")) return;
+    guardarColeccionLocal("mantenimientosOperacion", []);
+    renderMantenimientos();
+    toast("Mantenimientos eliminados.");
+}
+
+function prepararCorreoMantenimiento(){
+    const correo = $("mantCorreo")?.value || "JORGEKORFAN@GMAIL.COM";
+    const alertas = cargarMantenimientos().filter(item => {
+        const info = estadoMantenimiento(item);
+        return ["VENCIDO","ALERTA 5 DÍAS","ALERTA 10 DÍAS"].includes(info.estado);
+    });
+
+    const cuerpo = alertas.length ? alertas.map(item => {
+        const info = estadoMantenimiento(item);
+        return `${item.tipo} - ${item.activo} - ${formatFechaProfesional(item.fecha)} - ${info.estado}`;
+    }).join("%0A") : "No hay alertas de mantenimiento pendientes.";
+
+    window.location.href = `mailto:${encodeURIComponent(correo)}?subject=${encodeURIComponent("Alertas de mantenimiento Dashboard Homenajes")}&body=${cuerpo}`;
 }
 
 function datosVacacionesIniciales(){
@@ -2266,9 +2491,53 @@ function renderCalendarioAgenda(data, anio, mes){
                 ${actividadesDia.length ? `<span>${actividadesDia.length} act.</span>` : ""}
             </div>
         `);
+
+        if(iso === AGENDA_DIA_SELECCIONADO){
+            celdas.push(htmlDiaAgendaExpandido(data, iso));
+        }
     }
 
     contenedor.innerHTML = celdas.join("");
+}
+
+function htmlDiaAgendaExpandido(data, fecha){
+    const actividadesDia = data
+        .filter(item => item.fecha === fecha)
+        .sort((a,b) => horaActividad(a).localeCompare(horaActividad(b)));
+
+    const filas = [];
+
+    for(let hora = 6; hora <= 19; hora++){
+        const horaTexto = `${String(hora).padStart(2,"0")}:00`;
+        const actividadesHora = actividadesDia.filter(item => Number(horaActividad(item).split(":")[0]) === hora);
+
+        filas.push(`
+            <div class="agenda-inline-hour">
+                <span>${formatoHoraAgenda(horaTexto)}</span>
+                <div>
+                    ${actividadesHora.length ? actividadesHora.map(item => `
+                        <article>
+                            <strong>${escapeHtml(item.titulo)}</strong>
+                            <small>${escapeHtml(item.responsable || "Sin responsable")} · ${escapeHtml(item.frecuencia || "ÚNICA")}</small>
+                            <select class="inline-select" onchange="actualizarEstadoActividad('${escapeHtml(item.id)}', this.value)">
+                                ${opcionesEstadoActividad(item.estado)}
+                            </select>
+                        </article>
+                    `).join("") : `<small>Sin actividad</small>`}
+                </div>
+            </div>
+        `);
+    }
+
+    return `
+        <div class="agenda-day-expanded">
+            <div class="agenda-expanded-title">
+                <strong>Agenda del día · ${fecha}</strong>
+                <button class="btn-secundario" onclick="event.stopPropagation(); setValue('actFecha','${fecha}')">Agregar en este día</button>
+            </div>
+            ${filas.join("")}
+        </div>
+    `;
 }
 
 function renderListaAgenda(actividades){
@@ -3254,6 +3523,7 @@ function cambiarVista(seccion){
         if(seccion === "cumplimiento") renderCumplimientoMensual();
         if(seccion === "metas") renderMetas();
         if(seccion === "comparativo") renderComparativoAnual();
+        if(seccion === "mantenimientos") renderMantenimientos();
         redimensionarGraficos();
     }, 180);
 }
@@ -3520,6 +3790,10 @@ $("btnEliminarManuales")?.addEventListener("click", eliminarTodosManuales);
 
 $("btnAgregarEnergia")?.addEventListener("click", agregarEnergia);
 $("btnLimpiarEnergia")?.addEventListener("click", limpiarEnergia);
+
+$("btnAgregarMantenimiento")?.addEventListener("click", agregarMantenimiento);
+$("btnLimpiarMantenimientos")?.addEventListener("click", limpiarMantenimientos);
+$("btnMailMantenimiento")?.addEventListener("click", prepararCorreoMantenimiento);
 
 $("btnAgregarVacacion")?.addEventListener("click", agregarVacacion);
 $("btnLimpiarVacaciones")?.addEventListener("click", limpiarVacaciones);
