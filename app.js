@@ -1371,6 +1371,17 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
     registrarPluginGraficas();
     destruirChart(idCanvas);
 
+    const maxValue = Math.max(...data.map(v => Math.abs(toNumber(v))), 0);
+    const chartHeight = horizontal
+        ? Math.max(380, Math.min(980, (labels.length * 34) + 140))
+        : Math.max(320, Math.min(620, (labels.length * 18) + 260));
+
+    const labelBg = chartTextColor() === "#f8fafc" ? "rgba(15,23,42,.92)" : "rgba(255,255,255,.92)";
+    const labelBorder = chartTextColor() === "#f8fafc" ? "rgba(248,250,252,.22)" : "rgba(0,79,42,.16)";
+
+    canvas.style.setProperty("height", `${chartHeight}px`, "important");
+    canvas.parentElement?.style.setProperty("min-height", `${chartHeight + 72}px`);
+
     charts[idCanvas] = new Chart(canvas, {
         type:"bar",
         data:{
@@ -1381,17 +1392,25 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                 backgroundColor:"rgba(0,143,70,.92)",
                 borderColor:"rgba(0,79,42,.95)",
                 borderWidth:1,
-                borderRadius:10,
-                barPercentage:.72,
-                categoryPercentage:.72
+                borderRadius:horizontal ? 9 : 12,
+                barThickness:horizontal ? 18 : 36,
+                maxBarThickness:horizontal ? 24 : 46,
+                minBarLength:horizontal ? 8 : 4,
+                barPercentage:.92,
+                categoryPercentage:.86
             }]
         },
         options:{
             responsive:true,
             maintainAspectRatio:false,
+            layout:{
+                padding:horizontal
+                    ? {left:4, right:120, top:8, bottom:8}
+                    : {left:8, right:8, top:24, bottom:4}
+            },
             indexAxis:horizontal ? "y" : "x",
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:13}},
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:15},padding:{bottom:18}},
                 legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800"}}},
                 tooltip:{
                     callbacks:{
@@ -1400,21 +1419,61 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                 },
                 datalabels:{
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
-                    anchor:horizontal ? "center" : "end",
-                    align:horizontal ? "center" : "top",
-                    offset:horizontal ? 0 : 2,
+                    anchor:"end",
+                    align:horizontal ? "right" : "top",
+                    offset:horizontal ? 8 : 6,
                     clamp:true,
-                    clip:true,
-                    color:horizontal ? "#ffffff" : chartTextColor(),
-                    textStrokeColor:horizontal ? "rgba(0,0,0,.35)" : "transparent",
-                    textStrokeWidth:horizontal ? 2 : 0,
-                    font:{size:8,weight:"900"},
+                    clip:false,
+                    color:chartTextColor(),
+                    backgroundColor:labelBg,
+                    borderColor:labelBorder,
+                    borderWidth:1,
+                    borderRadius:6,
+                    padding:{top:3,right:6,bottom:3,left:6},
+                    font:{size:horizontal ? 10 : 9,weight:"900"},
                     formatter:value => formatChartValue(value, tipoValor)
                 }
             },
-            scales:{
-                y:{beginAtZero:true,ticks:{color:chartTextColor(),font:{size:10,weight:"700"}},grid:{color:"rgba(148,163,184,.16)"}},
-                x:{grid:{display:false},ticks:{color:chartTextColor(),font:{size:10,weight:"700"}}}
+            scales:horizontal ? {
+                y:{
+                    ticks:{
+                        color:chartTextColor(),
+                        font:{size:11,weight:"800"},
+                        autoSkip:false
+                    },
+                    grid:{color:"rgba(148,163,184,.10)"}
+                },
+                x:{
+                    beginAtZero:true,
+                    suggestedMax:maxValue > 0 ? maxValue * 1.18 : undefined,
+                    grid:{display:true, color:"rgba(148,163,184,.13)"},
+                    ticks:{
+                        color:chartTextColor(),
+                        font:{size:10,weight:"800"},
+                        callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)
+                    }
+                }
+            } : {
+                y:{
+                    beginAtZero:true,
+                    suggestedMax:maxValue > 0 ? maxValue * 1.14 : undefined,
+                    ticks:{
+                        color:chartTextColor(),
+                        font:{size:10,weight:"800"},
+                        callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)
+                    },
+                    grid:{color:"rgba(148,163,184,.16)"}
+                },
+                x:{
+                    ticks:{
+                        color:chartTextColor(),
+                        font:{size:10,weight:"800"},
+                        autoSkip:false,
+                        maxRotation:25,
+                        minRotation:0
+                    },
+                    grid:{display:false}
+                }
             }
         }
     });
