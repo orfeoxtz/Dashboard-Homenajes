@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260625">
+<link rel="stylesheet" href="./style.css?v=20260626">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -67,6 +67,7 @@
 
         <li class="sidebar-section-title">OPERACIÓN</li>
         <li class="menu-item" data-seccion="energia"><i class="fas fa-bolt"></i> Energía eléctrica</li>
+        <li class="menu-item" data-seccion="mantenimientos"><i class="fas fa-screwdriver-wrench"></i> Mantenimientos</li>
         <li class="menu-item" data-seccion="vacaciones"><i class="fas fa-umbrella-beach"></i> Vacaciones</li>
         <li class="menu-item" data-seccion="agenda"><i class="fas fa-calendar-check"></i> Agenda anual</li>
 
@@ -671,6 +672,75 @@
     </div>
 </section>
 
+<section id="mantenimientos" class="vista">
+    <h1 class="vista-titulo">Mantenimientos Operativos</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Control preventivo</h2>
+        <p id="textoMantenimientos">Seguimiento de cambio de aceite, SOAT, tecnomecánica, jardinería, pintura, filtros de cafetería y mantenimientos de autos.</p>
+    </section>
+
+    <section class="kpis-secundarios kpis-mantenimiento">
+        <div class="card kpi-mini"><h3>🚨 Vencidos</h3><h2 id="kpiMantVencidos">0</h2></div>
+        <div class="card kpi-mini"><h3>⚠️ Vencen 5 días</h3><h2 id="kpiMantCinco">0</h2></div>
+        <div class="card kpi-mini"><h3>📩 Vencen 10 días</h3><h2 id="kpiMantDiez">0</h2></div>
+        <div class="card kpi-mini"><h3>✅ Al día</h3><h2 id="kpiMantOk">0</h2></div>
+    </section>
+
+    <div id="alertasMantenimiento" class="alertas-box card-big">
+        <p>Sin alertas de mantenimiento por el momento.</p>
+    </div>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar mantenimiento</h2>
+            <p>Registra el activo y la fecha de vencimiento o próxima intervención. El tablero alertará a 10 y 5 días.</p>
+            <select id="mantTipo">
+                <option value="">Tipo de control</option>
+                <option value="CAMBIO ACEITE">CAMBIO DE ACEITE AUTOS</option>
+                <option value="SOAT">VENCIMIENTO SOAT</option>
+                <option value="TECNOMECANICA">VENCIMIENTO TECNOMECÁNICA</option>
+                <option value="JARDINERIA">MANTENIMIENTO JARDINERÍA</option>
+                <option value="PINTURA INFRAESTRUCTURA">MANTENIMIENTO PINTURA INFRAESTRUCTURA</option>
+                <option value="FILTROS CAFETERIA">MANTENIMIENTO FILTROS CAFETERÍA</option>
+                <option value="MANTENIMIENTO AUTOS">MANTENIMIENTO DE AUTOS</option>
+            </select>
+            <input type="text" id="mantActivo" placeholder="Vehículo, área o equipo">
+            <input type="date" id="mantFecha" title="Fecha de vencimiento o próxima intervención">
+            <input type="text" id="mantResponsable" placeholder="Responsable">
+            <input type="text" id="mantObservacion" placeholder="Observación">
+            <button id="btnAgregarMantenimiento" class="action-btn">Agregar control</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Correo de alerta</h2>
+            <p>Correo configurado para alertas automáticas por Google Apps Script.</p>
+            <input type="email" id="mantCorreo" value="JORGEKORFAN@GMAIL.COM">
+            <button id="btnMailMantenimiento" class="action-btn">Preparar correo de alertas</button>
+            <button id="btnLimpiarMantenimientos" class="danger-btn">Eliminar mantenimientos</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Control de mantenimientos</h2>
+        <table id="tablaMantenimientos">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Activo / área</th>
+                    <th>Fecha</th>
+                    <th>Días</th>
+                    <th>Responsable</th>
+                    <th>Estado</th>
+                    <th>Observación</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
 <section id="vacaciones" class="vista">
     <h1 class="vista-titulo">Vacaciones del Personal</h1>
 
@@ -1049,6 +1119,6 @@
 
 </main>
 
-<script src="./app.js?v=20260625"></script>
+<script src="./app.js?v=20260626"></script>
 </body>
 </html>
