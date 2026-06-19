@@ -1063,6 +1063,17 @@ table{
     table-layout:fixed;
 }
 
+#tablaBaseDatos{
+    min-width:1500px;
+    table-layout:auto;
+}
+
+#tablaBaseDatos th,
+#tablaBaseDatos td{
+    font-size:9px;
+    white-space:nowrap;
+}
+
 th{
     background:linear-gradient(135deg,var(--green-dark) 0%,var(--green) 100%);
     color:white;
