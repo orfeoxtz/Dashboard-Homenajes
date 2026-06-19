@@ -588,12 +588,16 @@ function renderDatos(){
 
 function datosOperacionesIniciales(){
     return [
-        {id:"op1", vehiculo:"KIA MHK 965", tipo:"Vencimiento SOAT", fecha:"2026-07-10", responsable:"Coordinación", estado:"PENDIENTE"},
-        {id:"op2", vehiculo:"FUS 480", tipo:"Cambio de aceite", fecha:"2026-06-28", responsable:"Mantenimiento", estado:"EN PROCESO"},
-        {id:"op3", vehiculo:"KVR 436", tipo:"Vencimiento tecnomecánica", fecha:"2026-07-15", responsable:"Parque automotor", estado:"PENDIENTE"},
-        {id:"op4", vehiculo:"Parque Cementerio", tipo:"Mantenimiento de jardinería", fecha:"2026-06-25", responsable:"Servicios generales", estado:"PENDIENTE"},
-        {id:"op5", vehiculo:"Infraestructura salas", tipo:"Mantenimiento pintura infraestructura", fecha:"2026-07-05", responsable:"Mantenimiento", estado:"PENDIENTE"},
-        {id:"op6", vehiculo:"Cafetería", tipo:"Mantenimiento filtros cafetería", fecha:"2026-06-30", responsable:"Servicios generales", estado:"PENDIENTE"}
+        {id:"op1", vehiculo:"KIA MHK 965", tipo:"Vencimiento SOAT", fecha:"2026-07-10", km:"", responsable:"Coordinación", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op2", vehiculo:"FUS 480", tipo:"Cambio de aceite", fecha:"2026-06-28", km:"185000", responsable:"Mantenimiento", correo:"jorgekorfan@gmail.com", estado:"EN PROCESO"},
+        {id:"op3", vehiculo:"KVR 436", tipo:"Vencimiento tecnomecánica", fecha:"2026-07-15", km:"", responsable:"Parque automotor", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op4", vehiculo:"KIA 966", tipo:"Revisión llantas", fecha:"2026-06-27", km:"142500", responsable:"Conductor asignado", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op5", vehiculo:"Traverse KVQ 804", tipo:"Vencimiento seguro contractual", fecha:"2026-08-05", km:"98000", responsable:"Coordinación", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op6", vehiculo:"Buseta propia", tipo:"Lavado y desinfección del vehículo", fecha:"2026-06-21", km:"", responsable:"Servicios generales", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op7", vehiculo:"Parque Cementerio Jardín Los Olivos", tipo:"Mantenimiento de jardinería", fecha:"2026-06-25", km:"", responsable:"Servicios generales", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op8", vehiculo:"Salas de velación", tipo:"Mantenimiento pintura infraestructura", fecha:"2026-07-05", km:"", responsable:"Mantenimiento", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op9", vehiculo:"Cafetería", tipo:"Mantenimiento filtros cafetería", fecha:"2026-06-30", km:"", responsable:"Servicios generales", correo:"jorgekorfan@gmail.com", estado:"PENDIENTE"},
+        {id:"op10", vehiculo:"Laboratorio", tipo:"Tarea diaria", fecha:"2026-06-20", km:"", responsable:"Equipo operativo", correo:"jorgekorfan@gmail.com", estado:"FINIQUITADA"}
     ];
 }
 
@@ -623,19 +627,44 @@ function renderOperaciones(){
     const tbody = document.querySelector("#tablaOperaciones tbody");
     if(!tbody) return;
     const data = cargarOperaciones();
+    const alertas = data.filter(item => {
+        const dias = diasHasta(item.fecha);
+        return dias <= 10 && dias >= 0 && normalizarTexto(item.estado) !== "FINIQUITADA";
+    }).length;
+    const criticas = data.filter(item => {
+        const dias = diasHasta(item.fecha);
+        return dias <= 5 && dias >= 0 && normalizarTexto(item.estado) !== "FINIQUITADA";
+    }).length;
+    const vencidas = data.filter(item => diasHasta(item.fecha) < 0 && normalizarTexto(item.estado) !== "FINIQUITADA").length;
+    const mantenimientos = data.filter(item => normalizarTexto(item.tipo).includes("MANTENIMIENTO") || normalizarTexto(item.tipo).includes("CAMBIO") || normalizarTexto(item.tipo).includes("REVISION")).length;
+
+    setHtml("opKpiAlertas", formatNumber(alertas));
+    setHtml("opKpiCriticas", formatNumber(criticas));
+    setHtml("opKpiVencidas", formatNumber(vencidas));
+    setHtml("opKpiMantenimientos", formatNumber(mantenimientos));
 
     tbody.innerHTML = data.map(item => {
         const dias = diasHasta(item.fecha);
-        const alerta = dias <= 10 && dias >= 0 ? ` ⚠️ Alerta ${dias} días` : dias < 0 ? "Vencido" : `${dias} días`;
+        const estado = normalizarTexto(item.estado);
+        let alerta = `${dias} días`;
+        if(dias <= 10 && dias >= 6 && estado !== "FINIQUITADA") alerta = `🟡 Alerta ${dias} días`;
+        if(dias <= 5 && dias >= 0 && estado !== "FINIQUITADA") alerta = `🔴 Crítica ${dias} días`;
+        if(dias < 0 && estado !== "FINIQUITADA") alerta = "Vencido";
+        if(estado === "FINIQUITADA") alerta = "Cerrado";
         return `
             <tr>
                 <td>${escapeHtml(item.vehiculo)}</td>
                 <td>${escapeHtml(item.tipo)}</td>
                 <td>${escapeHtml(item.fecha)}</td>
                 <td>${alerta}</td>
+                <td>${escapeHtml(item.km || "-")}</td>
                 <td>${escapeHtml(item.responsable)}</td>
+                <td>${escapeHtml(item.correo || "jorgekorfan@gmail.com")}</td>
                 <td>${badgeEstado(item.estado)}</td>
-                <td><button onclick="eliminarOperacion('${item.id}')">Eliminar</button></td>
+                <td>
+                    <button onclick="cambiarEstadoOperacion('${item.id}')">Cambiar</button>
+                    <button onclick="eliminarOperacion('${item.id}')">Eliminar</button>
+                </td>
             </tr>
         `;
     }).join("");
@@ -648,12 +677,27 @@ function agregarOperacion(){
         vehiculo: $("opVehiculo")?.value || "",
         tipo: $("opTipo")?.value || "",
         fecha: $("opFecha")?.value || "",
+        km: $("opKm")?.value || "",
         responsable: $("opResponsable")?.value || "",
+        correo: $("opCorreo")?.value || "jorgekorfan@gmail.com",
         estado: $("opEstado")?.value || "PENDIENTE"
     });
     guardarOperaciones(data);
+    ["opVehiculo","opFecha","opKm","opResponsable"].forEach(id => setValue(id, ""));
+    setValue("opCorreo", "jorgekorfan@gmail.com");
     renderOperaciones();
     toast("Operación agregada.");
+}
+
+function cambiarEstadoOperacion(id){
+    const orden = ["PENDIENTE", "EN PROCESO", "FINIQUITADA"];
+    const data = cargarOperaciones().map(item => {
+        if(item.id !== id) return item;
+        const actual = orden.indexOf(normalizarTexto(item.estado));
+        return {...item, estado: orden[(actual + 1) % orden.length]};
+    });
+    guardarOperaciones(data);
+    renderOperaciones();
 }
 
 function eliminarOperacion(id){
@@ -662,6 +706,7 @@ function eliminarOperacion(id){
 }
 
 window.eliminarOperacion = eliminarOperacion;
+window.cambiarEstadoOperacion = cambiarEstadoOperacion;
 
 function datosAgendaIniciales(){
     const y = new Date().getFullYear();
@@ -953,31 +998,38 @@ function descargarArchivo(nombre, contenido, tipo){
     URL.revokeObjectURL(url);
 }
 
-function activarDestelloGlobalDashboard(){
-    if(window.__DESTELLO_GLOBAL_DASHBOARD_ACTIVO__) return;
-    window.__DESTELLO_GLOBAL_DASHBOARD_ACTIVO__ = true;
+function activarSeleccionSuaveDashboard(){
+    if(window.__SELECCION_SUAVE_DASHBOARD_ACTIVA__) return;
+    window.__SELECCION_SUAVE_DASHBOARD_ACTIVA__ = true;
 
     document.addEventListener("click", event => {
-        if(event.target.closest(".dashboard-star-click-effect, .no-star-effect")) return;
+        if(event.target.closest(".dashboard-check-click-effect, .no-star-effect")) return;
 
-        const estrella = document.createElement("span");
-        estrella.className = "dashboard-star-click-effect";
-        estrella.style.left = `${event.clientX}px`;
-        estrella.style.top = `${event.clientY}px`;
-        document.body.appendChild(estrella);
-        setTimeout(() => estrella.remove(), 1000);
+        const check = document.createElement("span");
+        check.className = "dashboard-check-click-effect";
+        check.style.left = `${event.clientX}px`;
+        check.style.top = `${event.clientY}px`;
+        document.body.appendChild(check);
+        setTimeout(() => check.remove(), 620);
 
         const brillo = event.target.closest(".menu-item, button, .kpi-card, .chart-card, .table-card, .form-card, .calendar-card, .day-card");
         if(brillo){
-            brillo.classList.remove("dashboard-click-glow");
+            brillo.classList.remove("dashboard-select-glow");
             void brillo.offsetWidth;
-            brillo.classList.add("dashboard-click-glow");
-            setTimeout(() => brillo.classList.remove("dashboard-click-glow"), 820);
+            brillo.classList.add("dashboard-select-glow");
+            setTimeout(() => brillo.classList.remove("dashboard-select-glow"), 620);
         }
     }, true);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".menu-heading").forEach(heading => {
+        heading.addEventListener("click", () => {
+            const section = heading.closest(".menu-section");
+            if(section) section.classList.toggle("open");
+        });
+    });
+
     document.querySelectorAll(".menu-item").forEach(item => {
         item.addEventListener("click", () => cambiarVista(item.dataset.seccion));
     });
@@ -1018,7 +1070,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if(event.key === "Enter") aplicarFiltrosYRender();
     });
 
-    activarDestelloGlobalDashboard();
+    activarSeleccionSuaveDashboard();
     actualizarConfiguracion();
     renderOperaciones();
     renderAgenda();
