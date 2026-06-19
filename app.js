@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260701");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260707");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -1373,8 +1373,8 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
 
     const maxValue = Math.max(...data.map(v => Math.abs(toNumber(v))), 0);
     const chartHeight = horizontal
-        ? Math.max(380, Math.min(980, (labels.length * 34) + 140))
-        : Math.max(320, Math.min(620, (labels.length * 18) + 260));
+        ? Math.max(330, Math.min(760, (labels.length * 30) + 128))
+        : Math.max(300, Math.min(540, (labels.length * 18) + 230));
 
     const labelBg = chartTextColor() === "#f8fafc" ? "rgba(15,23,42,.92)" : "rgba(255,255,255,.92)";
     const labelBorder = chartTextColor() === "#f8fafc" ? "rgba(248,250,252,.22)" : "rgba(0,79,42,.16)";
@@ -1384,8 +1384,8 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
     canvas.style.setProperty("height", `${chartHeight}px`, "important");
     canvas.style.setProperty("display", "block");
     canvas.style.setProperty("width", "100%", "important");
-    chartBox?.style.setProperty("min-height", `${chartHeight + 96}px`);
-    chartBox?.style.setProperty("height", `${chartHeight + 96}px`, "important");
+    chartBox?.style.setProperty("min-height", `${chartHeight + 78}px`);
+    chartBox?.style.setProperty("height", `${chartHeight + 78}px`, "important");
     chartBox?.classList.add("chart-card-enhanced");
 
     charts[idCanvas] = new Chart(canvas, {
@@ -1399,8 +1399,8 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                 borderColor:"rgba(0,79,42,.95)",
                 borderWidth:1,
                 borderRadius:horizontal ? 9 : 12,
-                barThickness:horizontal ? 22 : 40,
-                maxBarThickness:horizontal ? 28 : 52,
+                barThickness:horizontal ? 24 : 42,
+                maxBarThickness:horizontal ? 30 : 54,
                 minBarLength:horizontal ? 10 : 6,
                 barPercentage:.92,
                 categoryPercentage:.86
@@ -1421,7 +1421,7 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
             },
             layout:{
                 padding:horizontal
-                    ? {left:4, right:150, top:14, bottom:14}
+                    ? {left:4, right:170, top:10, bottom:10}
                     : {left:8, right:24, top:28, bottom:8}
             },
             indexAxis:horizontal ? "y" : "x",
