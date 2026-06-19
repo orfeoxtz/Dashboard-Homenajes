@@ -2147,3 +2147,215 @@ body.theme-dark .dashboard-alert-strip.danger{
         align-items:flex-start;
     }
 }
+
+/* Mejoras de gráficas, temas y chulo fijo 20260706 */
+.grafico-card{
+    background:
+        linear-gradient(180deg,rgba(244,255,249,.98) 0%,rgba(235,249,241,.94) 100%) !important;
+    border:1px solid rgba(0,111,63,.16) !important;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.72), 0 16px 38px rgba(0,79,42,.10) !important;
+    overflow:visible;
+}
+
+.grafico-card.chart-card-enhanced{
+    position:relative;
+    padding:16px 16px 18px;
+}
+
+.grafico-card.chart-card-enhanced::before{
+    content:"";
+    position:absolute;
+    left:14px;
+    right:14px;
+    top:48px;
+    bottom:14px;
+    border-radius:18px;
+    background:
+        linear-gradient(180deg,rgba(255,255,255,.72),rgba(243,253,247,.66)),
+        repeating-linear-gradient(0deg,rgba(0,111,63,.035) 0 1px,transparent 1px 34px);
+    border:1px solid rgba(0,111,63,.10);
+    pointer-events:none;
+}
+
+.grafico-card canvas{
+    position:relative;
+    z-index:1;
+    border-radius:14px;
+}
+
+.grafico-card h3{
+    position:relative;
+    z-index:2;
+}
+
+body.theme-dark .grafico-card,
+body.theme-slate .grafico-card{
+    background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(15,32,27,.90)) !important;
+    border-color:rgba(148,163,184,.24) !important;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.06), 0 16px 38px rgba(0,0,0,.28) !important;
+}
+
+body.theme-dark .grafico-card.chart-card-enhanced::before,
+body.theme-slate .grafico-card.chart-card-enhanced::before{
+    background:
+        linear-gradient(180deg,rgba(15,23,42,.55),rgba(2,6,23,.35)),
+        repeating-linear-gradient(0deg,rgba(148,163,184,.08) 0 1px,transparent 1px 34px);
+    border-color:rgba(148,163,184,.16);
+}
+
+.theme-dock{
+    position:fixed;
+    right:14px;
+    bottom:14px;
+    z-index:70;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    padding:7px;
+    border-radius:999px;
+    background:rgba(255,255,255,.58);
+    border:1px solid rgba(15,23,42,.08);
+    backdrop-filter:blur(12px);
+    box-shadow:0 12px 28px rgba(15,23,42,.10);
+    opacity:.42;
+    transition:.2s ease;
+}
+
+.theme-dock:hover{
+    opacity:1;
+    transform:translateY(-1px);
+}
+
+.theme-dot{
+    width:23px;
+    height:23px;
+    border-radius:50%;
+    border:1px solid rgba(15,23,42,.12);
+    cursor:pointer;
+    display:grid;
+    place-items:center;
+    font-size:11px;
+    color:#0f172a;
+    box-shadow:0 5px 12px rgba(15,23,42,.08);
+}
+
+.theme-dot.active{
+    outline:2px solid rgba(0,143,70,.42);
+    outline-offset:2px;
+    transform:scale(1.06);
+}
+
+.theme-dot.sun{background:linear-gradient(135deg,#fff7cc,#ffffff);}
+.theme-dot.moon{background:linear-gradient(135deg,#020617,#334155); color:#fff;}
+.theme-dot.ocean{background:linear-gradient(135deg,#00b4d8,#0077b6);}
+.theme-dot.sunset{background:linear-gradient(135deg,#ffd166,#ef476f);}
+.theme-dot.emerald{background:linear-gradient(135deg,#00c853,#006b3f);}
+.theme-dot.violet{background:linear-gradient(135deg,#a78bfa,#6d28d9);}
+.theme-dot.slate{background:linear-gradient(135deg,#64748b,#0f172a);}
+
+body.theme-emerald{
+    --bg:#edfdf5;
+    --bg-card:#ffffff;
+    --text:#083c2b;
+    --muted:#48685c;
+    --green:#007f4f;
+    --green-dark:#004a2e;
+    background:linear-gradient(135deg,#e8fff4 0%,#f7fff9 52%,#e4f8ed 100%);
+}
+
+body.theme-violet{
+    --bg:#f4f0ff;
+    --bg-card:#ffffff;
+    --text:#2e1065;
+    --muted:#6d5d8f;
+    --green:#6d28d9;
+    --green-dark:#3b0764;
+    background:linear-gradient(135deg,#f5f3ff 0%,#fff 52%,#ede9fe 100%);
+}
+
+body.theme-slate{
+    --bg:#0f172a;
+    --bg-card:#111827;
+    --text:#f8fafc;
+    --muted:#cbd5e1;
+    --green:#38bdf8;
+    --green-dark:#0f172a;
+    background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#020617 100%);
+}
+
+body.theme-emerald .topbar,
+body.theme-emerald .filtros,
+body.theme-emerald .card,
+body.theme-emerald .tabla-cumplimiento,
+body.theme-emerald .card-big,
+body.theme-emerald .config-card,
+body.theme-emerald .alertas-box,
+body.theme-emerald .resumen-ejecutivo,
+body.theme-emerald .insight-card{
+    background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(241,253,247,.88));
+}
+
+body.theme-violet .topbar,
+body.theme-violet .filtros,
+body.theme-violet .card,
+body.theme-violet .tabla-cumplimiento,
+body.theme-violet .card-big,
+body.theme-violet .config-card,
+body.theme-violet .alertas-box,
+body.theme-violet .resumen-ejecutivo,
+body.theme-violet .insight-card{
+    background:linear-gradient(180deg,rgba(255,255,255,.94),rgba(245,243,255,.88));
+}
+
+body.theme-slate .topbar,
+body.theme-slate .filtros,
+body.theme-slate .card,
+body.theme-slate .tabla-cumplimiento,
+body.theme-slate .card-big,
+body.theme-slate .config-card,
+body.theme-slate .alertas-box,
+body.theme-slate .resumen-ejecutivo,
+body.theme-slate .insight-card{
+    background:linear-gradient(180deg,rgba(15,23,42,.94),rgba(2,6,23,.88));
+    color:#f8fafc;
+    border-color:rgba(148,163,184,.22);
+}
+
+body.theme-emerald .sidebar{background:linear-gradient(180deg,#004a2e,#007f4f 58%,#00351f);}
+body.theme-violet .sidebar{background:linear-gradient(180deg,#3b0764,#6d28d9 58%,#2e1065);}
+body.theme-slate .sidebar{background:linear-gradient(180deg,#020617,#0f172a 58%,#111827);}
+
+.click-check-pin{
+    position:fixed;
+    z-index:999999;
+    width:24px;
+    height:24px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    pointer-events:none;
+    background:linear-gradient(135deg,#16a34a,#00c853);
+    color:#fff;
+    font-size:14px;
+    font-weight:900;
+    box-shadow:0 6px 18px rgba(0,143,70,.28),0 0 0 5px rgba(0,200,83,.12);
+    transform:translate(-50%,-50%) scale(.92);
+    animation:checkPinPop .24s ease-out forwards;
+}
+
+.click-check-pin::before{content:"✓"; transform:translateY(-1px);}
+
+@keyframes checkPinPop{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.55);}
+    100%{opacity:1; transform:translate(-50%,-50%) scale(.92);}
+}
+
+/* Temas estáticos: sin movimiento para evitar distracciones */
+body.theme-ocean,
+body.theme-sunset,
+body.theme-ocean::before,
+body.theme-ocean::after,
+body.theme-sunset::before,
+body.theme-sunset::after{
+    animation:none !important;
+}
