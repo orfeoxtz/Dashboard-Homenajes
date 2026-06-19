@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260626");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260627");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -241,6 +241,10 @@ function getValorServicioItem(item){
 
 function getValorExcedenteItem(item){
     return getCampo(item, ["VALOR EXCEDENTE","Valor Excedente","VALOR_EXCEDENTE"]);
+}
+
+function getCantidadItem(item){
+    return getCampo(item, ["CANTIDAD","Cantidad","cantidad"]);
 }
 
 function convertirArrayAObjetos(tabla){
@@ -642,7 +646,7 @@ function normalizarRegistro(item, origen="API"){
     row.categoriaGerencial = obtenerCategoriaGerencial(row);
     row.generaVenta = categoriaGeneraVenta(row.categoriaGerencial);
     row.valorVenta = row.generaVenta ? valorOriginal : 0;
-    row.cantidadAtendida = 1;
+    row.cantidadAtendida = Math.max(toNumber(getCantidadItem(item)) || 1, 1);
 
     return row;
 }
@@ -655,14 +659,24 @@ function cargarManuales(){
 function validarEstructuraApi(datos){
     const columnas = datos.length ? Object.keys(datos[0]) : [];
     const existe = nombres => nombres.some(req => columnas.some(c => normalizarLlave(c) === normalizarLlave(req)));
-    const faltantes = [];
-
-    if(!existe(["Fecha","FECHA"])) faltantes.push("FECHA");
-    if(!existe(["Gestor","GESTOR"])) faltantes.push("GESTOR");
-    if(!existe(["Tipo_Homenaje","TIPO_HOMENAJE"])) faltantes.push("TIPO_HOMENAJE");
-    if(!existe(["Tipo_Excedente","TIPO_EXCEDENTE","TIPO_SERVICIO_TIPOSRV"])) faltantes.push("TIPO_EXCEDENTE / TIPO_SERVICIO_TIPOSRV");
-    if(!existe(["Valor","VALOR","VALOR SERVICIO","Valor Servicio","VALOR_EXCEDENTE","VALOR EXCEDENTE"])) faltantes.push("VALOR SERVICIO / VALOR EXCEDENTE");
-    if(!existe(["Sede","SEDE"])) faltantes.push("SEDE");
+    const requeridas = [
+        "FECHA",
+        "ORDEN_SERVICIO_FUNERARIO",
+        "GESTOR",
+        "SEDE",
+        "TIPO_SERVICIO_TIPOSRV",
+        "TIPO_HOMENAJE",
+        "TIPO_EXCEDENTE",
+        "CLINICA",
+        "MUNICIPIO",
+        "TIPO_MUERTE",
+        "CEMENTERIO",
+        "TIPO_DESTINO_FINAL",
+        "CANTIDAD",
+        "VALOR SERVICIO",
+        "VALOR EXCEDENTE"
+    ];
+    const faltantes = requeridas.filter(nombre => !existe([nombre]));
 
     return {
         ok:datos.length > 0 && faltantes.length === 0,
@@ -917,7 +931,7 @@ function agruparCategorias(rows){
             };
         }
 
-        obj[cat].cantidad += 1;
+        obj[cat].cantidad += toNumber(row.cantidadAtendida) || 1;
         obj[cat].valor += categoriaGeneraVenta(cat) ? toNumber(row.valorVenta) : 0;
     });
 
@@ -934,7 +948,7 @@ function agruparGestores(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += 1;
+        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -951,7 +965,7 @@ function agruparSedes(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += 1;
+        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -974,7 +988,7 @@ function agruparExcedentes(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += 1;
+        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1029,7 +1043,7 @@ function agruparParticularesDetalle(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += 1;
+        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1047,7 +1061,7 @@ function agruparClinicas(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += 1;
+        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1067,7 +1081,7 @@ function agruparMensual(rows){
         }
 
         obj[key].venta += toNumber(row.valorVenta);
-        obj[key].cantidad += 1;
+        obj[key].cantidad += toNumber(row.cantidadAtendida) || 1;
     });
 
     return obj;
@@ -1286,13 +1300,7 @@ function crearChartLine(idCanvas, labels, datasets, titulo, tipoValor="money"){
                     }
                 },
                 datalabels:{
-                    display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
-                    align:"top",
-                    anchor:"end",
-                    offset:3,
-                    color:chartTextColor(),
-                    font:{size:9,weight:"900"},
-                    formatter:value => formatChartValue(value, tipoValor)
+                    display:false
                 }
             },
             scales:{
@@ -1643,9 +1651,9 @@ function renderMetas(){
     ], `Producción vs meta acumulada ${anio}`);
 }
 
-function asegurarVistaCumplimiento(){
+function asegurarVistaCumplimiento(forzar=false){
     const vista = $("cumplimiento");
-    if(!vista || $("cumplimientoMetaVista")) return;
+    if(!vista || (!forzar && $("cumplimientoMetaVista"))) return;
 
     vista.innerHTML = `
         <h1 class="vista-titulo">Cumplimiento</h1>
@@ -1893,15 +1901,23 @@ function renderDatos(){
 
             tbody.innerHTML = muestra.length ? muestra.map(row => `
                 <tr>
-                    <td>${row.origen}</td>
                     <td>${formatFechaProfesional(row.fecha, row.fechaTexto || "-")}</td>
+                    <td>${escapeHtml(row.ordenServicio || "-")}</td>
                     <td title="${escapeHtml(row.gestor || "-")}">${escapeHtml(nombreGestorCorto(row.gestor))}</td>
-                    <td>${row.categoriaGerencial || "-"}</td>
-                    <td>${row.servicio || "-"}</td>
-                    <td>${row.sede || "-"}</td>
-                <td>${formatMoney(row.valorVenta)}</td>
+                    <td>${escapeHtml(row.sede || "-")}</td>
+                    <td>${escapeHtml(row.tipoServicio || "-")}</td>
+                    <td>${escapeHtml(row.categoria || "-")}</td>
+                    <td>${escapeHtml(row.servicio || "-")}</td>
+                    <td>${escapeHtml(row.clinica || "-")}</td>
+                    <td>${escapeHtml(row.municipio || "-")}</td>
+                    <td>${escapeHtml(row.tipoMuerte || "-")}</td>
+                    <td>${escapeHtml(row.cementerio || "-")}</td>
+                    <td>${escapeHtml(row.destinoFinal || "-")}</td>
+                    <td>${formatNumber(row.cantidadAtendida || 1)}</td>
+                    <td>${formatMoney(row.valorServicio)}</td>
+                    <td>${formatMoney(row.valorExcedente)}</td>
             </tr>
-        `).join("") : `<tr><td colspan="7">Sin registros</td></tr>`;
+        `).join("") : `<tr><td colspan="15">Sin registros</td></tr>`;
     }
 }
 
@@ -3520,7 +3536,10 @@ function cambiarVista(seccion){
     if(vista) vista.classList.add("active-view");
 
     setTimeout(() => {
-        if(seccion === "cumplimiento") renderCumplimientoMensual();
+        if(seccion === "cumplimiento"){
+            asegurarVistaCumplimiento(true);
+            renderCumplimientoMensual();
+        }
         if(seccion === "metas") renderMetas();
         if(seccion === "comparativo") renderComparativoAnual();
         if(seccion === "mantenimientos") renderMantenimientos();
