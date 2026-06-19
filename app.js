@@ -35,7 +35,7 @@ let ULTIMA_META_INFO = null;
 let AGENDA_CURSOR = new Date();
 let AGENDA_DIA_SELECCIONADO = fechaISO(new Date());
 
-const AMBIENTES_DASHBOARD = ["normal","ocean","sunset","dark"];
+const AMBIENTES_DASHBOARD = ["normal","dark","ocean","sunset","emerald","violet","slate"];
 
 const $ = id => document.getElementById(id);
 
@@ -1378,9 +1378,15 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
 
     const labelBg = chartTextColor() === "#f8fafc" ? "rgba(15,23,42,.92)" : "rgba(255,255,255,.92)";
     const labelBorder = chartTextColor() === "#f8fafc" ? "rgba(248,250,252,.22)" : "rgba(0,79,42,.16)";
+    const chartBox = canvas.parentElement;
 
+    canvas.setAttribute("height", String(chartHeight));
     canvas.style.setProperty("height", `${chartHeight}px`, "important");
-    canvas.parentElement?.style.setProperty("min-height", `${chartHeight + 72}px`);
+    canvas.style.setProperty("display", "block");
+    canvas.style.setProperty("width", "100%", "important");
+    chartBox?.style.setProperty("min-height", `${chartHeight + 96}px`);
+    chartBox?.style.setProperty("height", `${chartHeight + 96}px`, "important");
+    chartBox?.classList.add("chart-card-enhanced");
 
     charts[idCanvas] = new Chart(canvas, {
         type:"bar",
@@ -1393,9 +1399,9 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                 borderColor:"rgba(0,79,42,.95)",
                 borderWidth:1,
                 borderRadius:horizontal ? 9 : 12,
-                barThickness:horizontal ? 18 : 36,
-                maxBarThickness:horizontal ? 24 : 46,
-                minBarLength:horizontal ? 8 : 4,
+                barThickness:horizontal ? 22 : 40,
+                maxBarThickness:horizontal ? 28 : 52,
+                minBarLength:horizontal ? 10 : 6,
                 barPercentage:.92,
                 categoryPercentage:.86
             }]
@@ -1403,10 +1409,20 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
         options:{
             responsive:true,
             maintainAspectRatio:false,
+            resizeDelay:0,
+            interaction:{
+                mode:"nearest",
+                axis:horizontal ? "y" : "x",
+                intersect:false
+            },
+            hover:{
+                mode:"nearest",
+                intersect:false
+            },
             layout:{
                 padding:horizontal
-                    ? {left:4, right:120, top:8, bottom:8}
-                    : {left:8, right:8, top:24, bottom:4}
+                    ? {left:4, right:150, top:14, bottom:14}
+                    : {left:8, right:24, top:28, bottom:8}
             },
             indexAxis:horizontal ? "y" : "x",
             plugins:{
@@ -1421,7 +1437,7 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
                     anchor:"end",
                     align:horizontal ? "right" : "top",
-                    offset:horizontal ? 8 : 6,
+                    offset:horizontal ? 10 : 7,
                     clamp:true,
                     clip:false,
                     color:chartTextColor(),
@@ -1430,7 +1446,7 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                     borderWidth:1,
                     borderRadius:6,
                     padding:{top:3,right:6,bottom:3,left:6},
-                    font:{size:horizontal ? 10 : 9,weight:"900"},
+                    font:{size:horizontal ? 11 : 10,weight:"900"},
                     formatter:value => formatChartValue(value, tipoValor)
                 }
             },
@@ -1476,6 +1492,11 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                 }
             }
         }
+    });
+
+    requestAnimationFrame(() => {
+        charts[idCanvas]?.resize();
+        charts[idCanvas]?.update("none");
     });
 }
 
@@ -4092,11 +4113,14 @@ function ambienteDashboardActual(){
 
 function aplicarAmbienteDashboard(ambiente){
     const valor = AMBIENTES_DASHBOARD.includes(ambiente) ? ambiente : "normal";
-    document.body.classList.remove("theme-ocean","theme-sunset","theme-dark","dark-mode");
+    document.body.classList.remove("theme-ocean","theme-sunset","theme-dark","theme-emerald","theme-violet","theme-slate","dark-mode");
 
     if(valor === "ocean") document.body.classList.add("theme-ocean");
     if(valor === "sunset") document.body.classList.add("theme-sunset");
     if(valor === "dark") document.body.classList.add("theme-dark");
+    if(valor === "emerald") document.body.classList.add("theme-emerald");
+    if(valor === "violet") document.body.classList.add("theme-violet");
+    if(valor === "slate") document.body.classList.add("theme-slate");
 
     localStorage.setItem("dashboardAmbiente", valor);
 
@@ -4125,6 +4149,10 @@ function aplicarAmbienteDashboard(ambiente){
         }
     });
 
+    document.querySelectorAll(".theme-dot").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.theme === valor);
+    });
+
     setTimeout(redimensionarGraficos, 180);
 }
 
@@ -4136,9 +4164,12 @@ function alternarTema(){
 
     const nombres = {
         normal:"normal",
+        dark:"oscuro",
         ocean:"agua de mar",
         sunset:"atardecer suave",
-        dark:"oscuro"
+        emerald:"verde ejecutivo",
+        violet:"violeta",
+        slate:"grafito"
     };
 
     toast(`Ambiente aplicado: ${nombres[siguiente]}.`);
@@ -4147,6 +4178,24 @@ function alternarTema(){
 function pantallaCompleta(){
     if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
+}
+
+function mostrarChuloFijoClick(event){
+    if(event.target.closest(".click-check-pin")) return;
+
+    let pin = $("clickCheckPin");
+    if(!pin){
+        pin = document.createElement("span");
+        pin.id = "clickCheckPin";
+        pin.className = "click-check-pin";
+        document.body.appendChild(pin);
+    }
+
+    pin.style.left = `${event.clientX}px`;
+    pin.style.top = `${event.clientY}px`;
+    pin.classList.remove("click-check-pin");
+    void pin.offsetWidth;
+    pin.classList.add("click-check-pin");
 }
 
 function validarAcceso(){
@@ -4321,6 +4370,14 @@ document.querySelectorAll("[data-seccion]:not(.menu-item)").forEach(item => {
 document.querySelectorAll(".quick-btn").forEach(btn => {
     btn.addEventListener("click", () => aplicarRangoRapido(btn.dataset.rango));
 });
+
+document.querySelectorAll(".theme-dot").forEach(btn => {
+    btn.addEventListener("click", () => {
+        aplicarAmbienteDashboard(btn.dataset.theme || "normal");
+    });
+});
+
+document.addEventListener("click", mostrarChuloFijoClick, true);
 
 $("btnFiltrar")?.addEventListener("click", aplicarFiltrosYRender);
 $("btnLimpiar")?.addEventListener("click", limpiarFiltros);
