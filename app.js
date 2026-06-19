@@ -1,7 +1,8 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260627");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260628");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
+const GOOGLE_SHEET_PARAMETROS_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=1505384889";
 
 let ACCESS_CODE = localStorage.getItem("dashboardAccessCode") || "JKFH2026";
 let META_MENSUAL_BASE = Number(localStorage.getItem("metaMensualBase")) || 219133881;
@@ -437,10 +438,33 @@ function esFilaParametro(item){
     const valor = getCampo(item, ["Valor","VALOR","valor"]);
 
     return (
-        ["GESTOR","META_CATEGORIA","META_EXCEDENTE"].includes(tipo) &&
+        ["SEDE","GESTOR","META_CATEGORIA","META_EXCEDENTE"].includes(tipo) &&
         String(nombre || "").trim() !== "" &&
         String(valor || "").trim() !== ""
     );
+}
+
+function parametrosBaseDashboard(){
+    return [
+        {Tipo:"SEDE", Nombre:"Monteria", Valor:219133881},
+        {Tipo:"GESTOR", Nombre:"Fernando Argel", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Osvaldo Ramos", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Carlos Lopez", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Alexis Ayazo", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Wendy Cordero", Valor:7000000},
+        {Tipo:"META_CATEGORIA", Nombre:"PARTICULAR", Valor:69090369},
+        {Tipo:"META_CATEGORIA", Nombre:"RED", Valor:127371072},
+        {Tipo:"META_CATEGORIA", Nombre:"EXCEDENTES", Valor:22672440},
+        {Tipo:"META_EXCEDENTE", Nombre:"CARTELES", Valor:136560},
+        {Tipo:"META_EXCEDENTE", Nombre:"ARREGLOS FLORALES", Valor:4727400},
+        {Tipo:"META_EXCEDENTE", Nombre:"VELACION", Valor:4564800},
+        {Tipo:"META_EXCEDENTE", Nombre:"SERVICIO DE BUS", Valor:510000},
+        {Tipo:"META_EXCEDENTE", Nombre:"TRASLADOS", Valor:1835280},
+        {Tipo:"META_EXCEDENTE", Nombre:"HABITOS", Valor:214800},
+        {Tipo:"META_EXCEDENTE", Nombre:"EXCEDENTES POR COFRES", Valor:9558000},
+        {Tipo:"META_EXCEDENTE", Nombre:"PREPARACIONES", Valor:60000},
+        {Tipo:"META_EXCEDENTE", Nombre:"OTROS SERVICIOS ADICIONALES", Valor:1068600}
+    ];
 }
 
 function procesarParametros(datos){
@@ -450,7 +474,9 @@ function procesarParametros(datos){
         excedente:{}
     };
 
-    datos.filter(esFilaParametro).forEach(item => {
+    const fuente = [...parametrosBaseDashboard(), ...(Array.isArray(datos) ? datos : [])];
+
+    fuente.filter(esFilaParametro).forEach(item => {
         const tipo = normalizarTexto(getCampo(item, ["Tipo","TIPO","tipo"]));
         const nombre = normalizarTexto(getCampo(item, ["Nombre","NOMBRE","nombre"]));
         const valor = toNumber(getCampo(item, ["Valor","VALOR","valor"]));
@@ -460,6 +486,7 @@ function procesarParametros(datos){
         if(tipo === "GESTOR") PARAMETROS.gestor[nombre] = valor;
         if(tipo === "META_CATEGORIA") PARAMETROS.categoria[nombre] = valor;
         if(tipo === "META_EXCEDENTE") PARAMETROS.excedente[nombre] = valor;
+        if(tipo === "SEDE" && valor > 0) META_MENSUAL_BASE = valor;
     });
 
     procesarParametrosManuales();
@@ -644,9 +671,16 @@ function normalizarRegistro(item, origen="API"){
     };
 
     row.categoriaGerencial = obtenerCategoriaGerencial(row);
-    row.generaVenta = categoriaGeneraVenta(row.categoriaGerencial);
-    row.valorVenta = row.generaVenta ? valorOriginal : 0;
     row.cantidadAtendida = Math.max(toNumber(getCantidadItem(item)) || 1, 1);
+
+    if(valorExcedente > 0){
+        row.categoriaGerencial = "EXCEDENTES";
+        row.valorVenta = valorExcedente;
+        row.generaVenta = true;
+    }else{
+        row.generaVenta = categoriaGeneraVenta(row.categoriaGerencial);
+        row.valorVenta = row.generaVenta ? (valorServicio > 0 ? valorServicio : valorBase) : 0;
+    }
 
     return row;
 }
@@ -716,15 +750,29 @@ async function cargarDatosRemotos(){
     throw new Error(errores.join(" | "));
 }
 
+async function cargarParametrosRemotos(){
+    try{
+        const response = await fetch(GOOGLE_SHEET_PARAMETROS_CSV_URL, { cache:"no-store" });
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        const texto = await response.text();
+        const data = parseTablaTexto(texto);
+        return data.length ? data : [];
+    }catch(error){
+        console.warn("No se pudieron cargar parámetros remotos. Se usan parámetros base.", error);
+        return [];
+    }
+}
+
 async function cargarDashboard(){
     setEstadoApi("cargando", "Cargando...");
     showLoading(true);
 
     try{
         const remoto = await cargarDatosRemotos();
+        const parametrosRemotos = await cargarParametrosRemotos();
         const datosCompletos = remoto.datos;
 
-        procesarParametros(datosCompletos);
+        procesarParametros([...parametrosRemotos, ...datosCompletos]);
 
         const datosVentas = datosCompletos.filter(item => !esFilaParametro(item));
         DATASET_API = datosVentas;
