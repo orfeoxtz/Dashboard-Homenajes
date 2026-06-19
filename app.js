@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260708");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260709");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -1330,6 +1330,22 @@ function crearResumenEjecutivo(resumen, metaInfo){
     const gestorMayor = gestores[0];
     const clinicaMayor = clinicas[0];
     const destinoMayor = destinos[0];
+    const estadoGerencial = textoEstado(cumplimiento);
+    const nivelGerencial = cumplimiento >= 100 ? "ok" : cumplimiento >= 80 ? "warning" : "danger";
+    const diasRestantes = Math.max(diasEntre(new Date(), metaInfo.fin), 1);
+    const ritmoRequerido = faltante > 0 ? faltante / diasRestantes : 0;
+    const brechasCategoria = ["PARTICULAR","RED","EXCEDENTES"].map(categoria => {
+        const data = agruparCategorias(DATASET_FILTRADO)[categoria] || {valor:0, cantidad:0, categoria};
+        const meta = metaCategoriaMensual(categoria) * MESES_EQUIVALENTES_ACTUAL;
+        return {
+            categoria,
+            valor:data.valor,
+            meta,
+            brecha:Math.max(meta - data.valor, 0),
+            cumplimiento:meta > 0 ? (data.valor / meta) * 100 : 0
+        };
+    }).sort((a,b) => b.brecha - a.brecha);
+    const categoriaFoco = brechasCategoria[0];
     const recomendacion = cumplimiento >= 100
         ? "Se recomienda sostener la estrategia comercial actual y documentar las prácticas que generaron el cumplimiento."
         : cumplimiento >= 80
@@ -1346,6 +1362,31 @@ function crearResumenEjecutivo(resumen, metaInfo){
         PLAN registra <strong>${resumen.planCantidad}</strong> atenciones, pero no suma ventas.
         <br><br><strong>Lectura gerencial:</strong> ${recomendacion}
     `);
+
+    const semaforo = $("semaforoGerencial");
+    if(semaforo){
+        semaforo.classList.remove("ok","warning","danger");
+        semaforo.classList.add(nivelGerencial);
+    }
+
+    setHtml("semaforoGerencialPct", `${cumplimiento.toFixed(1)}%`);
+    setHtml("semaforoGerencialEstado", estadoGerencial);
+    setHtml("semaforoGerencialDetalle", faltante > 0
+        ? `Faltan ${formatMoney(faltante)}. Ritmo sugerido: ${formatMoney(ritmoRequerido)} diarios hasta el cierre del rango.`
+        : `La meta del rango está cubierta. Mantener seguimiento para sostener el resultado.`);
+
+    setHtml("accionGerencial1", cumplimiento >= 100
+        ? `Sostener estrategia actual y documentar qué gestores/categorías generaron el cumplimiento.`
+        : `Activar seguimiento diario hasta recuperar ${formatMoney(faltante)} frente a la meta del rango.`);
+    setHtml("accionGerencial2", categoriaFoco && categoriaFoco.brecha > 0
+        ? `Foco comercial: ${categoriaFoco.categoria}, brecha ${formatMoney(categoriaFoco.brecha)} y cumplimiento ${categoriaFoco.cumplimiento.toFixed(1)}%.`
+        : `Las categorías principales no presentan brecha crítica en el rango seleccionado.`);
+    setHtml("accionGerencial3", gestorMayor
+        ? `Replicar prácticas del gestor líder: ${escapeHtml(gestorMayor.nombre)} con ${formatMoney(gestorMayor.valor)}.`
+        : `Sin gestor líder identificado para el rango seleccionado.`);
+    setHtml("accionGerencial4", clinicaMayor
+        ? `Monitorear fuente de reportes: ${escapeHtml(clinicaMayor.nombre)} concentra ${formatNumber(clinicaMayor.cantidad)} reportes.`
+        : `Sin clínica principal identificada para el rango seleccionado.`);
 
     setHtml("insightCategoria", categoriaMayor ? categoriaMayor.categoria : "-");
     setHtml("insightCategoriaDetalle", categoriaMayor ? `${formatMoney(categoriaMayor.valor)} · ${formatNumber(categoriaMayor.cantidad)} registros` : "Sin datos");
