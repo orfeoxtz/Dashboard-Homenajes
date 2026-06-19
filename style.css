@@ -536,8 +536,8 @@ body.dark-mode .agenda-day{
 
 .top-logo-img{
     display:none;
-    width:50px;
-    height:50px;
+    width:40px;
+    height:40px;
     object-fit:contain;
     border-radius:14px;
     background:#f1f5f9;
@@ -546,7 +546,7 @@ body.dark-mode .agenda-day{
 
 .topbar h1{
     color:var(--green-dark);
-    font-size:21px;
+    font-size:18px;
     font-weight:900;
     line-height:1.05;
     letter-spacing:-.3px;
@@ -554,8 +554,8 @@ body.dark-mode .agenda-day{
 
 .topbar p{
     color:var(--muted);
-    margin-top:3px;
-    font-size:10.5px;
+    margin-top:2px;
+    font-size:9.5px;
 }
 
 .header-right{
@@ -570,9 +570,9 @@ body.dark-mode .agenda-day{
     display:flex;
     align-items:center;
     gap:6px;
-    padding:6px 9px;
+    padding:5px 8px;
     border-radius:999px;
-    font-size:11px;
+    font-size:10px;
     font-weight:900;
     background:#f1f5f9;
     color:#334155;
@@ -585,7 +585,7 @@ body.dark-mode .agenda-day{
 .ultima-act{
     font-weight:800;
     color:var(--text);
-    font-size:11px;
+    font-size:10px;
 }
 
 .header-actions{
@@ -609,8 +609,8 @@ body.dark-mode .agenda-day{
 }
 
 .icon-btn{
-    width:32px;
-    height:32px;
+    width:29px;
+    height:29px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -620,11 +620,11 @@ body.dark-mode .agenda-day{
 }
 
 .action-btn{
-    padding:7px 10px;
+    padding:6px 9px;
     background:linear-gradient(135deg,var(--green-dark) 0%,var(--green-vivid) 100%);
     color:#fff;
     box-shadow:0 10px 22px rgba(0,166,81,.20);
-    font-size:11px;
+    font-size:10px;
 }
 
 .ambient-btn{
@@ -673,14 +673,14 @@ body.theme-sunset .ambient-btn{
 .filtros{
     display:flex;
     flex-wrap:wrap;
-    gap:7px;
+    gap:6px;
     align-items:flex-end;
     background:var(--bg-card);
     border:1px solid var(--border);
     box-shadow:var(--shadow-soft);
-    padding:9px 10px;
+    padding:7px 9px;
     border-radius:16px;
-    margin-top:10px;
+    margin-top:8px;
 }
 
 .quick-filters{
@@ -691,11 +691,11 @@ body.theme-sunset .ambient-btn{
 }
 
 .quick-btn{
-    padding:6px 8px;
+    padding:5px 7px;
     background:#e8fff1;
     color:var(--green-dark);
     border:1px solid rgba(0,143,70,.18);
-    font-size:10px;
+    font-size:9.2px;
 }
 
 .filtro-item{
@@ -712,7 +712,7 @@ body.theme-sunset .ambient-btn{
 .filtro-item label{
     font-weight:800;
     color:var(--text);
-    font-size:10px;
+    font-size:9px;
 }
 
 .filtro-item input,
@@ -728,7 +728,7 @@ body.theme-sunset .ambient-btn{
     color:#0f172a;
     outline:none;
     transition:.2s ease;
-    font-size:11px;
+    font-size:10px;
 }
 
 .filtro-item input:focus,
@@ -743,14 +743,14 @@ body.theme-sunset .ambient-btn{
 #btnFiltrar{
     border:none;
     border-radius:9px;
-    padding:7px 15px;
+    padding:6px 13px;
     min-width:90px;
     cursor:pointer;
     color:#fff;
     font-weight:900;
     background:linear-gradient(135deg,var(--green-dark) 0%,var(--green-vivid) 100%);
     box-shadow:0 10px 22px rgba(0,166,81,.20);
-    font-size:11px;
+    font-size:10px;
 }
 
 .vista{
@@ -816,6 +816,10 @@ body.theme-sunset .ambient-btn{
 
 .kpis-cumplimiento-vista{
     grid-template-columns:repeat(6,minmax(0,1fr));
+}
+
+.kpis-mantenimiento{
+    grid-template-columns:repeat(4,minmax(0,1fr));
 }
 
 .card{
@@ -1255,6 +1259,63 @@ body.dark-mode .inline-select{
 
 .agenda-day.has-events{
     background:linear-gradient(145deg,#ffffff 0%,#effdf5 100%);
+}
+
+.agenda-day-expanded{
+    grid-column:1 / -1;
+    border:1px solid rgba(0,107,63,.18);
+    border-radius:16px;
+    background:linear-gradient(180deg,rgba(255,255,255,.94) 0%,rgba(240,253,244,.90) 100%);
+    padding:10px;
+    box-shadow:0 14px 32px rgba(15,23,42,.10);
+}
+
+.agenda-expanded-title{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:8px;
+    color:var(--green-dark);
+    font-size:12px;
+}
+
+.agenda-inline-hour{
+    display:grid;
+    grid-template-columns:82px 1fr;
+    gap:8px;
+    padding:6px 0;
+    border-top:1px solid rgba(148,163,184,.16);
+}
+
+.agenda-inline-hour > span{
+    font-size:10px;
+    font-weight:900;
+    color:var(--green-dark);
+}
+
+.agenda-inline-hour article{
+    display:grid;
+    grid-template-columns:1fr 120px;
+    align-items:center;
+    gap:8px;
+    padding:6px 8px;
+    border-radius:12px;
+    background:#ffffff;
+    border:1px solid rgba(148,163,184,.14);
+}
+
+.agenda-inline-hour article strong{
+    display:block;
+    font-size:11px;
+    color:var(--text);
+}
+
+.agenda-inline-hour article small,
+.agenda-inline-hour small{
+    color:var(--muted);
+    font-size:9px;
+    font-weight:700;
 }
 
 .agenda-lista{
