@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260628");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260629");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -1700,7 +1700,7 @@ function renderMetas(){
 }
 
 function asegurarVistaCumplimiento(forzar=false){
-    const vista = $("cumplimiento");
+    const vista = $("vistaCumplimiento");
     if(!vista || (!forzar && $("cumplimientoMetaVista"))) return;
 
     vista.innerHTML = `
@@ -3584,7 +3584,7 @@ function cambiarVista(seccion){
     if(vista) vista.classList.add("active-view");
 
     setTimeout(() => {
-        if(seccion === "cumplimiento"){
+        if(seccion === "vistaCumplimiento"){
             asegurarVistaCumplimiento(true);
             renderCumplimientoMensual();
         }
