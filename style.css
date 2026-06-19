@@ -1807,41 +1807,45 @@ body.dark-mode .agenda-hour-activity{
     overflow:hidden;
 }
 
-.sidebar li.menu-item.spark-burst::before{
+.sidebar li.menu-item.selection-check::before{
     content:"";
     position:absolute;
-    inset:-18px;
+    inset:0;
     pointer-events:none;
-    background:
-        radial-gradient(circle at 18% 50%, rgba(255,255,255,.95) 0 2px, transparent 3px),
-        radial-gradient(circle at 45% 18%, rgba(255,230,120,.95) 0 2px, transparent 4px),
-        radial-gradient(circle at 75% 62%, rgba(0,255,150,.80) 0 2px, transparent 4px),
-        radial-gradient(circle at 92% 28%, rgba(255,255,255,.90) 0 1.5px, transparent 3px);
-    animation:menuSparkFlash .78s ease-out forwards;
+    background:linear-gradient(90deg, rgba(255,255,255,.14), rgba(255,255,255,0));
+    animation:menuSelectionSoft .55s ease-out forwards;
 }
 
-.sidebar li.menu-item.spark-burst::after{
-    content:"✦";
+.sidebar li.menu-item.selection-check::after{
+    content:"✓";
     position:absolute;
     right:12px;
     top:50%;
+    width:22px;
+    height:22px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
     pointer-events:none;
-    color:#fef3c7;
-    font-size:20px;
-    text-shadow:0 0 8px rgba(255,255,255,.95),0 0 18px rgba(250,204,21,.80);
-    animation:menuStarBurst .78s cubic-bezier(.2,.9,.2,1) forwards;
+    color:#ffffff;
+    background:rgba(255,255,255,.18);
+    border:1px solid rgba(255,255,255,.25);
+    font-size:13px;
+    font-weight:900;
+    box-shadow:0 6px 18px rgba(0,0,0,.12);
+    animation:menuCheckSoft .55s ease-out forwards;
 }
 
-@keyframes menuSparkFlash{
-    0%{opacity:0; transform:scale(.75) rotate(0deg);}
-    25%{opacity:1;}
-    100%{opacity:0; transform:scale(1.25) rotate(18deg);}
+@keyframes menuSelectionSoft{
+    0%{opacity:0; transform:translateX(-18px);}
+    40%{opacity:1;}
+    100%{opacity:0; transform:translateX(18px);}
 }
 
-@keyframes menuStarBurst{
-    0%{opacity:0; transform:translateY(-50%) scale(.2) rotate(-30deg);}
-    35%{opacity:1; transform:translateY(-50%) scale(1.15) rotate(12deg);}
-    100%{opacity:0; transform:translate(22px,-50%) scale(.35) rotate(80deg);}
+@keyframes menuCheckSoft{
+    0%{opacity:0; transform:translateY(-50%) scale(.55);}
+    45%{opacity:1; transform:translateY(-50%) scale(1.04);}
+    100%{opacity:0; transform:translateY(-50%) scale(.88);}
 }
 
 body.theme-ocean{
