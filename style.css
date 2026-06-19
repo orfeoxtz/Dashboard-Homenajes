@@ -1982,333 +1982,77 @@ body.theme-dark .icon-btn.ambient-active{
     100%{transform:translateX(24%) translateY(8px);}
 }
 
-/* =========================================================
-   CIERRE EJECUTIVO COMPACTO 20260703
-   Ajuste final para presentación gerencial:
-   menos letras gigantes, más aire visual y lectura profesional.
-   ========================================================= */
-
-html{
-    font-size:14px;
+/* Mejoras gerenciales 20260703 */
+.executive-insights{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(170px,1fr));
+    gap:12px;
+    margin:12px 0 18px;
 }
 
-body{
-    line-height:1.35;
-}
-
-.main{
+.insight-card{
+    background:rgba(255,255,255,.82);
+    border:1px solid rgba(15,23,42,.08);
+    border-radius:18px;
     padding:14px 16px;
+    box-shadow:0 12px 28px rgba(15,23,42,.07);
+    min-height:96px;
+    position:relative;
+    overflow:hidden;
 }
 
-.topbar{
-    min-height:auto;
-    padding:12px 16px;
-    gap:10px;
-    border-radius:22px;
+.insight-card::after{
+    content:"";
+    position:absolute;
+    right:-22px;
+    top:-22px;
+    width:72px;
+    height:72px;
+    border-radius:50%;
+    background:rgba(0,143,70,.10);
 }
 
-.brand-head h1,
-.topbar h1{
-    font-size:clamp(16px,1.45vw,22px) !important;
-    line-height:1.12;
-    letter-spacing:-.35px;
-}
-
-.brand-head p,
-.topbar p{
-    font-size:10px !important;
-    line-height:1.25;
-}
-
-.top-actions{
-    gap:7px;
-}
-
-.icon-btn,
-.ambient-btn,
-.action-btn,
-.danger-btn,
-.quick-btn,
-.btn-secundario,
-#btnFiltrar,
-#btnLimpiar{
-    min-height:32px;
-    padding:8px 11px;
-    border-radius:11px;
-    font-size:10px !important;
-    line-height:1;
-}
-
-.filtros{
-    padding:12px 14px;
-    gap:10px;
-    border-radius:22px;
-}
-
-.filtro-item{
-    min-width:150px;
-}
-
-.filtro-item label,
-label{
-    font-size:9px !important;
-    letter-spacing:.15px;
-}
-
-.filtro-item input,
-.filtro-item select,
-input,
-select,
-textarea,
-.inline-select{
-    min-height:34px;
-    padding:8px 10px;
-    border-radius:12px;
-    font-size:11px !important;
-}
-
-.vista-titulo{
-    margin:12px 0 10px;
-    font-size:clamp(16px,1.35vw,21px) !important;
-    letter-spacing:-.25px;
-}
-
-.resumen-ejecutivo,
-.card,
-.grafico-card,
-.tabla-cumplimiento,
-.alertas-box,
-.card-big,
-.config-card{
-    border-radius:20px;
-}
-
-.resumen-ejecutivo{
-    padding:14px 16px;
-    margin-bottom:12px;
-}
-
-.resumen-ejecutivo h2,
-.config-card h2,
-.tabla-cumplimiento h2,
-.grafico-card h3,
-.card-big h3{
-    font-size:13px !important;
-    line-height:1.2;
-    margin-bottom:8px;
-}
-
-.resumen-ejecutivo p,
-.config-card p,
-.mini-text,
-.helper-text{
-    font-size:10.5px !important;
-    line-height:1.35;
-}
-
-.kpis,
-.kpis-secundarios,
-.kpis-operativos,
-.kpis-mantenimiento,
-.kpis-cumplimiento-vista{
-    gap:10px;
-    margin-bottom:12px;
-}
-
-.card,
-.kpi-mini{
-    min-height:92px;
-    padding:13px 14px;
-}
-
-.card h3,
-.kpi-mini h3{
-    font-size:9.2px !important;
-    line-height:1.18;
+.insight-card span{
+    display:block;
+    color:var(--muted);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.4px;
+    font-weight:900;
     margin-bottom:7px;
 }
 
-.card h2,
-.kpi-mini h2,
-.card-value-row h2{
-    font-size:clamp(16px,1.35vw,22px) !important;
-    line-height:1.08;
-    letter-spacing:-.55px;
-    word-break:normal;
+.insight-card strong{
+    display:block;
+    color:var(--text);
+    font-size:16px;
+    line-height:1.12;
+    margin-bottom:7px;
+    max-width:92%;
 }
 
-.card small,
-.kpi-pill{
-    font-size:9.2px !important;
-}
-
-.graficos{
-    gap:12px;
-}
-
-.grafico-card,
-.tabla-cumplimiento{
-    padding:14px;
-    margin-bottom:12px;
-}
-
-.grafico-card canvas{
-    height:285px !important;
-}
-
-.grafico-full canvas,
-#graficoMensual,
-#graficoGestores,
-#graficoExcedentes,
-#graficoMetas,
-#graficoCumplimientoMensual,
-#graficoComparativoAnual,
-#graficoParetoGestores,
-#graficoEnergiaComparativo,
-#graficoEnergiaCosto,
-#graficoVacacionesEstado,
-#graficoTiempoAfiliado,
-#graficoParticularesDetalle,
-#graficoClinicas,
-#graficoClinicasReporte,
-#graficoMunicipios,
-#graficoCementerios,
-#graficoDestinoFinal,
-#graficoHomenajeExcedente{
-    height:315px !important;
-}
-
-table{
-    font-size:10px !important;
-}
-
-th{
-    font-size:8.5px !important;
-    letter-spacing:.28px;
-    padding:8px 7px;
-}
-
-td{
-    font-size:10px !important;
-    padding:8px 7px;
+.insight-card small{
+    display:block;
+    color:var(--muted);
+    font-size:11px;
     line-height:1.25;
 }
 
-.badge{
-    font-size:8.5px !important;
-    padding:4px 7px;
+body.theme-dark .insight-card{
+    background:linear-gradient(180deg,rgba(15,23,42,.94) 0%,rgba(2,6,23,.90) 100%);
+    border-color:rgba(148,163,184,.24);
 }
 
-.sidebar{
-    width:250px;
+body.theme-dark .insight-card strong,
+body.theme-dark .insight-card small,
+body.theme-dark .insight-card span{
+    color:#f8fafc;
 }
 
-.sidebar .logo{
-    padding:12px 10px;
+@media(max-width:1100px){
+    .executive-insights{grid-template-columns:repeat(2,minmax(160px,1fr));}
 }
 
-.logo h2{
-    font-size:13px !important;
-}
-
-.logo h3{
-    font-size:9px !important;
-}
-
-.logo p{
-    font-size:8px !important;
-}
-
-.sidebar-section-title{
-    font-size:7.8px !important;
-    padding:8px 12px;
-}
-
-.sidebar li.menu-item{
-    min-height:34px;
-    padding:9px 12px;
-    font-size:9.4px !important;
-    border-radius:13px;
-    margin-bottom:6px;
-}
-
-.sidebar li.menu-item i{
-    font-size:10.5px !important;
-}
-
-.agenda-header h3{
-    font-size:14px !important;
-}
-
-.agenda-day{
-    min-height:58px;
-    padding:7px;
-}
-
-.agenda-day strong{
-    font-size:12px !important;
-}
-
-.agenda-day span,
-.agenda-hour,
-.agenda-hour-activity{
-    font-size:9px !important;
-}
-
-.config-grid{
-    gap:12px;
-}
-
-.config-card{
-    padding:14px;
-}
-
-.print-report h1{
-    font-size:24px !important;
-}
-
-.print-report h2{
-    font-size:16px !important;
-}
-
-.print-report,
-.print-report p,
-.print-report td,
-.print-report th{
-    font-size:11px !important;
-}
-
-@media (max-width:1200px){
-    .card h2,
-    .kpi-mini h2,
-    .card-value-row h2{
-        font-size:18px !important;
-    }
-
-    .grafico-card canvas,
-    .grafico-full canvas{
-        height:290px !important;
-    }
-}
-
-@media (max-width:760px){
-    .main{
-        padding:10px;
-    }
-
-    .topbar,
-    .filtros,
-    .resumen-ejecutivo,
-    .card,
-    .grafico-card,
-    .tabla-cumplimiento,
-    .config-card{
-        border-radius:16px;
-    }
-
-    .card h2,
-    .kpi-mini h2,
-    .card-value-row h2{
-        font-size:17px !important;
-    }
+@media(max-width:640px){
+    .executive-insights{grid-template-columns:1fr;}
 }
