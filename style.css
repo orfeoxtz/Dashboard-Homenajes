@@ -2056,3 +2056,94 @@ body.theme-dark .insight-card span{
 @media(max-width:640px){
     .executive-insights{grid-template-columns:1fr;}
 }
+
+/* Alertas internas visibles en dashboard 20260704 */
+.alerta-topbar{
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    border:0;
+    border-radius:999px;
+    padding:7px 11px;
+    font-size:11px;
+    font-weight:900;
+    color:#fff;
+    background:linear-gradient(135deg,#16a34a,#008f46);
+    box-shadow:0 8px 20px rgba(22,163,74,.18);
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.alerta-topbar.warning{
+    background:linear-gradient(135deg,#f59e0b,#d97706);
+    box-shadow:0 8px 20px rgba(245,158,11,.22);
+}
+
+.alerta-topbar.danger{
+    background:linear-gradient(135deg,#ef4444,#b91c1c);
+    box-shadow:0 8px 22px rgba(239,68,68,.25);
+    animation:alertPulseSoft 1.9s ease-in-out infinite;
+}
+
+.alerta-topbar.ok{
+    background:linear-gradient(135deg,#16a34a,#008f46);
+}
+
+.dashboard-alert-strip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:14px;
+    margin:0 0 14px;
+    padding:13px 15px;
+    border-radius:18px;
+    border:1px solid rgba(245,158,11,.28);
+    background:linear-gradient(135deg,rgba(255,247,237,.95),rgba(254,243,199,.82));
+    color:#78350f;
+    box-shadow:0 12px 28px rgba(120,53,15,.08);
+}
+
+.dashboard-alert-strip.danger{
+    border-color:rgba(239,68,68,.26);
+    background:linear-gradient(135deg,rgba(254,242,242,.96),rgba(255,228,230,.84));
+    color:#7f1d1d;
+}
+
+.dashboard-alert-strip strong,
+.dashboard-alert-strip span{
+    display:block;
+}
+
+.dashboard-alert-strip strong{
+    font-size:13px;
+    margin-bottom:3px;
+}
+
+.dashboard-alert-strip span{
+    font-size:12px;
+    line-height:1.35;
+}
+
+@keyframes alertPulseSoft{
+    0%,100%{transform:translateY(0); filter:brightness(1);}
+    50%{transform:translateY(-1px); filter:brightness(1.08);}
+}
+
+body.theme-dark .dashboard-alert-strip{
+    background:linear-gradient(135deg,rgba(69,26,3,.92),rgba(120,53,15,.72));
+    color:#ffedd5;
+    border-color:rgba(251,191,36,.28);
+}
+
+body.theme-dark .dashboard-alert-strip.danger{
+    background:linear-gradient(135deg,rgba(69,10,10,.92),rgba(127,29,29,.72));
+    color:#fee2e2;
+    border-color:rgba(248,113,113,.30);
+}
+
+@media(max-width:900px){
+    .dashboard-alert-strip{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+}
