@@ -652,7 +652,7 @@ function normalizarRegistro(item, origen="API"){
         origen,
         raw:item,
         fecha,
-        fechaTexto:getFechaItem(item),
+        fechaTexto:fecha ? formatFechaProfesional(fecha) : String(getFechaItem(item) || ""),
         valorOriginal,
         valorServicio,
         valorExcedente,
@@ -685,9 +685,60 @@ function normalizarRegistro(item, origen="API"){
     return row;
 }
 
+function normalizarRegistroExpandido(item, origen="API"){
+    const base = normalizarRegistro(item, origen);
+    const valorServicio = toNumber(getValorServicioItem(item));
+    const valorExcedente = toNumber(getValorExcedenteItem(item));
+    const valorBase = toNumber(getValorItem(item));
+    const categoriaOriginal = obtenerCategoriaGerencial({
+        categoria:String(getCategoriaItem(item) || "").trim(),
+        servicio:String(getServicioItem(item) || getTipoServicioItem(item) || "").trim()
+    });
+    const servicioOriginal = String(getServicioItem(item) || getTipoServicioItem(item) || base.servicio || "").trim();
+    const filas = [];
+
+    if(valorServicio > 0 && categoriaGeneraVenta(categoriaOriginal)){
+        filas.push({
+            ...base,
+            id:`${base.id}_servicio`,
+            categoriaGerencial:categoriaOriginal,
+            servicio:servicioOriginal || base.servicio,
+            valorOriginal:valorServicio,
+            valorServicio,
+            valorExcedente:0,
+            valorVenta:valorServicio,
+            generaVenta:true,
+            lineaValor:"SERVICIO"
+        });
+    }
+
+    if(valorExcedente > 0){
+        filas.push({
+            ...base,
+            id:`${base.id}_excedente`,
+            categoriaGerencial:"EXCEDENTES",
+            servicio:servicioOriginal || "EXCEDENTES",
+            valorOriginal:valorExcedente,
+            valorServicio:0,
+            valorExcedente,
+            valorVenta:valorExcedente,
+            generaVenta:true,
+            lineaValor:"EXCEDENTE"
+        });
+    }
+
+    if(filas.length) return filas;
+
+    return [{
+        ...base,
+        valorOriginal:valorBase || base.valorOriginal,
+        lineaValor:base.categoriaGerencial === "EXCEDENTES" ? "EXCEDENTE" : "SERVICIO"
+    }];
+}
+
 function cargarManuales(){
     DATASET_MANUAL = JSON.parse(localStorage.getItem("registrosManuales") || "[]");
-    return DATASET_MANUAL.map(item => normalizarRegistro(item, "MANUAL"));
+    return DATASET_MANUAL.flatMap(item => normalizarRegistroExpandido(item, "MANUAL"));
 }
 
 function validarEstructuraApi(datos){
@@ -777,7 +828,7 @@ async function cargarDashboard(){
         const datosVentas = datosCompletos.filter(item => !esFilaParametro(item));
         DATASET_API = datosVentas;
 
-        const normalApi = datosVentas.map(item => normalizarRegistro(item, "API"));
+        const normalApi = datosVentas.flatMap(item => normalizarRegistroExpandido(item, "API"));
         const normalManual = cargarManuales();
 
         DATASET_NORMAL = [...normalApi, ...normalManual];
@@ -786,7 +837,7 @@ async function cargarDashboard(){
         poblarFiltros();
         aplicarFiltrosYRender();
 
-        setEstadoApi("ok", `Conectado · ${remoto.fuente}`);
+        setEstadoApi("ok", "Datos actualizados");
         toast("Dashboard actualizado correctamente.");
 
     }catch(error){
@@ -898,7 +949,21 @@ function coincideFiltrosNoFecha(row, f){
     if(f.sede && row.sede !== f.sede) return false;
 
     if(f.busqueda){
-        const texto = normalizarTexto(`${row.gestor} ${row.categoriaGerencial} ${row.categoria} ${row.servicio} ${row.sede} ${row.observacion}`);
+        const texto = normalizarTexto(`
+            ${row.ordenServicio}
+            ${row.gestor}
+            ${row.categoriaGerencial}
+            ${row.categoria}
+            ${row.servicio}
+            ${row.tipoServicio}
+            ${row.sede}
+            ${row.clinica}
+            ${row.municipio}
+            ${row.tipoMuerte}
+            ${row.cementerio}
+            ${row.destinoFinal}
+            ${row.observacion}
+        `);
         if(!texto.includes(f.busqueda)) return false;
     }
 
@@ -1217,7 +1282,7 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("mesesEquivalentes", MESES_EQUIVALENTES_ACTUAL.toFixed(2));
     setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
     setHtml("mejorGestor", mejorGestor ? mejorGestor.nombre : "-");
-    setHtml("totalRegistros", DATASET_FILTRADO.length);
+    setHtml("totalRegistros", contarOrdenesUnicas(DATASET_FILTRADO));
 
     setHtml("kpiParticularValor", formatMoney(particular.valor));
     setHtml("kpiParticularCumplimiento", `${cParticular.toFixed(1)}%`);
@@ -1585,6 +1650,10 @@ function mesesAnalisisActual(rows=filasAnalisisActual()){
 
 function llaveOrdenAnalisis(row){
     return row.ordenServicio || row.raw?.ORDEN_SERVICIO_FUNERARIO || row.id || cryptoRandom();
+}
+
+function contarOrdenesUnicas(rows){
+    return new Set(rows.map(row => llaveOrdenAnalisis(row)).filter(Boolean)).size;
 }
 
 function agruparAnalisis(rows, obtenerNombre){
@@ -3582,6 +3651,7 @@ function exportarExcel(){
 
     const datos = DATASET_FILTRADO.map(row => ({
         Origen:row.origen,
+        Linea_Valor:row.lineaValor || "",
         Fecha:row.fechaTexto,
         Orden_Servicio:row.ordenServicio,
         Gestor:row.gestor,
@@ -3595,6 +3665,7 @@ function exportarExcel(){
         Cementerio:row.cementerio,
         Destino_Final:row.destinoFinal,
         Sede:row.sede,
+        Cantidad:row.cantidadAtendida,
         Valor_Servicio:row.valorServicio,
         Valor_Excedente:row.valorExcedente,
         Valor_Original:row.valorOriginal,
@@ -3691,8 +3762,48 @@ function exportarExcel(){
 }
 
 function exportarCSV(){
-    const headers = ["Origen","Fecha","Gestor","Categoria_Gerencial","Servicio","Sede","Valor_Venta"];
-    const rows = DATASET_FILTRADO.map(r => [r.origen, r.fechaTexto, r.gestor, r.categoriaGerencial, r.servicio, r.sede, r.valorVenta]);
+    const headers = [
+        "Origen",
+        "Linea_Valor",
+        "Fecha",
+        "Orden_Servicio",
+        "Gestor",
+        "Sede",
+        "Categoria_Original",
+        "Categoria_Gerencial",
+        "Tipo_Servicio",
+        "Tipo_Excedente",
+        "Clinica",
+        "Municipio",
+        "Tipo_Muerte",
+        "Cementerio",
+        "Destino_Final",
+        "Cantidad",
+        "Valor_Servicio",
+        "Valor_Excedente",
+        "Valor_Venta"
+    ];
+    const rows = DATASET_FILTRADO.map(r => [
+        r.origen,
+        r.lineaValor || "",
+        r.fechaTexto,
+        r.ordenServicio,
+        r.gestor,
+        r.sede,
+        r.categoria,
+        r.categoriaGerencial,
+        r.tipoServicio,
+        r.servicio,
+        r.clinica,
+        r.municipio,
+        r.tipoMuerte,
+        r.cementerio,
+        r.destinoFinal,
+        r.cantidadAtendida,
+        r.valorServicio,
+        r.valorExcedente,
+        r.valorVenta
+    ]);
 
     const csv = [headers, ...rows]
         .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g,'""')}"`).join(","))
@@ -3825,8 +3936,8 @@ function cambiarVista(seccion){
 
     const itemMenu = document.querySelector(`.menu-item[data-seccion="${seccion}"]`);
     if(itemMenu){
-        itemMenu.classList.add("active","spark-burst");
-        setTimeout(() => itemMenu.classList.remove("spark-burst"), 850);
+        itemMenu.classList.add("active","selection-check");
+        setTimeout(() => itemMenu.classList.remove("selection-check"), 650);
     }
 
     const vista = $(seccion);
