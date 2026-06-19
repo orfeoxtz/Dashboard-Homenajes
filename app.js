@@ -1320,6 +1320,21 @@ function actualizarKPIs(resumen, metaInfo){
 function crearResumenEjecutivo(resumen, metaInfo){
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - resumen.total, 0);
+    const categorias = Object.values(agruparCategorias(DATASET_FILTRADO))
+        .filter(item => categoriaGeneraVenta(item.categoria))
+        .sort((a,b) => b.valor - a.valor);
+    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
+    const clinicas = Object.values(agruparClinicas(DATASET_FILTRADO)).sort((a,b) => b.cantidad - a.cantidad || b.valor - a.valor);
+    const destinos = agruparAnalisis(DATASET_FILTRADO.filter(row => row.destinoFinal), row => row.destinoFinal);
+    const categoriaMayor = categorias[0];
+    const gestorMayor = gestores[0];
+    const clinicaMayor = clinicas[0];
+    const destinoMayor = destinos[0];
+    const recomendacion = cumplimiento >= 100
+        ? "Se recomienda sostener la estrategia comercial actual y documentar las prácticas que generaron el cumplimiento."
+        : cumplimiento >= 80
+            ? "Se recomienda reforzar seguimiento diario a gestores y priorizar categorías con mayor brecha frente a la meta."
+            : "Se recomienda activar plan de choque comercial, seguimiento por gestor y revisión de oportunidades en particulares, red y excedentes.";
 
     setHtml("resumenEjecutivoTexto", `
         El rango seleccionado comprende <strong>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</strong>.
@@ -1329,7 +1344,17 @@ function crearResumenEjecutivo(resumen, metaInfo){
         <strong>${cumplimiento.toFixed(1)}%</strong>. 
         El faltante para cumplir la meta es <strong>${formatMoney(faltante)}</strong>.
         PLAN registra <strong>${resumen.planCantidad}</strong> atenciones, pero no suma ventas.
+        <br><br><strong>Lectura gerencial:</strong> ${recomendacion}
     `);
+
+    setHtml("insightCategoria", categoriaMayor ? categoriaMayor.categoria : "-");
+    setHtml("insightCategoriaDetalle", categoriaMayor ? `${formatMoney(categoriaMayor.valor)} · ${formatNumber(categoriaMayor.cantidad)} registros` : "Sin datos");
+    setHtml("insightGestor", gestorMayor ? gestorMayor.nombre : "-");
+    setHtml("insightGestorDetalle", gestorMayor ? `${formatMoney(gestorMayor.valor)} · ${formatNumber(gestorMayor.cantidad)} servicios` : "Sin datos");
+    setHtml("insightClinica", clinicaMayor ? clinicaMayor.nombre : "-");
+    setHtml("insightClinicaDetalle", clinicaMayor ? `${formatNumber(clinicaMayor.cantidad)} reportes · ${formatMoney(clinicaMayor.valor)}` : "Sin datos");
+    setHtml("insightDestino", destinoMayor ? destinoMayor.nombre : "-");
+    setHtml("insightDestinoDetalle", destinoMayor ? `${formatNumber(destinoMayor.cantidad)} servicios · ${formatMoney(destinoMayor.valor)}` : "Sin datos");
 }
 
 function destruirChart(id){
