@@ -31,15 +31,50 @@
         </div>
 
         <nav class="menu">
-            <button class="menu-item active" data-seccion="vistaGeneral">General</button>
-            <button class="menu-item" data-seccion="vistaMetas">Metas</button>
-            <button class="menu-item" data-seccion="vistaCumplimiento">Cumplimiento</button>
-            <button class="menu-item" data-seccion="vistaAnalisis">Análisis</button>
-            <button class="menu-item" data-seccion="vistaOperaciones">Operaciones</button>
-            <button class="menu-item" data-seccion="vistaAgenda">Agenda anual</button>
-            <button class="menu-item" data-seccion="vistaVacaciones">Vacaciones</button>
-            <button class="menu-item" data-seccion="vistaDatos">Datos</button>
-            <button class="menu-item" data-seccion="vistaConfig">Configuración</button>
+            <div class="menu-section open">
+                <button class="menu-heading" type="button">
+                    <span>📊 Gestión comercial</span>
+                    <b>⌄</b>
+                </button>
+                <div class="submenu">
+                    <button class="menu-item active" data-seccion="vistaGeneral">General</button>
+                    <button class="menu-item" data-seccion="vistaMetas">Metas</button>
+                    <button class="menu-item" data-seccion="vistaCumplimiento">Cumplimiento</button>
+                </div>
+            </div>
+
+            <div class="menu-section open">
+                <button class="menu-heading" type="button">
+                    <span>🔎 Inteligencia de datos</span>
+                    <b>⌄</b>
+                </button>
+                <div class="submenu">
+                    <button class="menu-item" data-seccion="vistaAnalisis">Análisis</button>
+                    <button class="menu-item" data-seccion="vistaDatos">Datos cargados</button>
+                </div>
+            </div>
+
+            <div class="menu-section open">
+                <button class="menu-heading" type="button">
+                    <span>🚗 Operación y control</span>
+                    <b>⌄</b>
+                </button>
+                <div class="submenu">
+                    <button class="menu-item" data-seccion="vistaOperaciones">Operaciones</button>
+                    <button class="menu-item" data-seccion="vistaAgenda">Agenda anual</button>
+                    <button class="menu-item" data-seccion="vistaVacaciones">Vacaciones</button>
+                </div>
+            </div>
+
+            <div class="menu-section open">
+                <button class="menu-heading" type="button">
+                    <span>⚙️ Sistema</span>
+                    <b>⌄</b>
+                </button>
+                <div class="submenu">
+                    <button class="menu-item" data-seccion="vistaConfig">Configuración</button>
+                </div>
+            </div>
         </nav>
     </aside>
 
@@ -204,6 +239,29 @@
         </section>
 
         <section id="vistaOperaciones" class="vista">
+            <div class="kpi-grid">
+                <article class="kpi-card">
+                    <span>Alertas próximas</span>
+                    <strong id="opKpiAlertas">0</strong>
+                    <small>Vencen en 10 días o menos</small>
+                </article>
+                <article class="kpi-card">
+                    <span>Alertas críticas</span>
+                    <strong id="opKpiCriticas">0</strong>
+                    <small>Vencen en 5 días o menos</small>
+                </article>
+                <article class="kpi-card">
+                    <span>Vencidas</span>
+                    <strong id="opKpiVencidas">0</strong>
+                    <small>Requieren gestión inmediata</small>
+                </article>
+                <article class="kpi-card">
+                    <span>Mantenimientos</span>
+                    <strong id="opKpiMantenimientos">0</strong>
+                    <small>Autos, infraestructura y jardinería</small>
+                </article>
+            </div>
+
             <div class="form-card">
                 <h3>Agregar control operativo</h3>
                 <div class="form-grid">
@@ -212,6 +270,10 @@
                         <option>Cambio de aceite</option>
                         <option>Vencimiento SOAT</option>
                         <option>Vencimiento tecnomecánica</option>
+                        <option>Vencimiento seguro contractual</option>
+                        <option>Revisión llantas</option>
+                        <option>Revisión luces</option>
+                        <option>Lavado y desinfección del vehículo</option>
                         <option>Mantenimiento de jardinería</option>
                         <option>Mantenimiento pintura infraestructura</option>
                         <option>Mantenimiento filtros cafetería</option>
@@ -219,7 +281,9 @@
                         <option>Tarea diaria</option>
                     </select>
                     <input id="opFecha" type="date">
+                    <input id="opKm" type="number" placeholder="Km actual / referencia">
                     <input id="opResponsable" placeholder="Responsable">
+                    <input id="opCorreo" type="email" placeholder="Correo alerta" value="jorgekorfan@gmail.com">
                     <select id="opEstado">
                         <option>PENDIENTE</option>
                         <option>EN PROCESO</option>
@@ -231,7 +295,10 @@
 
             <article class="table-card">
                 <h3>Control operativo y alertas</h3>
-                <table id="tablaOperaciones"><thead><tr><th>Vehículo / Área</th><th>Tipo</th><th>Fecha</th><th>Días</th><th>Responsable</th><th>Estado</th><th>Acción</th></tr></thead><tbody></tbody></table>
+                <p class="helper-text">
+                    Las alertas visuales se activan a 10 y 5 días. Para enviar correos automáticos se requiere conectar Google Apps Script.
+                </p>
+                <table id="tablaOperaciones"><thead><tr><th>Vehículo / Área</th><th>Tipo</th><th>Fecha</th><th>Días</th><th>Km</th><th>Responsable</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead><tbody></tbody></table>
             </article>
         </section>
 
