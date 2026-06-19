@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260708">
+<link rel="stylesheet" href="./style.css?v=20260709">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -214,6 +214,30 @@
     <section class="resumen-ejecutivo">
         <h2>Resumen Ejecutivo</h2>
         <p id="resumenEjecutivoTexto">Cargando análisis gerencial...</p>
+    </section>
+
+    <section class="executive-command-center">
+        <div class="semaforo-card" id="semaforoGerencial">
+            <span class="semaforo-label">Semáforo ejecutivo</span>
+            <div class="semaforo-main">
+                <strong id="semaforoGerencialPct">0%</strong>
+                <span id="semaforoGerencialEstado">Sin datos</span>
+            </div>
+            <p id="semaforoGerencialDetalle">Esperando información del rango seleccionado.</p>
+        </div>
+
+        <div class="action-board">
+            <div class="action-title">
+                <i class="fas fa-list-check"></i>
+                Siguientes acciones gerenciales
+            </div>
+            <ul>
+                <li id="accionGerencial1">Cargando recomendación principal...</li>
+                <li id="accionGerencial2">Cargando foco comercial...</li>
+                <li id="accionGerencial3">Cargando lectura operativa...</li>
+                <li id="accionGerencial4">Cargando seguimiento sugerido...</li>
+            </ul>
+        </div>
     </section>
 
     <section class="executive-insights" id="insightsEjecutivos">
@@ -1252,6 +1276,6 @@
 
 </main>
 
-<script src="./app.js?v=20260708"></script>
+<script src="./app.js?v=20260709"></script>
 </body>
 </html>
