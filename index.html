@@ -1,397 +1,1237 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Gerencial Homenajes</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <link rel="stylesheet" href="style.css">
+<title>General Report Jkfh | Dashboard Gerencial</title>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="./style.css?v=20260701">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
+
 <body>
-    <div id="accessPanel" class="access-panel hidden">
-        <div class="access-card">
-            <h1>Acceso Dashboard</h1>
-            <p>Ingrese el código autorizado para visualizar el panel.</p>
-            <input id="accessEmail" type="email" placeholder="Correo autorizado">
-            <input id="accessCode" type="password" placeholder="Código de acceso">
-            <button id="btnAccess">Ingresar</button>
+
+<section id="accessPanel" class="access-panel">
+    <div class="access-card">
+        <h1>General Report Jkfh</h1>
+        <p>Acceso gerencial al dashboard</p>
+
+        <input type="email" id="accessEmail" placeholder="Correo autorizado">
+        <input type="password" id="accessCode" placeholder="Código de acceso">
+
+        <button id="btnAccess">Ingresar</button>
+        <small>Clave inicial: JKFH2026</small>
+    </div>
+</section>
+
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="loader-card">
+        <div class="loader-spinner"></div>
+        <h3>Cargando dashboard</h3>
+        <p>Procesando información gerencial...</p>
+    </div>
+</div>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<aside class="sidebar">
+    <div class="logo">
+        <img id="sidebarLogo" src="" alt="" class="sidebar-logo-img">
+        <h2 id="sidebarEmpresa">General Report</h2>
+        <h3>George Korfan</h3>
+        <p>Dashboard Gerencial</p>
+    </div>
+
+    <ul class="sidebar-menu">
+        <li class="sidebar-section-title">GENERAL</li>
+        <li class="menu-item active" data-seccion="dashboard"><i class="fas fa-home"></i> Dashboard</li>
+        <li class="menu-item" data-seccion="categorias"><i class="fas fa-layer-group"></i> Categorías</li>
+        <li class="menu-item" data-seccion="excedentes"><i class="fas fa-plus-circle"></i> Excedentes</li>
+        <li class="menu-item" data-seccion="gestores"><i class="fas fa-users"></i> Gestores</li>
+
+        <li class="sidebar-section-title">METAS</li>
+        <li class="menu-item" data-seccion="metas"><i class="fas fa-bullseye"></i> Metas</li>
+        <li class="menu-item" data-seccion="vistaCumplimiento"><i class="fas fa-chart-line"></i> Cumplimiento</li>
+
+        <li class="sidebar-section-title">ANÁLISIS</li>
+        <li class="menu-item" data-seccion="analisisHomenaje"><i class="fas fa-clipboard-list"></i> Homenaje / Excedente</li>
+        <li class="menu-item" data-seccion="analisisClinicas"><i class="fas fa-hospital"></i> Clínicas</li>
+        <li class="menu-item" data-seccion="analisisMunicipios"><i class="fas fa-map-location-dot"></i> Municipios</li>
+        <li class="menu-item" data-seccion="analisisMuerte"><i class="fas fa-heart-pulse"></i> Tipo muerte</li>
+        <li class="menu-item" data-seccion="analisisCementerios"><i class="fas fa-cross"></i> Cementerios</li>
+        <li class="menu-item" data-seccion="analisisDestino"><i class="fas fa-route"></i> Destino final</li>
+        <li class="menu-item" data-seccion="comparativo"><i class="fas fa-scale-balanced"></i> Comparativo</li>
+        <li class="menu-item" data-seccion="pareto"><i class="fas fa-chart-pie"></i> Pareto 80/20</li>
+        <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas</li>
+        <li class="menu-item" data-seccion="tiempoAfiliado"><i class="fas fa-hourglass-half"></i> Tiempo afiliado</li>
+
+        <li class="sidebar-section-title">OPERACIÓN</li>
+        <li class="menu-item" data-seccion="energia"><i class="fas fa-bolt"></i> Energía eléctrica</li>
+        <li class="menu-item" data-seccion="mantenimientos"><i class="fas fa-screwdriver-wrench"></i> Mantenimientos</li>
+        <li class="menu-item" data-seccion="vacaciones"><i class="fas fa-umbrella-beach"></i> Vacaciones</li>
+        <li class="menu-item" data-seccion="agenda"><i class="fas fa-calendar-check"></i> Agenda anual</li>
+
+        <li class="sidebar-section-title">CONTROL</li>
+        <li class="menu-item" data-seccion="datos"><i class="fas fa-database"></i> Datos</li>
+        <li class="menu-item" data-seccion="registroManual"><i class="fas fa-pen-to-square"></i> Registro Manual</li>
+        <li class="menu-item" data-seccion="reportes"><i class="fas fa-file-export"></i> Reportes</li>
+        <li class="menu-item" data-seccion="configuracion"><i class="fas fa-cogs"></i> Configuración</li>
+    </ul>
+</aside>
+
+<main class="main" id="panelExportar">
+
+<header class="topbar">
+    <div class="brand-head">
+        <img id="logoTopbar" src="" alt="" class="top-logo-img">
+        <div>
+            <h1 id="tituloDashboard">General Report Jkfh</h1>
+            <p id="subtituloDashboard">Dashboard gerencial de homenajes, metas, categorías y excedentes</p>
         </div>
     </div>
 
-    <aside class="sidebar">
-        <div class="brand">
-            <img id="sidebarLogo" class="brand-logo" alt="Logo">
-            <div>
-                <h2 id="sidebarEmpresa">Los Olivos</h2>
-                <span>Gerencia Homenajes</span>
+    <div class="header-right">
+        <div class="estado-api cargando" id="estadoApi"><i class="fas fa-circle"></i> Conectando...</div>
+        <div class="ultima-act">Última actualización: <span id="ultimaActualizacion">-</span></div>
+
+        <div class="header-actions">
+            <button id="btnSidebar" class="icon-btn" title="Colapsar menú"><i class="fas fa-bars"></i></button>
+            <button id="btnTema" class="icon-btn" title="Ambiente visual: normal"><i class="fas fa-sun"></i></button>
+            <button id="btnAmbiente" class="action-btn ambient-btn" title="Cambiar ambiente visual"><i class="fas fa-water"></i> Ambiente</button>
+            <button id="btnFull" class="icon-btn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
+            <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
+            <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
+            <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
+            <button id="btnLogout" class="danger-btn"><i class="fas fa-right-from-bracket"></i> Salir</button>
+        </div>
+    </div>
+</header>
+
+<section class="filtros">
+    <div class="quick-filters">
+        <button class="quick-btn" data-rango="hoy">Hoy</button>
+        <button class="quick-btn" data-rango="mes">Mes actual</button>
+        <button class="quick-btn" data-rango="trimestre">Trimestre</button>
+        <button class="quick-btn" data-rango="semestre">Semestre</button>
+        <button class="quick-btn" data-rango="anio">Año actual</button>
+    </div>
+
+    <div class="filtro-item">
+        <label>Fecha inicial</label>
+        <input type="date" id="fechaInicio">
+    </div>
+
+    <div class="filtro-item">
+        <label>Fecha final</label>
+        <input type="date" id="fechaFin">
+    </div>
+
+    <div class="filtro-item">
+        <label>Gestor</label>
+        <select id="filtroGestor"><option value="">Todos</option></select>
+    </div>
+
+    <div class="filtro-item">
+        <label>Categoría</label>
+        <select id="filtroCategoria">
+            <option value="">Todas</option>
+            <option value="PARTICULAR">PARTICULAR</option>
+            <option value="RED">RED</option>
+            <option value="EXCEDENTES">EXCEDENTES</option>
+            <option value="PLAN">PLAN</option>
+        </select>
+    </div>
+
+    <div class="filtro-item">
+        <label>Excedente / Servicio</label>
+        <select id="filtroServicio"><option value="">Todos</option></select>
+    </div>
+
+    <div class="filtro-item">
+        <label>Sede</label>
+        <select id="filtroSede"><option value="">Todas</option></select>
+    </div>
+
+    <div class="filtro-item">
+        <label>Año</label>
+        <select id="filtroAnio"><option value="">Todos</option></select>
+    </div>
+
+    <div class="filtro-item">
+        <label>Mes</label>
+        <select id="filtroMes">
+            <option value="">Todos</option>
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+        </select>
+    </div>
+
+    <div class="filtro-item filtro-grow">
+        <label>Búsqueda general</label>
+        <input type="text" id="busquedaGeneral" placeholder="Gestor, sede, categoría, servicio u observación">
+    </div>
+
+    <div class="filtro-item">
+        <button id="btnFiltrar">Filtrar</button>
+    </div>
+
+    <div class="filtro-item">
+        <button id="btnLimpiar" class="btn-secundario">Limpiar</button>
+    </div>
+</section>
+
+<section id="dashboard" class="vista active-view">
+    <section class="resumen-ejecutivo">
+        <h2>Resumen Ejecutivo</h2>
+        <p id="resumenEjecutivoTexto">Cargando análisis gerencial...</p>
+    </section>
+
+    <section class="kpis kpis-principales">
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon green"><i class="fas fa-flag-checkered"></i></span>
+                <h3>Meta del Rango</h3>
             </div>
+            <div class="card-value-row">
+                <h2 id="metaGrupal">$0</h2>
+                <span class="kpi-pill neutral">100%</span>
+            </div>
+            <p class="mini-text" id="metaRangoDetalle">-</p>
         </div>
 
-        <nav class="menu">
-            <div class="menu-section open">
-                <button class="menu-heading" type="button">
-                    <span>📊 Gestión comercial</span>
-                    <b>⌄</b>
-                </button>
-                <div class="submenu">
-                    <button class="menu-item active" data-seccion="vistaGeneral">General</button>
-                    <button class="menu-item" data-seccion="vistaMetas">Metas</button>
-                    <button class="menu-item" data-seccion="vistaCumplimiento">Cumplimiento</button>
-                </div>
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span>
+                <h3>Ventas Acumuladas</h3>
             </div>
-
-            <div class="menu-section open">
-                <button class="menu-heading" type="button">
-                    <span>🔎 Inteligencia de datos</span>
-                    <b>⌄</b>
-                </button>
-                <div class="submenu">
-                    <button class="menu-item" data-seccion="vistaAnalisis">Análisis</button>
-                    <button class="menu-item" data-seccion="vistaDatos">Datos cargados</button>
-                </div>
+            <div class="card-value-row">
+                <h2 id="ventas">$0</h2>
+                <span class="kpi-pill" id="ventasCumplimientoPill">0%</span>
             </div>
+            <p class="mini-text">Particular + Red + Excedentes</p>
+        </div>
 
-            <div class="menu-section open">
-                <button class="menu-heading" type="button">
-                    <span>🚗 Operación y control</span>
-                    <b>⌄</b>
-                </button>
-                <div class="submenu">
-                    <button class="menu-item" data-seccion="vistaOperaciones">Operaciones</button>
-                    <button class="menu-item" data-seccion="vistaAgenda">Agenda anual</button>
-                    <button class="menu-item" data-seccion="vistaVacaciones">Vacaciones</button>
-                </div>
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon violet"><i class="fas fa-percent"></i></span>
+                <h3>Cumplimiento</h3>
             </div>
-
-            <div class="menu-section open">
-                <button class="menu-heading" type="button">
-                    <span>⚙️ Sistema</span>
-                    <b>⌄</b>
-                </button>
-                <div class="submenu">
-                    <button class="menu-item" data-seccion="vistaConfig">Configuración</button>
-                </div>
+            <div class="card-value-row">
+                <h2 id="cumplimiento">0%</h2>
+                <span class="kpi-pill" id="estadoCumplimientoPill">Bajo</span>
             </div>
-        </nav>
-    </aside>
+            <p class="mini-text" id="estadoCumplimientoTexto">Sin datos</p>
+        </div>
 
-    <main class="app-shell">
-        <header class="topbar">
-            <div class="topbar-title">
-                <img id="logoTopbar" class="topbar-logo" alt="Logo">
-                <div>
-                    <h1 id="tituloDashboard">Dashboard Gerencial Homenajes</h1>
-                    <p id="subtituloDashboard">Ventas, cumplimiento, operación y análisis estratégico</p>
-                </div>
+        <div class="card kpi-compact">
+            <div class="card-headline">
+                <span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span>
+                <h3>Faltante</h3>
             </div>
-
-            <div class="topbar-actions">
-                <span id="ultimaActualizacion" class="last-update">Última actualización: --</span>
-                <button id="btnTemaAgua" title="Tema agua">🌊</button>
-                <button id="btnTemaAtardecer" title="Tema atardecer">☀️</button>
-                <button id="btnTemaOscuro" title="Tema oscuro">🌙</button>
-                <button id="btnSidebar" title="Contraer menú">☰</button>
-                <button id="btnRecargar">Recargar</button>
+            <div class="card-value-row">
+                <h2 id="faltante">$0</h2>
+                <span class="kpi-pill danger" id="faltantePctPill">0%</span>
             </div>
-        </header>
+            <p class="mini-text">Valor pendiente para cumplir</p>
+        </div>
+    </section>
 
-        <section class="filters-card">
-            <div class="filters-grid">
-                <label>Fecha inicio
-                    <input id="fechaInicio" type="date">
-                </label>
-                <label>Fecha fin
-                    <input id="fechaFin" type="date">
-                </label>
-                <label>Gestor
-                    <select id="filtroGestor"></select>
-                </label>
-                <label>Categoría
-                    <select id="filtroCategoria"></select>
-                </label>
-                <label>Sede
-                    <select id="filtroSede"></select>
-                </label>
-                <label>Buscar
-                    <input id="busquedaGeneral" type="search" placeholder="Clínica, cementerio, municipio...">
-                </label>
+    <section class="kpis-secundarios categoria-kpis">
+        <div class="card card-categoria particular kpi-compact">
+            <h3>🧾 Particular</h3>
+            <div class="card-value-row">
+                <h2 id="kpiParticularValor">$0</h2>
+                <span class="kpi-pill" id="kpiParticularCumplimiento">0%</span>
             </div>
+            <p class="mini-text" id="kpiParticularCantidad">0 homenajes | Meta $0</p>
+        </div>
 
-            <div class="quick-actions">
-                <button class="quick-btn" data-rango="hoy">Hoy</button>
-                <button class="quick-btn" data-rango="mes">Mes</button>
-                <button class="quick-btn" data-rango="trimestre">Trimestre</button>
-                <button class="quick-btn" data-rango="anio">Año</button>
-                <button id="btnFiltrar">Aplicar</button>
-                <button id="btnLimpiar">Limpiar</button>
+        <div class="card card-categoria red kpi-compact">
+            <h3>🌐 Red</h3>
+            <div class="card-value-row">
+                <h2 id="kpiRedValor">$0</h2>
+                <span class="kpi-pill" id="kpiRedCumplimiento">0%</span>
             </div>
-        </section>
+            <p class="mini-text" id="kpiRedCantidad">0 homenajes | Meta $0</p>
+        </div>
 
-        <section id="vistaGeneral" class="vista active-view">
-            <div class="kpi-grid">
-                <article class="kpi-card">
-                    <span>Meta del rango</span>
-                    <strong id="kpiMeta">$0</strong>
-                    <small id="kpiMetaDetalle">Meta configurada</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Venta real</span>
-                    <strong id="kpiVenta">$0</strong>
-                    <small id="kpiVentaPct">0% cumplido</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Faltante</span>
-                    <strong id="kpiFaltante">$0</strong>
-                    <small>Para cumplimiento total</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Servicios</span>
-                    <strong id="kpiServicios">0</strong>
-                    <small>Registros del rango</small>
-                </article>
+        <div class="card card-categoria excedentes kpi-compact">
+            <h3>➕ Excedentes</h3>
+            <div class="card-value-row">
+                <h2 id="kpiExcedentesValor">$0</h2>
+                <span class="kpi-pill" id="kpiExcedentesCumplimiento">0%</span>
             </div>
+            <p class="mini-text" id="kpiExcedentesCantidad">0 unidades | Meta $0</p>
+        </div>
 
-            <div class="chart-grid two">
-                <article class="chart-card">
-                    <h3>Ventas por categoría</h3>
-                    <canvas id="graficoCategorias"></canvas>
-                </article>
-                <article class="chart-card">
-                    <h3>Ventas por gestor</h3>
-                    <canvas id="graficoGestores"></canvas>
-                </article>
+        <div class="card card-categoria plan kpi-compact">
+            <h3>📋 Plan</h3>
+            <h2 id="kpiPlanCantidad">0</h2>
+            <p class="mini-text">Cantidad atendida | No suma ventas</p>
+        </div>
+    </section>
+
+    <section class="kpis-secundarios kpis-operativos">
+        <div class="card kpi-mini"><h3>📅 Meta Mensual</h3><h2 id="metaMensual">$0</h2></div>
+        <div class="card kpi-mini"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
+        <div class="card kpi-mini"><h3>⏱ Meses Equiv.</h3><h2 id="mesesEquivalentes">0</h2></div>
+        <div class="card kpi-mini"><h3>📈 Promedio Diario</h3><h2 id="promedioDiarioReal">$0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
+        <div class="card kpi-mini"><h3>📊 Registros</h3><h2 id="totalRegistros">0</h2></div>
+    </section>
+
+    <section class="graficos">
+        <div class="grafico-card">
+            <h3>Meta del Rango vs Venta Real</h3>
+            <canvas id="graficoMetaReal"></canvas>
+        </div>
+
+        <div class="grafico-card">
+            <h3>Participación por Categoría</h3>
+            <canvas id="graficoCategoriasDashboard"></canvas>
+        </div>
+
+        <div class="grafico-card grafico-ancho">
+            <h3>Ventas Mensuales vs Meta Mensual</h3>
+            <canvas id="graficoMensual"></canvas>
+        </div>
+    </section>
+
+    <section class="tabla-cumplimiento">
+        <h2>Tabla Gerencial Consolidada</h2>
+        <table id="tablaConsolidada">
+            <thead>
+                <tr>
+                    <th>Periodo</th>
+                    <th>Meta</th>
+                    <th>Venta Real</th>
+                    <th>%</th>
+                    <th>Faltante</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </section>
+</section>
+
+<section id="categorias" class="vista">
+    <h1 class="vista-titulo">Categorías Gerenciales</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Regla aplicada</h2>
+        <p>PARTICULAR, RED y EXCEDENTES generan ventas. PLAN solo cuenta cantidad atendida y no suma para la meta.</p>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Categorías que generan ventas</h3>
+        <canvas id="graficoCategoriasVista"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle de Categorías</h2>
+        <table id="tablaCategoriasVista">
+            <thead>
+                <tr>
+                    <th>Categoría</th>
+                    <th>Tipo</th>
+                    <th>Cantidad atendida</th>
+                    <th>Ventas generadas</th>
+                    <th>Participación</th>
+                    <th>Meta</th>
+                    <th>Cumplimiento</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <section class="graficos">
+        <div class="grafico-card grafico-full">
+            <h3>Particulares por tipo de servicio</h3>
+            <canvas id="graficoParticularesDetalle"></canvas>
+        </div>
+
+        <div class="grafico-card grafico-full">
+            <h3>Clínicas que más reportan homenajes</h3>
+            <canvas id="graficoClinicas"></canvas>
+        </div>
+    </section>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle de particulares</h2>
+        <table id="tablaParticularesDetalle">
+            <thead>
+                <tr>
+                    <th>Tipo particular</th>
+                    <th>Cantidad</th>
+                    <th>Venta</th>
+                    <th>Participación</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Clínicas que más reportan homenajes</h2>
+        <table id="tablaClinicas">
+            <thead>
+                <tr>
+                    <th>Clínica</th>
+                    <th>Reportes</th>
+                    <th>Venta asociada</th>
+                    <th>Participación</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="excedentes" class="vista">
+    <h1 class="vista-titulo">Excedentes</h1>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>Total Excedentes</h3><h2 id="vistaExcedentesValor">$0</h2></div>
+        <div class="card"><h3>Cantidad Excedentes</h3><h2 id="vistaExcedentesCantidad">0</h2></div>
+        <div class="card"><h3>Meta Excedentes</h3><h2 id="vistaExcedentesMeta">$0</h2></div>
+        <div class="card"><h3>Cumplimiento Excedentes</h3><h2 id="vistaExcedentesCumplimiento">0%</h2></div>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Excedentes por valor vendido</h3>
+        <canvas id="graficoExcedentes"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Metas por Excedente</h2>
+        <table id="tablaExcedentesVista">
+            <thead>
+                <tr>
+                    <th>Excedente</th>
+                    <th>Meta</th>
+                    <th>Cantidad</th>
+                    <th>Venta</th>
+                    <th>%</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="gestores" class="vista">
+    <h1 class="vista-titulo">Gestores</h1>
+
+    <div class="grafico-card grafico-full">
+        <h3>Ranking de gestores</h3>
+        <canvas id="graficoGestores"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Metas por Gestor</h2>
+        <table id="tablaGestoresVista">
+            <thead>
+                <tr>
+                    <th>Gestor</th>
+                    <th>Meta</th>
+                    <th>Cantidad</th>
+                    <th>Venta</th>
+                    <th>%</th>
+                    <th>Faltante</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="metas" class="vista">
+    <h1 class="vista-titulo">Metas</h1>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>Meta Particular</h3><h2 id="metaParticularVista">$0</h2></div>
+        <div class="card"><h3>Meta Red</h3><h2 id="metaRedVista">$0</h2></div>
+        <div class="card"><h3>Meta Excedentes</h3><h2 id="metaExcedentesVista">$0</h2></div>
+        <div class="card"><h3>Meta Mensual Total</h3><h2 id="metaMensualVista">$0</h2></div>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Meta acumulada por meses</h3>
+        <canvas id="graficoMetas"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Metas por Categoría</h2>
+        <table id="tablaMetasCategoria">
+            <thead>
+                <tr>
+                    <th>Categoría</th>
+                    <th>Meta</th>
+                    <th>Venta</th>
+                    <th>%</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="vistaCumplimiento" class="vista">
+    <h1 class="vista-titulo">Cumplimiento</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Lectura de cumplimiento</h2>
+        <p id="textoCumplimientoVista">Cargando cumplimiento desde Google Sheet...</p>
+    </section>
+
+    <section class="kpis-secundarios kpis-cumplimiento-vista">
+        <div class="card kpi-mini"><h3>🎯 Meta del periodo</h3><h2 id="cumplimientoMetaVista">$0</h2></div>
+        <div class="card kpi-mini"><h3>💰 Venta real</h3><h2 id="cumplimientoVentaVista">$0</h2></div>
+        <div class="card kpi-mini"><h3>📈 Cumplimiento</h3><h2 id="cumplimientoPctVista">0%</h2></div>
+        <div class="card kpi-mini"><h3>⚠️ Faltante</h3><h2 id="cumplimientoFaltanteVista">$0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mejor mes</h3><h2 id="cumplimientoMejorMesVista">-</h2></div>
+        <div class="card kpi-mini"><h3>📅 Meses con venta</h3><h2 id="cumplimientoMesesVentaVista">0</h2></div>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Cumplimiento mensual</h3>
+        <canvas id="graficoCumplimientoMensual"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle mensual</h2>
+        <table id="tablaCumplimientoMensual">
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Meta</th>
+                    <th>Venta</th>
+                    <th>%</th>
+                    <th>Faltante</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="analisisHomenaje" class="vista">
+    <h1 class="vista-titulo">Tipo de Homenaje y Excedente</h1>
+    <section class="resumen-ejecutivo"><h2>Ventas y participación</h2><p id="textoAnalisisHomenaje">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>💰 Venta total</h3><h2 id="kpiHomenajeVenta">$0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Registros</h3><h2 id="kpiHomenajeRegistros">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor rubro</h3><h2 id="kpiHomenajeMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📈 Promedio diario</h3><h2 id="kpiHomenajePromedio">$0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Ventas por tipo de homenaje y excedente</h3><canvas id="graficoHomenajeExcedente"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle tipo homenaje / excedente</h2>
+        <table id="tablaHomenajeExcedente"><thead><tr><th>Tipo homenaje</th><th>Tipo excedente</th><th>Cantidad</th><th>Venta</th><th>% venta</th><th>Prom. diario</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisClinicas" class="vista">
+    <h1 class="vista-titulo">Clínicas que más reportan fallecidos</h1>
+    <section class="resumen-ejecutivo"><h2>Reporte por clínica</h2><p id="textoAnalisisClinicas">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🏥 Clínicas</h3><h2 id="kpiClinicasTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Reportes</h3><h2 id="kpiClinicasReportes">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor reporte</h3><h2 id="kpiClinicasMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📈 Promedio diario</h3><h2 id="kpiClinicasPromedio">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Ranking de clínicas por reportes</h3><canvas id="graficoClinicasReporte"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle por clínica</h2>
+        <table id="tablaClinicasReporte"><thead><tr><th>Clínica</th><th>Reportes</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisMunicipios" class="vista">
+    <h1 class="vista-titulo">Municipio de atención</h1>
+    <section class="resumen-ejecutivo"><h2>Seres queridos fallecidos por municipio</h2><p id="textoAnalisisMunicipios">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🗺 Municipios</h3><h2 id="kpiMunicipiosTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Atenciones</h3><h2 id="kpiMunicipiosReportes">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor municipio</h3><h2 id="kpiMunicipiosMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📈 Prom. diario</h3><h2 id="kpiMunicipiosPromedio">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Atenciones por municipio</h3><canvas id="graficoMunicipios"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle por municipio</h2>
+        <table id="tablaMunicipios"><thead><tr><th>Municipio</th><th>Atenciones</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisMuerte" class="vista">
+    <h1 class="vista-titulo">Tipo de muerte</h1>
+    <section class="resumen-ejecutivo"><h2>Natural vs no natural</h2><p id="textoAnalisisMuerte">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🌿 Natural</h3><h2 id="kpiMuerteNatural">0%</h2></div>
+        <div class="card kpi-mini"><h3>⚠️ No natural</h3><h2 id="kpiMuerteNoNatural">0%</h2></div>
+        <div class="card kpi-mini"><h3>📋 Total</h3><h2 id="kpiMuerteTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📈 Prom. diario</h3><h2 id="kpiMuertePromedio">0</h2></div>
+    </section>
+    <section class="graficos">
+        <div class="grafico-card grafico-full"><h3>Representación por tipo de muerte</h3><canvas id="graficoTipoMuerte"></canvas></div>
+    </section>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle por tipo de muerte</h2>
+        <table id="tablaTipoMuerte"><thead><tr><th>Tipo muerte</th><th>Fallecimientos</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisCementerios" class="vista">
+    <h1 class="vista-titulo">Cementerios</h1>
+    <section class="resumen-ejecutivo"><h2>Destino cementerio</h2><p id="textoAnalisisCementerios">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>⛪ Cementerios</h3><h2 id="kpiCementeriosTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Servicios</h3><h2 id="kpiCementeriosServicios">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor cementerio</h3><h2 id="kpiCementeriosMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📆 Prom. mensual</h3><h2 id="kpiCementeriosMensual">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Servicios por cementerio</h3><canvas id="graficoCementerios"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle cementerios</h2>
+        <table id="tablaCementerios"><thead><tr><th>Cementerio</th><th>Servicios</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisDestino" class="vista">
+    <h1 class="vista-titulo">Tipo de destino final</h1>
+    <section class="resumen-ejecutivo"><h2>Promedio por destino final</h2><p id="textoAnalisisDestino">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🧭 Tipos destino</h3><h2 id="kpiDestinoTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Servicios</h3><h2 id="kpiDestinoServicios">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor destino</h3><h2 id="kpiDestinoMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📆 Prom. mensual</h3><h2 id="kpiDestinoMensual">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Servicios por tipo de destino final</h3><canvas id="graficoDestinoFinal"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle destino final</h2>
+        <table id="tablaDestinoFinal"><thead><tr><th>Tipo destino final</th><th>Servicios</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="comparativo" class="vista">
+    <h1 class="vista-titulo">Comparativo Año Actual vs Anterior</h1>
+
+    <div class="grafico-card grafico-full">
+        <h3>Comparativo mensual</h3>
+        <canvas id="graficoComparativoAnual"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle comparativo</h2>
+        <table id="tablaComparativoAnual">
+            <thead>
+                <tr>
+                    <th>Mes</th>
+                    <th>Año Actual</th>
+                    <th>Año Anterior</th>
+                    <th>Diferencia</th>
+                    <th>Crecimiento</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="pareto" class="vista">
+    <h1 class="vista-titulo">Pareto 80/20</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Lectura Gerencial</h2>
+        <p id="textoPareto">Cargando análisis Pareto...</p>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Pareto por Gestor</h3>
+        <canvas id="graficoParetoGestores"></canvas>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Pareto Gestores</h2>
+        <table id="tablaParetoGestores">
+            <thead>
+                <tr>
+                    <th>Gestor</th>
+                    <th>Venta</th>
+                    <th>Participación</th>
+                    <th>Acumulado</th>
+                    <th>Clasificación</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="alertas" class="vista">
+    <h1 class="vista-titulo">Alertas Gerenciales</h1>
+    <div id="alertasGerencialesVista" class="alertas-box card-big">
+        <p>Sin alertas por el momento.</p>
+    </div>
+</section>
+
+<section id="energia" class="vista">
+    <h1 class="vista-titulo">Consumo Energía Eléctrica Homenajes</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Lectura operativa</h2>
+        <p id="textoEnergia">Comparativo anual del consumo eléctrico del área de homenajes, con seguimiento mensual de kWh, costo y variación frente al año anterior.</p>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>⚡ Consumo año actual</h3><h2 id="kpiEnergiaKwh">0 kWh</h2></div>
+        <div class="card"><h3>💰 Costo año actual</h3><h2 id="kpiEnergiaCosto">$0</h2></div>
+        <div class="card"><h3>📊 Promedio mensual</h3><h2 id="kpiEnergiaPromedio">0 kWh</h2></div>
+        <div class="card"><h3>🔁 Variación anual</h3><h2 id="kpiEnergiaVariacion">0%</h2></div>
+    </section>
+
+    <section class="graficos">
+        <div class="grafico-card grafico-full">
+            <h3>Comparativo mensual de consumo kWh</h3>
+            <canvas id="graficoEnergiaComparativo"></canvas>
+        </div>
+
+        <div class="grafico-card grafico-full">
+            <h3>Costo mensual de energía</h3>
+            <canvas id="graficoEnergiaCosto"></canvas>
+        </div>
+    </section>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar consumo</h2>
+            <p>Agrega el consumo mensual de energía del área de homenajes. La información queda guardada localmente en este navegador.</p>
+            <input type="number" id="energiaAnio" placeholder="Año, ejemplo 2026">
+            <select id="energiaMes">
+                <option value="">Mes</option>
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+            <input type="number" id="energiaKwh" placeholder="Consumo kWh">
+            <input type="number" id="energiaCosto" placeholder="Valor factura">
+            <input type="text" id="energiaObservacion" placeholder="Observación">
+            <button id="btnAgregarEnergia" class="action-btn">Agregar consumo</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Úsalo solo si deseas borrar los consumos manuales guardados en esta sección.</p>
+            <button id="btnLimpiarEnergia" class="danger-btn">Eliminar consumos de energía</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle mensual energía</h2>
+        <table id="tablaEnergia">
+            <thead>
+                <tr>
+                    <th>Año</th>
+                    <th>Mes</th>
+                    <th>kWh</th>
+                    <th>Costo</th>
+                    <th>Costo/kWh</th>
+                    <th>Observación</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="mantenimientos" class="vista">
+    <h1 class="vista-titulo">Mantenimientos Operativos</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Control preventivo</h2>
+        <p id="textoMantenimientos">Seguimiento de cambio de aceite, SOAT, tecnomecánica, jardinería, pintura, filtros de cafetería y mantenimientos de autos.</p>
+    </section>
+
+    <section class="kpis-secundarios kpis-mantenimiento">
+        <div class="card kpi-mini"><h3>🚨 Vencidos</h3><h2 id="kpiMantVencidos">0</h2></div>
+        <div class="card kpi-mini"><h3>⚠️ Vencen 5 días</h3><h2 id="kpiMantCinco">0</h2></div>
+        <div class="card kpi-mini"><h3>📩 Vencen 10 días</h3><h2 id="kpiMantDiez">0</h2></div>
+        <div class="card kpi-mini"><h3>✅ Al día</h3><h2 id="kpiMantOk">0</h2></div>
+    </section>
+
+    <div id="alertasMantenimiento" class="alertas-box card-big">
+        <p>Sin alertas de mantenimiento por el momento.</p>
+    </div>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar mantenimiento</h2>
+            <p>Registra el activo y la fecha de vencimiento o próxima intervención. El tablero alertará a 10 y 5 días.</p>
+            <select id="mantTipo">
+                <option value="">Tipo de control</option>
+                <option value="CAMBIO ACEITE">CAMBIO DE ACEITE AUTOS</option>
+                <option value="SOAT">VENCIMIENTO SOAT</option>
+                <option value="TECNOMECANICA">VENCIMIENTO TECNOMECÁNICA</option>
+                <option value="SEGURO VEHICULAR">VENCIMIENTO SEGURO VEHICULAR</option>
+                <option value="JARDINERIA">MANTENIMIENTO JARDINERÍA</option>
+                <option value="PINTURA INFRAESTRUCTURA">MANTENIMIENTO PINTURA INFRAESTRUCTURA</option>
+                <option value="FILTROS CAFETERIA">MANTENIMIENTO FILTROS CAFETERÍA</option>
+                <option value="MANTENIMIENTO AUTOS">MANTENIMIENTO DE AUTOS</option>
+            </select>
+            <input type="text" id="mantActivo" placeholder="Vehículo, área o equipo">
+            <input type="date" id="mantFecha" title="Fecha de vencimiento o próxima intervención">
+            <input type="text" id="mantResponsable" placeholder="Responsable">
+            <input type="text" id="mantObservacion" placeholder="Observación">
+            <button id="btnAgregarMantenimiento" class="action-btn">Agregar control</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Correo de alerta</h2>
+            <p>Correo configurado para alertas automáticas por Google Apps Script.</p>
+            <input type="email" id="mantCorreo" value="JORGEKORFAN@GMAIL.COM">
+            <button id="btnMailMantenimiento" class="action-btn">Preparar correo de alertas</button>
+            <button id="btnLimpiarMantenimientos" class="danger-btn">Eliminar mantenimientos</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Control de mantenimientos</h2>
+        <table id="tablaMantenimientos">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Activo / área</th>
+                    <th>Fecha</th>
+                    <th>Días</th>
+                    <th>Responsable</th>
+                    <th>Estado</th>
+                    <th>Observación</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="vacaciones" class="vista">
+    <h1 class="vista-titulo">Vacaciones del Personal</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Control de vencimientos</h2>
+        <p id="textoVacaciones">Seguimiento del personal con vacaciones vencidas, programadas, pendientes y vacaciones ya otorgadas.</p>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>🚨 Vencidas</h3><h2 id="kpiVacacionesVencidas">0</h2></div>
+        <div class="card"><h3>🗓 Programadas</h3><h2 id="kpiVacacionesProgramadas">0</h2></div>
+        <div class="card"><h3>✅ Disfrutadas</h3><h2 id="kpiVacacionesDisfrutadas">0</h2></div>
+        <div class="card"><h3>⏳ Pendientes</h3><h2 id="kpiVacacionesPendientes">0</h2></div>
+    </section>
+
+    <div class="grafico-card grafico-full">
+        <h3>Estado de vacaciones del equipo</h3>
+        <canvas id="graficoVacacionesEstado"></canvas>
+    </div>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar vacaciones</h2>
+            <p>Ingresa o actualiza el estado de vacaciones de cada colaborador.</p>
+            <input type="text" id="vacNombre" placeholder="Nombre del colaborador">
+            <input type="text" id="vacCargo" placeholder="Cargo / área">
+            <input type="date" id="vacFechaBase" title="Fecha de ingreso o último periodo causado">
+            <select id="vacEstado">
+                <option value="">Estado</option>
+                <option value="VENCIDA">VENCIDA</option>
+                <option value="PENDIENTE">PENDIENTE</option>
+                <option value="PROGRAMADA">PROGRAMADA</option>
+                <option value="DISFRUTADA">DISFRUTADA</option>
+            </select>
+            <input type="date" id="vacInicio" title="Inicio vacaciones">
+            <input type="date" id="vacFin" title="Fin vacaciones">
+            <input type="number" id="vacDias" placeholder="Días otorgados">
+            <button id="btnAgregarVacacion" class="action-btn">Agregar / actualizar</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Elimina los registros locales de vacaciones si necesitas cargar una base nueva.</p>
+            <button id="btnLimpiarVacaciones" class="danger-btn">Eliminar vacaciones</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Detalle vacaciones personal</h2>
+        <table id="tablaVacaciones">
+            <thead>
+                <tr>
+                    <th>Colaborador</th>
+                    <th>Cargo</th>
+                    <th>Fecha base</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Días</th>
+                    <th>Estado</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="agenda" class="vista">
+    <h1 class="vista-titulo">Agenda Interna Anual</h1>
+
+    <section class="resumen-ejecutivo">
+        <h2>Actividades por cumplir</h2>
+        <p id="textoAgenda">Calendario interno para visualizar actividades diarias, mensuales, anuales, pendientes y finiquitadas.</p>
+    </section>
+
+    <section class="kpis-secundarios">
+        <div class="card"><h3>📌 Pendientes</h3><h2 id="kpiAgendaPendientes">0</h2></div>
+        <div class="card"><h3>✅ Finiquitadas</h3><h2 id="kpiAgendaFiniquitadas">0</h2></div>
+        <div class="card"><h3>📅 Actividades hoy</h3><h2 id="kpiAgendaHoy">0</h2></div>
+        <div class="card"><h3>🗓 Actividades mes</h3><h2 id="kpiAgendaMes">0</h2></div>
+    </section>
+
+    <div class="agenda-layout">
+        <div class="card-big agenda-panel">
+            <div class="agenda-header">
+                <button id="btnAgendaAnterior" class="btn-secundario"><i class="fas fa-chevron-left"></i></button>
+                <h3 id="agendaMesTitulo">Mes</h3>
+                <button id="btnAgendaSiguiente" class="btn-secundario"><i class="fas fa-chevron-right"></i></button>
             </div>
-        </section>
+            <div id="agendaCalendario" class="agenda-calendar"></div>
+        </div>
 
-        <section id="vistaMetas" class="vista">
-            <div class="chart-grid two">
-                <article class="chart-card">
-                    <h3>Meta vs producido por categoría</h3>
-                    <canvas id="graficoMetaCategoria"></canvas>
-                </article>
-                <article class="chart-card">
-                    <h3>Meta vs producido por gestor</h3>
-                    <canvas id="graficoMetaGestor"></canvas>
-                </article>
-            </div>
-        </section>
+        <div class="card-big agenda-panel">
+            <h3>Actividades del periodo</h3>
+            <div id="agendaLista" class="agenda-lista"></div>
+        </div>
+    </div>
 
-        <section id="vistaCumplimiento" class="vista">
-            <div class="kpi-grid">
-                <article class="kpi-card">
-                    <span>Cumplimiento total</span>
-                    <strong id="cumplimientoTotal">0%</strong>
-                    <small id="cumplimientoTotalValor">$0 / $0</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Particular</span>
-                    <strong id="cumplimientoParticular">0%</strong>
-                    <small id="cumplimientoParticularValor">$0</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Red</span>
-                    <strong id="cumplimientoRed">0%</strong>
-                    <small id="cumplimientoRedValor">$0</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Excedentes</span>
-                    <strong id="cumplimientoExcedentes">0%</strong>
-                    <small id="cumplimientoExcedentesValor">$0</small>
-                </article>
-            </div>
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Nueva actividad</h2>
+            <p>Registra actividades diarias, mensuales o anuales y marca su cumplimiento.</p>
+            <input type="date" id="actFecha">
+            <input type="time" id="actHora" value="08:00">
+            <input type="text" id="actTitulo" placeholder="Actividad">
+            <select id="actFrecuencia">
+                <option value="">Frecuencia</option>
+                <option value="DIARIA">DIARIA</option>
+                <option value="MENSUAL">MENSUAL</option>
+                <option value="ANUAL">ANUAL</option>
+                <option value="UNICA">ÚNICA</option>
+            </select>
+            <select id="actEstado">
+                <option value="PENDIENTE">PENDIENTE</option>
+                <option value="EN PROCESO">EN PROCESO</option>
+                <option value="CUMPLIDA">CUMPLIDA</option>
+                <option value="FINIQUITADA">FINIQUITADA</option>
+            </select>
+            <input type="text" id="actResponsable" placeholder="Responsable">
+            <textarea id="actDetalle" placeholder="Detalle u observación"></textarea>
+            <button id="btnAgregarActividad" class="action-btn">Agregar actividad</button>
+        </div>
 
-            <article class="chart-card">
-                <h3>Cumplimiento general</h3>
-                <canvas id="graficoCumplimiento"></canvas>
-            </article>
-        </section>
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Elimina la agenda local si necesitas reiniciar la programación anual.</p>
+            <button id="btnLimpiarAgenda" class="danger-btn">Eliminar agenda</button>
+        </div>
+    </div>
 
-        <section id="vistaAnalisis" class="vista">
-            <div class="analysis-grid">
-                <article class="table-card">
-                    <h3>Tipo de homenaje y excedentes</h3>
-                    <table id="tablaTipoHomenaje"><thead><tr><th>Tipo</th><th>Cantidad</th><th>%</th><th>Venta</th></tr></thead><tbody></tbody></table>
-                </article>
-                <article class="table-card">
-                    <h3>Clínicas que más reportan</h3>
-                    <table id="tablaClinicas"><thead><tr><th>Clínica</th><th>Cantidad</th><th>%</th><th>Venta</th></tr></thead><tbody></tbody></table>
-                </article>
-                <article class="table-card">
-                    <h3>Municipios de atención</h3>
-                    <table id="tablaMunicipios"><thead><tr><th>Municipio</th><th>Cantidad</th><th>%</th><th>Venta</th></tr></thead><tbody></tbody></table>
-                </article>
-                <article class="table-card">
-                    <h3>Tipo de muerte</h3>
-                    <table id="tablaTipoMuerte"><thead><tr><th>Tipo</th><th>Cantidad</th><th>%</th><th>Venta</th></tr></thead><tbody></tbody></table>
-                </article>
-                <article class="table-card">
-                    <h3>Cementerios</h3>
-                    <table id="tablaCementerios"><thead><tr><th>Cementerio</th><th>Cantidad</th><th>%</th><th>Venta</th></tr></thead><tbody></tbody></table>
-                </article>
-                <article class="table-card">
-                    <h3>Destino final</h3>
-                    <table id="tablaDestinoFinal"><thead><tr><th>Destino</th><th>Cantidad</th><th>%</th><th>Venta</th></tr></thead><tbody></tbody></table>
-                </article>
-            </div>
-        </section>
+    <div class="card-big agenda-day-detail">
+        <div class="agenda-header">
+            <h3 id="agendaDiaTitulo">Agenda diaria</h3>
+            <span class="mini-text">Haz clic en un día del calendario para ver la agenda completa por horas.</span>
+        </div>
+        <div id="agendaDiaHoras" class="agenda-hours"></div>
+    </div>
 
-        <section id="vistaOperaciones" class="vista">
-            <div class="kpi-grid">
-                <article class="kpi-card">
-                    <span>Alertas próximas</span>
-                    <strong id="opKpiAlertas">0</strong>
-                    <small>Vencen en 10 días o menos</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Alertas críticas</span>
-                    <strong id="opKpiCriticas">0</strong>
-                    <small>Vencen en 5 días o menos</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Vencidas</span>
-                    <strong id="opKpiVencidas">0</strong>
-                    <small>Requieren gestión inmediata</small>
-                </article>
-                <article class="kpi-card">
-                    <span>Mantenimientos</span>
-                    <strong id="opKpiMantenimientos">0</strong>
-                    <small>Autos, infraestructura y jardinería</small>
-                </article>
-            </div>
+    <div class="tabla-cumplimiento">
+        <h2>Listado general de actividades</h2>
+        <table id="tablaAgenda">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                    <th>Actividad</th>
+                    <th>Frecuencia</th>
+                    <th>Responsable</th>
+                    <th>Estado</th>
+                    <th>Detalle</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
 
-            <div class="form-card">
-                <h3>Agregar control operativo</h3>
-                <div class="form-grid">
-                    <input id="opVehiculo" placeholder="Vehículo / área">
-                    <select id="opTipo">
-                        <option>Cambio de aceite</option>
-                        <option>Vencimiento SOAT</option>
-                        <option>Vencimiento tecnomecánica</option>
-                        <option>Vencimiento seguro contractual</option>
-                        <option>Revisión llantas</option>
-                        <option>Revisión luces</option>
-                        <option>Lavado y desinfección del vehículo</option>
-                        <option>Mantenimiento de jardinería</option>
-                        <option>Mantenimiento pintura infraestructura</option>
-                        <option>Mantenimiento filtros cafetería</option>
-                        <option>Mantenimiento de autos</option>
-                        <option>Tarea diaria</option>
-                    </select>
-                    <input id="opFecha" type="date">
-                    <input id="opKm" type="number" placeholder="Km actual / referencia">
-                    <input id="opResponsable" placeholder="Responsable">
-                    <input id="opCorreo" type="email" placeholder="Correo alerta" value="jorgekorfan@gmail.com">
-                    <select id="opEstado">
-                        <option>PENDIENTE</option>
-                        <option>EN PROCESO</option>
-                        <option>FINIQUITADA</option>
-                    </select>
-                    <button id="btnAgregarOperacion">Agregar</button>
-                </div>
-            </div>
+<section id="tiempoAfiliado" class="vista">
+    <h1 class="vista-titulo">Tiempo Vivo Estando Afiliado</h1>
 
-            <article class="table-card">
-                <h3>Control operativo y alertas</h3>
-                <p class="helper-text">
-                    Las alertas visuales se activan a 10 y 5 días. Para enviar correos automáticos se requiere conectar Google Apps Script.
-                </p>
-                <table id="tablaOperaciones"><thead><tr><th>Vehículo / Área</th><th>Tipo</th><th>Fecha</th><th>Días</th><th>Km</th><th>Responsable</th><th>Correo</th><th>Estado</th><th>Acción</th></tr></thead><tbody></tbody></table>
-            </article>
-        </section>
+    <section class="resumen-ejecutivo">
+        <h2>Análisis de permanencia</h2>
+        <p id="textoTiempoAfiliado">Control para identificar cuántos días, meses o años permaneció afiliado un ser querido antes de fallecer.</p>
+    </section>
 
-        <section id="vistaAgenda" class="vista">
-            <div class="agenda-layout">
-                <article class="calendar-card">
-                    <div class="calendar-header">
-                        <button id="btnAgendaAnterior">Anterior</button>
-                        <h3 id="agendaMesTitulo">Mes</h3>
-                        <button id="btnAgendaSiguiente">Siguiente</button>
-                    </div>
-                    <div id="agendaCalendario" class="calendar-grid"></div>
-                </article>
+    <section class="kpis-secundarios">
+        <div class="card"><h3>👥 Casos registrados</h3><h2 id="kpiAfiliadoCasos">0</h2></div>
+        <div class="card"><h3>📆 Promedio</h3><h2 id="kpiAfiliadoPromedio">0 días</h2></div>
+        <div class="card"><h3>⏳ Menor tiempo</h3><h2 id="kpiAfiliadoMenor">-</h2></div>
+        <div class="card"><h3>🏆 Mayor tiempo</h3><h2 id="kpiAfiliadoMayor">-</h2></div>
+    </section>
 
-                <article class="day-card">
-                    <h3 id="agendaDiaTitulo">Detalle del día</h3>
-                    <div id="agendaDiaDetalle" class="day-timeline"></div>
-                </article>
-            </div>
+    <div class="grafico-card grafico-full">
+        <h3>Distribución por tiempo afiliado</h3>
+        <canvas id="graficoTiempoAfiliado"></canvas>
+    </div>
 
-            <div class="form-card">
-                <h3>Agregar actividad</h3>
-                <div class="form-grid">
-                    <input id="actFecha" type="date">
-                    <input id="actHora" type="time">
-                    <input id="actTitulo" placeholder="Actividad">
-                    <input id="actResponsable" placeholder="Responsable">
-                    <select id="actEstado">
-                        <option>PENDIENTE</option>
-                        <option>EN PROCESO</option>
-                        <option>CUMPLIDA</option>
-                        <option>FINIQUITADA</option>
-                    </select>
-                    <button id="btnAgregarActividad">Agregar</button>
-                </div>
-            </div>
-        </section>
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Registrar caso</h2>
+            <p>Ingresa la fecha de afiliación y la fecha de fallecimiento. El dashboard calculará automáticamente el tiempo vivo estando afiliado.</p>
+            <input type="text" id="afiFallecido" placeholder="Nombre del ser querido">
+            <input type="text" id="afiContrato" placeholder="Contrato / plan / documento">
+            <input type="text" id="afiSede" placeholder="Sede">
+            <label class="input-label">Fecha de afiliación</label>
+            <input type="date" id="afiFechaAfiliacion">
+            <label class="input-label">Fecha de fallecimiento</label>
+            <input type="date" id="afiFechaFallecimiento">
+            <input type="text" id="afiObservacion" placeholder="Observación">
+            <button id="btnAgregarAfiliado" class="action-btn">Agregar caso</button>
+        </div>
 
-        <section id="vistaVacaciones" class="vista">
-            <div class="form-card">
-                <h3>Control de vacaciones</h3>
-                <div class="form-grid">
-                    <input id="vacNombre" placeholder="Nombre colaborador">
-                    <input id="vacCargo" placeholder="Cargo">
-                    <input id="vacFechaBase" type="date">
-                    <input id="vacInicio" type="date">
-                    <input id="vacFin" type="date">
-                    <input id="vacDias" type="number" placeholder="Días">
-                    <select id="vacEstado">
-                        <option>PENDIENTE</option>
-                        <option>PROGRAMADA</option>
-                        <option>DISFRUTADA</option>
-                        <option>VENCIDA</option>
-                    </select>
-                    <button id="btnAgregarVacacion">Agregar</button>
-                </div>
-            </div>
+        <div class="config-card">
+            <h2>Control de datos</h2>
+            <p>Elimina los registros locales de esta sección si deseas cargar nuevamente la información.</p>
+            <button id="btnLimpiarAfiliados" class="danger-btn">Eliminar casos registrados</button>
+        </div>
+    </div>
 
-            <article class="table-card">
-                <table id="tablaVacaciones"><thead><tr><th>Nombre</th><th>Cargo</th><th>Base</th><th>Inicio</th><th>Fin</th><th>Días</th><th>Estado</th><th>Acción</th></tr></thead><tbody></tbody></table>
-            </article>
-        </section>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle tiempo vivo estando afiliado</h2>
+        <table id="tablaTiempoAfiliado">
+            <thead>
+                <tr>
+                    <th>Ser querido</th>
+                    <th>Contrato / plan</th>
+                    <th>Sede</th>
+                    <th>Afiliación</th>
+                    <th>Fallecimiento</th>
+                    <th>Tiempo</th>
+                    <th>Días</th>
+                    <th>Clasificación</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
 
-        <section id="vistaDatos" class="vista">
-            <div class="quick-actions">
-                <button id="btnExcel">Exportar Excel</button>
-                <button id="btnCSV">Exportar CSV</button>
-                <button id="btnJSON">Backup JSON</button>
-            </div>
-            <article class="table-card">
-                <h3>Registros cargados</h3>
-                <table id="tablaDatos"><thead><tr><th>Fecha</th><th>Gestor</th><th>Sede</th><th>Tipo homenaje</th><th>Excedente</th><th>Clínica</th><th>Cementerio</th><th>Valor</th></tr></thead><tbody></tbody></table>
-            </article>
-        </section>
+<section id="datos" class="vista">
+    <h1 class="vista-titulo">Datos y Diagnóstico</h1>
 
-        <section id="vistaConfig" class="vista">
-            <div class="form-card">
-                <h3>Configuración general</h3>
-                <div class="form-grid">
-                    <input id="configTitulo" placeholder="Título dashboard">
-                    <input id="configSubtitulo" placeholder="Subtítulo">
-                    <input id="configEmpresa" placeholder="Empresa">
-                    <input id="configResponsable" placeholder="Responsable">
-                    <input id="configLogoUrl" placeholder="URL logo">
-                    <input id="configMetaMensual" type="number" placeholder="Meta mensual">
-                    <button id="btnGuardarConfig">Guardar configuración</button>
-                </div>
-            </div>
-        </section>
-    </main>
+    <section class="kpis-secundarios">
+        <div class="card"><h3>Estado API</h3><h2 id="diagEstadoApi">-</h2></div>
+        <div class="card"><h3>Registros API</h3><h2 id="diagTotalApi">0</h2></div>
+        <div class="card"><h3>Registros Manuales</h3><h2 id="diagManual">0</h2></div>
+        <div class="card"><h3>Filtrados</h3><h2 id="diagFiltrados">0</h2></div>
+        <div class="card"><h3>Fechas Inválidas</h3><h2 id="diagFechasInvalidas">0</h2></div>
+        <div class="card"><h3>Valores Cero</h3><h2 id="diagValoresCero">0</h2></div>
+        <div class="card"><h3>Calidad</h3><h2 id="diagCalidad">0%</h2></div>
+    </section>
 
-    <div id="toast" class="toast"></div>
+    <div class="tabla-cumplimiento">
+        <h2>Parámetros detectados desde Google Sheets</h2>
+        <table id="tablaParametros">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Nombre</th>
+                    <th>Valor mensual</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
 
-    <script src="app.js"></script>
+    <div class="tabla-cumplimiento">
+        <h2>Vista previa de datos</h2>
+        <table id="tablaBaseDatos">
+            <thead>
+                <tr>
+                    <th>FECHA</th>
+                    <th>ORDEN_SERVICIO_FUNERARIO</th>
+                    <th>GESTOR</th>
+                    <th>SEDE</th>
+                    <th>TIPO_SERVICIO_TIPOSRV</th>
+                    <th>TIPO_HOMENAJE</th>
+                    <th>TIPO_EXCEDENTE</th>
+                    <th>CLINICA</th>
+                    <th>MUNICIPIO</th>
+                    <th>TIPO_MUERTE</th>
+                    <th>CEMENTERIO</th>
+                    <th>TIPO_DESTINO_FINAL</th>
+                    <th>CANTIDAD</th>
+                    <th>VALOR SERVICIO</th>
+                    <th>VALOR EXCEDENTE</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="registroManual" class="vista">
+    <h1 class="vista-titulo">Registro Manual</h1>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Nuevo registro</h2>
+            <p>Se guarda localmente en el navegador y se suma al dashboard.</p>
+
+            <input type="date" id="regFecha">
+            <input type="text" id="regGestor" placeholder="Gestor">
+            <select id="regCategoria">
+                <option value="">Categoría</option>
+                <option value="PARTICULAR">PARTICULAR</option>
+                <option value="RED">RED</option>
+                <option value="PLAN">PLAN</option>
+                <option value="EXCEDENTES">EXCEDENTES</option>
+            </select>
+            <input type="text" id="regServicio" placeholder="Servicio / Excedente">
+            <input type="text" id="regSede" placeholder="Sede">
+            <input type="number" id="regValor" placeholder="Valor">
+            <input type="text" id="regObservacion" placeholder="Observación">
+
+            <button id="btnAgregarRegistro" class="action-btn">Agregar Registro</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Control</h2>
+            <p>Elimina todos los registros manuales guardados localmente.</p>
+            <button id="btnEliminarManuales" class="danger-btn">Eliminar Registros Manuales</button>
+        </div>
+    </div>
+
+    <div class="tabla-cumplimiento">
+        <h2>Registros manuales</h2>
+        <table id="tablaRegistrosManuales">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Gestor</th>
+                    <th>Categoría</th>
+                    <th>Servicio</th>
+                    <th>Sede</th>
+                    <th>Valor</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</section>
+
+<section id="reportes" class="vista">
+    <h1 class="vista-titulo">Reportes</h1>
+
+    <div class="reportes-grid">
+        <button class="reporte-btn" id="reporteExcelResumen"><i class="fas fa-file-excel"></i> Exportar Excel</button>
+        <button class="reporte-btn" id="reportePdfGeneral"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+        <button class="reporte-btn" id="reporteCsv"><i class="fas fa-file-csv"></i> Exportar CSV</button>
+        <button class="reporte-btn" id="reporteJson"><i class="fas fa-code"></i> Backup JSON</button>
+        <button class="reporte-btn" id="reporteRecargar"><i class="fas fa-rotate"></i> Actualizar</button>
+        <button class="reporte-btn danger-report" id="reporteLimpiarCache"><i class="fas fa-broom"></i> Limpiar Caché</button>
+    </div>
+
+    <div class="card-big">
+        <h3>Estado del Reporte</h3>
+        <p id="estadoReporte">Listo para generar reportes.</p>
+    </div>
+</section>
+
+<section id="configuracion" class="vista">
+    <h1 class="vista-titulo">Configuración</h1>
+
+    <div class="config-grid">
+        <div class="config-card">
+            <h2>Meta mensual base</h2>
+            <p>Si la hoja trae META_CATEGORIA, el sistema usa automáticamente la suma de PARTICULAR + RED + EXCEDENTES.</p>
+            <input type="number" id="configMetaMensual" placeholder="219133881">
+            <button id="btnGuardarMeta" class="action-btn">Guardar Meta</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Identidad</h2>
+            <input type="text" id="configTitulo" placeholder="Título del dashboard">
+            <input type="text" id="configSubtitulo" placeholder="Subtítulo">
+            <input type="text" id="configEmpresa" placeholder="Empresa">
+            <input type="text" id="configArea" placeholder="Área">
+            <input type="text" id="configResponsable" placeholder="Responsable">
+            <input type="text" id="configLogoUrl" placeholder="URL del logo">
+            <button id="btnGuardarConfigVisual" class="action-btn">Guardar Identidad</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Acceso</h2>
+            <input type="text" id="configAccessCode" placeholder="Código de acceso">
+            <textarea id="configEmails" placeholder="correos autorizados separados por coma"></textarea>
+            <button id="btnGuardarAccess" class="action-btn">Guardar Acceso</button>
+        </div>
+
+        <div class="config-card">
+            <h2>Parámetros manuales</h2>
+            <p>Solo úsalo si Google Sheets no trae Tipo, Nombre y Valor.</p>
+            <textarea id="configMetasManual" placeholder="META_CATEGORIA|PARTICULAR|69090369&#10;META_CATEGORIA|RED|127371072&#10;META_CATEGORIA|EXCEDENTES|22672440"></textarea>
+            <button id="btnGuardarParametrosManual" class="action-btn">Guardar Parámetros</button>
+        </div>
+    </div>
+</section>
+
+<div id="reporteFormal" class="print-report"></div>
+
+</main>
+
+<script src="./app.js?v=20260701"></script>
 </body>
 </html>
