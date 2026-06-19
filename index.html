@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260629">
+<link rel="stylesheet" href="./style.css?v=20260701">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -60,6 +60,12 @@
         <li class="menu-item" data-seccion="vistaCumplimiento"><i class="fas fa-chart-line"></i> Cumplimiento</li>
 
         <li class="sidebar-section-title">ANÁLISIS</li>
+        <li class="menu-item" data-seccion="analisisHomenaje"><i class="fas fa-clipboard-list"></i> Homenaje / Excedente</li>
+        <li class="menu-item" data-seccion="analisisClinicas"><i class="fas fa-hospital"></i> Clínicas</li>
+        <li class="menu-item" data-seccion="analisisMunicipios"><i class="fas fa-map-location-dot"></i> Municipios</li>
+        <li class="menu-item" data-seccion="analisisMuerte"><i class="fas fa-heart-pulse"></i> Tipo muerte</li>
+        <li class="menu-item" data-seccion="analisisCementerios"><i class="fas fa-cross"></i> Cementerios</li>
+        <li class="menu-item" data-seccion="analisisDestino"><i class="fas fa-route"></i> Destino final</li>
         <li class="menu-item" data-seccion="comparativo"><i class="fas fa-scale-balanced"></i> Comparativo</li>
         <li class="menu-item" data-seccion="pareto"><i class="fas fa-chart-pie"></i> Pareto 80/20</li>
         <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas</li>
@@ -531,6 +537,104 @@
     </div>
 </section>
 
+<section id="analisisHomenaje" class="vista">
+    <h1 class="vista-titulo">Tipo de Homenaje y Excedente</h1>
+    <section class="resumen-ejecutivo"><h2>Ventas y participación</h2><p id="textoAnalisisHomenaje">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>💰 Venta total</h3><h2 id="kpiHomenajeVenta">$0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Registros</h3><h2 id="kpiHomenajeRegistros">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor rubro</h3><h2 id="kpiHomenajeMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📈 Promedio diario</h3><h2 id="kpiHomenajePromedio">$0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Ventas por tipo de homenaje y excedente</h3><canvas id="graficoHomenajeExcedente"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle tipo homenaje / excedente</h2>
+        <table id="tablaHomenajeExcedente"><thead><tr><th>Tipo homenaje</th><th>Tipo excedente</th><th>Cantidad</th><th>Venta</th><th>% venta</th><th>Prom. diario</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisClinicas" class="vista">
+    <h1 class="vista-titulo">Clínicas que más reportan fallecidos</h1>
+    <section class="resumen-ejecutivo"><h2>Reporte por clínica</h2><p id="textoAnalisisClinicas">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🏥 Clínicas</h3><h2 id="kpiClinicasTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Reportes</h3><h2 id="kpiClinicasReportes">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor reporte</h3><h2 id="kpiClinicasMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📈 Promedio diario</h3><h2 id="kpiClinicasPromedio">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Ranking de clínicas por reportes</h3><canvas id="graficoClinicasReporte"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle por clínica</h2>
+        <table id="tablaClinicasReporte"><thead><tr><th>Clínica</th><th>Reportes</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisMunicipios" class="vista">
+    <h1 class="vista-titulo">Municipio de atención</h1>
+    <section class="resumen-ejecutivo"><h2>Seres queridos fallecidos por municipio</h2><p id="textoAnalisisMunicipios">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🗺 Municipios</h3><h2 id="kpiMunicipiosTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Atenciones</h3><h2 id="kpiMunicipiosReportes">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor municipio</h3><h2 id="kpiMunicipiosMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📈 Prom. diario</h3><h2 id="kpiMunicipiosPromedio">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Atenciones por municipio</h3><canvas id="graficoMunicipios"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle por municipio</h2>
+        <table id="tablaMunicipios"><thead><tr><th>Municipio</th><th>Atenciones</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisMuerte" class="vista">
+    <h1 class="vista-titulo">Tipo de muerte</h1>
+    <section class="resumen-ejecutivo"><h2>Natural vs no natural</h2><p id="textoAnalisisMuerte">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🌿 Natural</h3><h2 id="kpiMuerteNatural">0%</h2></div>
+        <div class="card kpi-mini"><h3>⚠️ No natural</h3><h2 id="kpiMuerteNoNatural">0%</h2></div>
+        <div class="card kpi-mini"><h3>📋 Total</h3><h2 id="kpiMuerteTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📈 Prom. diario</h3><h2 id="kpiMuertePromedio">0</h2></div>
+    </section>
+    <section class="graficos">
+        <div class="grafico-card grafico-full"><h3>Representación por tipo de muerte</h3><canvas id="graficoTipoMuerte"></canvas></div>
+    </section>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle por tipo de muerte</h2>
+        <table id="tablaTipoMuerte"><thead><tr><th>Tipo muerte</th><th>Fallecimientos</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisCementerios" class="vista">
+    <h1 class="vista-titulo">Cementerios</h1>
+    <section class="resumen-ejecutivo"><h2>Destino cementerio</h2><p id="textoAnalisisCementerios">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>⛪ Cementerios</h3><h2 id="kpiCementeriosTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Servicios</h3><h2 id="kpiCementeriosServicios">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor cementerio</h3><h2 id="kpiCementeriosMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📆 Prom. mensual</h3><h2 id="kpiCementeriosMensual">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Servicios por cementerio</h3><canvas id="graficoCementerios"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle cementerios</h2>
+        <table id="tablaCementerios"><thead><tr><th>Cementerio</th><th>Servicios</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
+<section id="analisisDestino" class="vista">
+    <h1 class="vista-titulo">Tipo de destino final</h1>
+    <section class="resumen-ejecutivo"><h2>Promedio por destino final</h2><p id="textoAnalisisDestino">Cargando análisis...</p></section>
+    <section class="kpis-secundarios kpis-analisis">
+        <div class="card kpi-mini"><h3>🧭 Tipos destino</h3><h2 id="kpiDestinoTotal">0</h2></div>
+        <div class="card kpi-mini"><h3>📋 Servicios</h3><h2 id="kpiDestinoServicios">0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mayor destino</h3><h2 id="kpiDestinoMayor">-</h2></div>
+        <div class="card kpi-mini"><h3>📆 Prom. mensual</h3><h2 id="kpiDestinoMensual">0</h2></div>
+    </section>
+    <div class="grafico-card grafico-full"><h3>Servicios por tipo de destino final</h3><canvas id="graficoDestinoFinal"></canvas></div>
+    <div class="tabla-cumplimiento">
+        <h2>Detalle destino final</h2>
+        <table id="tablaDestinoFinal"><thead><tr><th>Tipo destino final</th><th>Servicios</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
+    </div>
+</section>
+
 <section id="comparativo" class="vista">
     <h1 class="vista-titulo">Comparativo Año Actual vs Anterior</h1>
 
@@ -700,6 +804,7 @@
                 <option value="CAMBIO ACEITE">CAMBIO DE ACEITE AUTOS</option>
                 <option value="SOAT">VENCIMIENTO SOAT</option>
                 <option value="TECNOMECANICA">VENCIMIENTO TECNOMECÁNICA</option>
+                <option value="SEGURO VEHICULAR">VENCIMIENTO SEGURO VEHICULAR</option>
                 <option value="JARDINERIA">MANTENIMIENTO JARDINERÍA</option>
                 <option value="PINTURA INFRAESTRUCTURA">MANTENIMIENTO PINTURA INFRAESTRUCTURA</option>
                 <option value="FILTROS CAFETERIA">MANTENIMIENTO FILTROS CAFETERÍA</option>
@@ -1127,6 +1232,6 @@
 
 </main>
 
-<script src="./app.js?v=20260629"></script>
+<script src="./app.js?v=20260701"></script>
 </body>
 </html>
