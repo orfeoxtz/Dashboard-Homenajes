@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260629");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260701");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -35,7 +35,7 @@ let ULTIMA_META_INFO = null;
 let AGENDA_CURSOR = new Date();
 let AGENDA_DIA_SELECCIONADO = fechaISO(new Date());
 
-const AMBIENTES_DASHBOARD = ["normal","ocean","sunset"];
+const AMBIENTES_DASHBOARD = ["normal","ocean","sunset","dark"];
 
 const $ = id => document.getElementById(id);
 
@@ -152,11 +152,11 @@ function formatChartValue(valor, tipo="money"){
     if(tipo === "kwh") return `${formatNumber(valor)} kWh`;
     if(tipo === "percent") return `${Number(toNumber(valor)).toFixed(1)}%`;
     if(tipo === "days") return `${formatNumber(valor)} días`;
-    return formatMoneyCompact(valor);
+    return formatMoney(valor);
 }
 
 function chartTextColor(){
-    return document.body.classList.contains("dark-mode") ? "#e5e7eb" : "#0f172a";
+    return document.body.classList.contains("dark-mode") || document.body.classList.contains("theme-dark") ? "#f8fafc" : "#0f172a";
 }
 
 function registrarPluginGraficas(){
@@ -1140,6 +1140,7 @@ function renderTodo(resumen, metaInfo){
     crearResumenEjecutivo(resumen, metaInfo);
     renderGraficosDashboard(resumen);
     renderCategorias();
+    renderAnalisisAvanzados();
     renderGestores();
     renderExcedentes();
     renderMetas();
@@ -1309,12 +1310,15 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                 },
                 datalabels:{
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
-                    anchor:"end",
-                    align:horizontal ? "right" : "top",
-                    offset:horizontal ? 4 : 2,
-                    clip:false,
-                    color:chartTextColor(),
-                    font:{size:10,weight:"900"},
+                    anchor:horizontal ? "center" : "end",
+                    align:horizontal ? "center" : "top",
+                    offset:horizontal ? 0 : 2,
+                    clamp:true,
+                    clip:true,
+                    color:horizontal ? "#ffffff" : chartTextColor(),
+                    textStrokeColor:horizontal ? "rgba(0,0,0,.35)" : "transparent",
+                    textStrokeWidth:horizontal ? 2 : 0,
+                    font:{size:8,weight:"900"},
                     formatter:value => formatChartValue(value, tipoValor)
                 }
             },
@@ -1398,7 +1402,7 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
                     color:"#ffffff",
                     textStrokeColor:"rgba(15,23,42,.45)",
                     textStrokeWidth:2,
-                    font:{size:10,weight:"900"},
+                    font:{size:8,weight:"900"},
                     formatter:value => formatChartValue(value, tipoValor)
                 }
             }
@@ -1559,6 +1563,203 @@ function renderCategorias(){
         true,
         "number"
     );
+}
+
+function filasAnalisisActual(){
+    return DATASET_FILTRADO.length ? DATASET_FILTRADO : DATASET_NORMAL;
+}
+
+function diasAnalisisActual(rows=filasAnalisisActual()){
+    if(DIAS_RANGO_ACTUAL > 0) return DIAS_RANGO_ACTUAL;
+
+    const fechas = rows.map(r => r.fecha).filter(Boolean).sort((a,b) => a - b);
+    if(fechas.length < 2) return Math.max(fechas.length, 1);
+
+    return diasEntre(fechas[0], fechas[fechas.length - 1]);
+}
+
+function mesesAnalisisActual(rows=filasAnalisisActual()){
+    if(MESES_EQUIVALENTES_ACTUAL > 0) return MESES_EQUIVALENTES_ACTUAL;
+    return Math.max(diasAnalisisActual(rows) / 30, 1);
+}
+
+function llaveOrdenAnalisis(row){
+    return row.ordenServicio || row.raw?.ORDEN_SERVICIO_FUNERARIO || row.id || cryptoRandom();
+}
+
+function agruparAnalisis(rows, obtenerNombre){
+    const obj = {};
+
+    rows.forEach(row => {
+        const nombre = normalizarTexto(obtenerNombre(row)) || "SIN DATO";
+
+        if(!obj[nombre]){
+            obj[nombre] = {nombre, ordenes:new Set(), valor:0, cantidad:0};
+        }
+
+        obj[nombre].ordenes.add(llaveOrdenAnalisis(row));
+        obj[nombre].valor += toNumber(row.valorVenta);
+        obj[nombre].cantidad = obj[nombre].ordenes.size;
+    });
+
+    return Object.values(obj).sort((a,b) => b.cantidad - a.cantidad || b.valor - a.valor);
+}
+
+function totalCantidadAnalisis(data){
+    return data.reduce((acc,item) => acc + item.cantidad, 0);
+}
+
+function renderTablaAnalisisCantidad(selector, data, dias, meses, incluirVenta=true){
+    const tbody = document.querySelector(`${selector} tbody`);
+    if(!tbody) return;
+
+    const total = totalCantidadAnalisis(data);
+    tbody.innerHTML = data.length ? data.map(item => {
+        const pct = total > 0 ? (item.cantidad / total) * 100 : 0;
+        return `
+            <tr>
+                <td>${escapeHtml(item.nombre)}</td>
+                <td>${formatNumber(item.cantidad)}</td>
+                <td>${pct.toFixed(1)}%</td>
+                <td>${formatNumber(item.cantidad / dias, 2)}</td>
+                <td>${formatNumber(item.cantidad / meses, 2)}</td>
+                ${incluirVenta ? `<td>${formatMoney(item.valor)}</td>` : ""}
+            </tr>
+        `;
+    }).join("") : `<tr><td colspan="${incluirVenta ? 6 : 5}">Sin registros</td></tr>`;
+}
+
+function renderAnalisisHomenajeExcedente(){
+    const rows = filasAnalisisActual();
+    const dias = diasAnalisisActual(rows);
+    const totalVenta = sumar(rows);
+    const data = agruparAnalisis(rows, row => `${row.categoria || row.categoriaGerencial || "SIN HOMENAJE"} · ${row.servicio || "SIN EXCEDENTE"}`);
+    const mayor = data[0];
+
+    setHtml("kpiHomenajeVenta", formatMoney(totalVenta));
+    setHtml("kpiHomenajeRegistros", formatNumber(totalCantidadAnalisis(data)));
+    setHtml("kpiHomenajeMayor", mayor ? mayor.nombre.split("·")[0].trim() : "-");
+    setHtml("kpiHomenajePromedio", formatMoney(totalVenta / dias));
+    setHtml("textoAnalisisHomenaje", `Discriminación por <strong>TIPO_HOMENAJE</strong> y <strong>TIPO_EXCEDENTE</strong>. Venta total analizada: <strong>${formatMoney(totalVenta)}</strong>.`);
+
+    crearChartBar("graficoHomenajeExcedente", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.valor), "Venta", "Venta por tipo de homenaje / excedente", true);
+
+    const tbody = document.querySelector("#tablaHomenajeExcedente tbody");
+    if(tbody){
+        tbody.innerHTML = data.length ? data.map(item => {
+            const [homenaje, excedente] = item.nombre.split("·").map(x => x.trim());
+            const pct = totalVenta > 0 ? (item.valor / totalVenta) * 100 : 0;
+            return `
+                <tr>
+                    <td>${escapeHtml(homenaje || "-")}</td>
+                    <td>${escapeHtml(excedente || "-")}</td>
+                    <td>${formatNumber(item.cantidad)}</td>
+                    <td>${formatMoney(item.valor)}</td>
+                    <td>${pct.toFixed(1)}%</td>
+                    <td>${formatMoney(item.valor / dias)}</td>
+                </tr>
+            `;
+        }).join("") : `<tr><td colspan="6">Sin registros</td></tr>`;
+    }
+}
+
+function renderAnalisisClinicas(){
+    const rows = filasAnalisisActual().filter(row => row.clinica);
+    const dias = diasAnalisisActual(rows);
+    const meses = mesesAnalisisActual(rows);
+    const data = agruparAnalisis(rows, row => row.clinica);
+    const total = totalCantidadAnalisis(data);
+    const mayor = data[0];
+
+    setHtml("kpiClinicasTotal", data.length);
+    setHtml("kpiClinicasReportes", formatNumber(total));
+    setHtml("kpiClinicasMayor", mayor ? mayor.nombre : "-");
+    setHtml("kpiClinicasPromedio", formatNumber(total / dias, 2));
+    setHtml("textoAnalisisClinicas", `Clínicas que más reportan fallecidos. Mayor reporte: <strong>${escapeHtml(mayor?.nombre || "-")}</strong> con <strong>${formatNumber(mayor?.cantidad || 0)}</strong> reportes.`);
+
+    crearChartBar("graficoClinicasReporte", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Reportes", "Ranking de clínicas", true, "number");
+    renderTablaAnalisisCantidad("#tablaClinicasReporte", data, dias, meses);
+}
+
+function renderAnalisisMunicipios(){
+    const rows = filasAnalisisActual().filter(row => row.municipio);
+    const dias = diasAnalisisActual(rows);
+    const meses = mesesAnalisisActual(rows);
+    const data = agruparAnalisis(rows, row => row.municipio);
+    const total = totalCantidadAnalisis(data);
+    const mayor = data[0];
+
+    setHtml("kpiMunicipiosTotal", data.length);
+    setHtml("kpiMunicipiosReportes", formatNumber(total));
+    setHtml("kpiMunicipiosMayor", mayor ? mayor.nombre : "-");
+    setHtml("kpiMunicipiosPromedio", formatNumber(total / dias, 2));
+    setHtml("textoAnalisisMunicipios", `Atención de seres queridos fallecidos por municipio. Municipio con mayor registro: <strong>${escapeHtml(mayor?.nombre || "-")}</strong>.`);
+
+    crearChartBar("graficoMunicipios", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Atenciones", "Atenciones por municipio", true, "number");
+    renderTablaAnalisisCantidad("#tablaMunicipios", data, dias, meses);
+}
+
+function renderAnalisisMuerte(){
+    const rows = filasAnalisisActual().filter(row => row.tipoMuerte);
+    const dias = diasAnalisisActual(rows);
+    const data = agruparAnalisis(rows, row => row.tipoMuerte);
+    const total = totalCantidadAnalisis(data);
+    const natural = data.find(x => x.nombre.includes("NATURAL") && !x.nombre.includes("NO"))?.cantidad || 0;
+    const noNatural = data.find(x => x.nombre.includes("NO NATURAL"))?.cantidad || 0;
+
+    setHtml("kpiMuerteNatural", `${(total > 0 ? (natural / total) * 100 : 0).toFixed(1)}%`);
+    setHtml("kpiMuerteNoNatural", `${(total > 0 ? (noNatural / total) * 100 : 0).toFixed(1)}%`);
+    setHtml("kpiMuerteTotal", formatNumber(total));
+    setHtml("kpiMuertePromedio", formatNumber(total / dias, 2));
+    setHtml("textoAnalisisMuerte", `Representación por tipo de muerte. Natural: <strong>${formatNumber(natural)}</strong>; no natural: <strong>${formatNumber(noNatural)}</strong>.`);
+
+    crearChartDoughnut("graficoTipoMuerte", data.map(x => x.nombre), data.map(x => x.cantidad), "Tipo de muerte", "number");
+    renderTablaAnalisisCantidad("#tablaTipoMuerte", data, dias, mesesAnalisisActual(rows));
+}
+
+function renderAnalisisCementerios(){
+    const rows = filasAnalisisActual().filter(row => row.cementerio);
+    const dias = diasAnalisisActual(rows);
+    const meses = mesesAnalisisActual(rows);
+    const data = agruparAnalisis(rows, row => row.cementerio);
+    const total = totalCantidadAnalisis(data);
+    const mayor = data[0];
+
+    setHtml("kpiCementeriosTotal", data.length);
+    setHtml("kpiCementeriosServicios", formatNumber(total));
+    setHtml("kpiCementeriosMayor", mayor ? mayor.nombre : "-");
+    setHtml("kpiCementeriosMensual", formatNumber(total / meses, 2));
+    setHtml("textoAnalisisCementerios", `Cementerios con mayor destino de seres queridos. Mayor registro: <strong>${escapeHtml(mayor?.nombre || "-")}</strong>.`);
+
+    crearChartBar("graficoCementerios", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Servicios", "Servicios por cementerio", true, "number");
+    renderTablaAnalisisCantidad("#tablaCementerios", data, dias, meses);
+}
+
+function renderAnalisisDestino(){
+    const rows = filasAnalisisActual().filter(row => row.destinoFinal);
+    const dias = diasAnalisisActual(rows);
+    const meses = mesesAnalisisActual(rows);
+    const data = agruparAnalisis(rows, row => row.destinoFinal);
+    const total = totalCantidadAnalisis(data);
+    const mayor = data[0];
+
+    setHtml("kpiDestinoTotal", data.length);
+    setHtml("kpiDestinoServicios", formatNumber(total));
+    setHtml("kpiDestinoMayor", mayor ? mayor.nombre : "-");
+    setHtml("kpiDestinoMensual", formatNumber(total / meses, 2));
+    setHtml("textoAnalisisDestino", `Promedio diario y mensual según <strong>TIPO_DESTINO_FINAL</strong>. Mayor destino: <strong>${escapeHtml(mayor?.nombre || "-")}</strong>.`);
+
+    crearChartBar("graficoDestinoFinal", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Servicios", "Servicios por destino final", true, "number");
+    renderTablaAnalisisCantidad("#tablaDestinoFinal", data, dias, meses);
+}
+
+function renderAnalisisAvanzados(){
+    renderAnalisisHomenajeExcedente();
+    renderAnalisisClinicas();
+    renderAnalisisMunicipios();
+    renderAnalisisMuerte();
+    renderAnalisisCementerios();
+    renderAnalisisDestino();
 }
 
 function renderGestores(){
@@ -2029,6 +2230,26 @@ function guardarColeccionLocal(clave, data){
     localStorage.setItem(clave, JSON.stringify(data));
 }
 
+function cargarColeccionLocalConEjemplos(clave, datosIniciales=[], versionClave=""){
+    const data = cargarColeccionLocal(clave, datosIniciales);
+    if(!versionClave || localStorage.getItem(versionClave) === "20260701") return data;
+
+    const ids = new Set(data.map(item => item.id).filter(Boolean));
+    let actualizado = false;
+
+    datosIniciales.forEach(item => {
+        if(item.id && !ids.has(item.id)){
+            data.push(item);
+            actualizado = true;
+        }
+    });
+
+    if(actualizado) guardarColeccionLocal(clave, data);
+    localStorage.setItem(versionClave, "20260701");
+
+    return data;
+}
+
 function anioOperativoActual(){
     const f = obtenerFiltros();
     const fecha = f.fechaFin ? new Date(`${f.fechaFin}T00:00:00`) : new Date();
@@ -2160,15 +2381,23 @@ function limpiarEnergia(){
 function datosMantenimientosIniciales(){
     const anio = new Date().getFullYear();
     return [
-        {id:"mant_soat_demo", tipo:"SOAT", activo:"Vehículo operativo 1", fecha:`${anio}-07-10`, responsable:"Coordinación Homenajes", observacion:"Registro inicial"},
-        {id:"mant_tecno_demo", tipo:"TECNOMECANICA", activo:"Vehículo operativo 1", fecha:`${anio}-07-15`, responsable:"Coordinación Homenajes", observacion:"Revisión preventiva"},
-        {id:"mant_aceite_demo", tipo:"CAMBIO ACEITE", activo:"Vehículo operativo 2", fecha:`${anio}-06-30`, responsable:"Conductores", observacion:"Cambio por kilometraje"},
-        {id:"mant_jardin_demo", tipo:"JARDINERIA", activo:"Sede principal", fecha:`${anio}-07-05`, responsable:"Servicios Generales", observacion:"Mantenimiento mensual"}
+        {id:"mant_soat_carroza_1", tipo:"SOAT", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-07-10`, responsable:"Coordinación Homenajes", observacion:"Vencimiento SOAT"},
+        {id:"mant_tecno_carroza_1", tipo:"TECNOMECANICA", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-07-15`, responsable:"Coordinación Homenajes", observacion:"Revisión técnico mecánica"},
+        {id:"mant_seguro_carroza_1", tipo:"SEGURO VEHICULAR", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-08-05`, responsable:"Administración", observacion:"Renovación póliza todo riesgo"},
+        {id:"mant_aceite_carroza_1", tipo:"CAMBIO ACEITE", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-06-30`, responsable:"Conductores", observacion:"Cambio por kilometraje"},
+        {id:"mant_soat_van_1", tipo:"SOAT", activo:"Van operativa placa KOR-214", fecha:`${anio}-09-12`, responsable:"Coordinación Homenajes", observacion:"Control documental"},
+        {id:"mant_tecno_van_1", tipo:"TECNOMECANICA", activo:"Van operativa placa KOR-214", fecha:`${anio}-09-20`, responsable:"Coordinación Homenajes", observacion:"Revisión preventiva"},
+        {id:"mant_aceite_van_1", tipo:"CAMBIO ACEITE", activo:"Van operativa placa KOR-214", fecha:`${anio}-07-03`, responsable:"Conductores", observacion:"Aceite y filtros"},
+        {id:"mant_autos_frenos", tipo:"MANTENIMIENTO AUTOS", activo:"Vehículos operativos", fecha:`${anio}-07-18`, responsable:"Taller autorizado", observacion:"Revisión frenos, luces y llantas"},
+        {id:"mant_jardin_sede", tipo:"JARDINERIA", activo:"Jardines sede principal", fecha:`${anio}-07-05`, responsable:"Servicios Generales", observacion:"Poda, limpieza y riego"},
+        {id:"mant_pintura_capilla", tipo:"PINTURA INFRAESTRUCTURA", activo:"Capilla y zonas comunes", fecha:`${anio}-08-14`, responsable:"Mantenimiento", observacion:"Retoques de pintura institucional"},
+        {id:"mant_filtros_cafeteria", tipo:"FILTROS CAFETERIA", activo:"Cafetería sede principal", fecha:`${anio}-07-22`, responsable:"Servicios Generales", observacion:"Cambio filtros de agua y limpieza"},
+        {id:"mant_lavado_autos", tipo:"MANTENIMIENTO AUTOS", activo:"Flota operativa", fecha:`${anio}-06-24`, responsable:"Conductores", observacion:"Lavado, desinfección y revisión diaria"}
     ];
 }
 
 function cargarMantenimientos(){
-    return cargarColeccionLocal("mantenimientosOperacion", datosMantenimientosIniciales());
+    return cargarColeccionLocalConEjemplos("mantenimientosOperacion", datosMantenimientosIniciales(), "mantenimientosSeedVersion");
 }
 
 function estadoMantenimiento(item){
@@ -2314,12 +2543,18 @@ function datosVacacionesIniciales(){
         {id:"vac_javier", nombre:"Javier Mendoza Galván", cargo:"Conductor Tanatopractor", fechaBase:"2025-07-01", inicio:"2026-07-02", fin:"2026-07-21", dias:15, estado:"PROGRAMADA"},
         {id:"vac_raul", nombre:"Raúl López", cargo:"Conductor Tanatopractor", fechaBase:"2024-12-01", inicio:"", fin:"", dias:0, estado:"VENCIDA"},
         {id:"vac_hazael", nombre:"Hazael Galván", cargo:"Conductor Tanatopractor", fechaBase:"2025-08-15", inicio:"", fin:"", dias:0, estado:"PENDIENTE"},
-        {id:"vac_wendy", nombre:"Wendy Paola Cordero", cargo:"Gestora de Protocolo", fechaBase:"2025-05-20", inicio:"2026-05-05", fin:"2026-05-24", dias:15, estado:"DISFRUTADA"}
+        {id:"vac_wendy", nombre:"Wendy Paola Cordero", cargo:"Gestora de Protocolo", fechaBase:"2025-05-20", inicio:"2026-05-05", fin:"2026-05-24", dias:15, estado:"DISFRUTADA"},
+        {id:"vac_fernando", nombre:"Fernando Argel Martínez", cargo:"Gestor de Homenajes", fechaBase:"2025-02-10", inicio:"2026-02-12", fin:"2026-03-03", dias:15, estado:"DISFRUTADA"},
+        {id:"vac_carlos", nombre:"Carlos López Pérez", cargo:"Gestor de Homenajes", fechaBase:"2025-04-03", inicio:"2026-07-15", fin:"2026-08-03", dias:15, estado:"PROGRAMADA"},
+        {id:"vac_osvaldo", nombre:"Osvaldo Ramos Ruiz", cargo:"Gestor de Homenajes", fechaBase:"2025-09-22", inicio:"", fin:"", dias:0, estado:"PENDIENTE"},
+        {id:"vac_alexis", nombre:"Alexis Ayazo Alvarez", cargo:"Gestor de Homenajes", fechaBase:"2024-11-18", inicio:"", fin:"", dias:0, estado:"VENCIDA"},
+        {id:"vac_jessica", nombre:"Jessica Avila de Hoyos", cargo:"Auxiliar Administrativo", fechaBase:"2025-06-12", inicio:"2026-06-15", fin:"2026-07-04", dias:15, estado:"PROGRAMADA"},
+        {id:"vac_samir", nombre:"Samir Chadid Corena", cargo:"Apoyo Operativo", fechaBase:"2025-10-01", inicio:"", fin:"", dias:0, estado:"PENDIENTE"}
     ];
 }
 
 function cargarVacaciones(){
-    return cargarColeccionLocal("vacacionesPersonal", datosVacacionesIniciales());
+    return cargarColeccionLocalConEjemplos("vacacionesPersonal", datosVacacionesIniciales(), "vacacionesSeedVersion");
 }
 
 function estadoVacacion(item){
@@ -2449,14 +2684,25 @@ function datosAgendaIniciales(){
     return [
         {id:"act_preoperacional", fecha:`${anio}-01-02`, hora:"06:00", titulo:"Verificar reporte preoperacional de vehículos", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Control diario antes de entregar turno."},
         {id:"act_bitacora", fecha:`${anio}-01-02`, hora:"07:00", titulo:"Revisar bitácora de parque automotor", frecuencia:"DIARIA", estado:"EN PROCESO", responsable:"Coordinación Homenajes", detalle:"Confirmar novedades y entrega de llaves."},
+        {id:"act_limpieza_autos", fecha:`${anio}-01-02`, hora:"08:00", titulo:"Limpieza y desinfección de vehículos", frecuencia:"DIARIA", estado:"CUMPLIDA", responsable:"Conductores", detalle:"Interior, camilla, cabina y elementos de bioseguridad."},
+        {id:"act_documentos_autos", fecha:`${anio}-01-02`, hora:"09:00", titulo:"Validar documentos de vehículos", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"SOAT, tecnomecánica, seguros y tarjetas."},
+        {id:"act_check_funerario", fecha:`${anio}-01-03`, hora:"06:00", titulo:"Checklist de elementos para servicio", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Equipo operativo", detalle:"Confirmar cofres, implementos y soportes del servicio."},
+        {id:"act_reporte_clinicas", fecha:`${anio}-01-03`, hora:"11:00", titulo:"Seguimiento reportes de clínicas", frecuencia:"DIARIA", estado:"EN PROCESO", responsable:"Gestores", detalle:"Actualizar novedades por clínica y municipio."},
         {id:"act_implementos", fecha:`${anio}-06-20`, hora:"09:00", titulo:"Seguimiento implementos de velación en casa", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Gestores", detalle:"Validar elementos vigentes, por recoger y recogidos."},
+        {id:"act_inventario", fecha:`${anio}-06-22`, hora:"10:00", titulo:"Inventario mensual de implementos", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Bodega / Homenajes", detalle:"Sillas, carpas, atriles, avisos y elementos de velación."},
+        {id:"act_soat", fecha:`${anio}-07-10`, hora:"08:00", titulo:"Revisión vencimientos SOAT", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Validar alertas a 10 y 5 días."},
+        {id:"act_tecnomecanica", fecha:`${anio}-07-15`, hora:"09:00", titulo:"Revisión tecnomecánica flota", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Programar taller si aplica."},
+        {id:"act_jardineria", fecha:`${anio}-07-05`, hora:"07:00", titulo:"Mantenimiento jardinería", frecuencia:"MENSUAL", estado:"CUMPLIDA", responsable:"Servicios Generales", detalle:"Poda, limpieza y estado visual sede."},
+        {id:"act_cafeteria", fecha:`${anio}-07-22`, hora:"10:00", titulo:"Cambio filtros cafetería", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Servicios Generales", detalle:"Filtros de agua y limpieza preventiva."},
         {id:"act_residuos", fecha:`${anio}-07-01`, hora:"10:00", titulo:"Capacitación residuos y desinfección", frecuencia:"ANUAL", estado:"CUMPLIDA", responsable:"Talento Humano / Homenajes", detalle:"Refuerzo obligatorio para el equipo operativo."},
-        {id:"act_auditoria", fecha:`${anio}-11-10`, hora:"08:00", titulo:"Preparación auditoría interna", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Revisar R-15, R-56, RH1 y soportes operativos."}
+        {id:"act_auditoria", fecha:`${anio}-11-10`, hora:"08:00", titulo:"Preparación auditoría interna", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Revisar R-15, R-56, RH1 y soportes operativos."},
+        {id:"act_pintura", fecha:`${anio}-08-14`, hora:"14:00", titulo:"Mantenimiento pintura infraestructura", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Mantenimiento", detalle:"Capillas, recepción, pasillos y zonas comunes."},
+        {id:"act_plan_fin_anio", fecha:`${anio}-12-05`, hora:"15:00", titulo:"Cierre operativo anual", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Dirección / Homenajes", detalle:"Revisión de indicadores, metas, pendientes y plan del siguiente año."}
     ];
 }
 
 function cargarAgenda(){
-    return cargarColeccionLocal("agendaHomenajes", datosAgendaIniciales());
+    return cargarColeccionLocalConEjemplos("agendaHomenajes", datosAgendaIniciales(), "agendaSeedVersion");
 }
 
 function actividadEnMes(item, anio, mes){
@@ -3578,7 +3824,10 @@ function cambiarVista(seccion){
     document.querySelectorAll(".vista").forEach(vista => vista.classList.remove("active-view"));
 
     const itemMenu = document.querySelector(`.menu-item[data-seccion="${seccion}"]`);
-    if(itemMenu) itemMenu.classList.add("active");
+    if(itemMenu){
+        itemMenu.classList.add("active","spark-burst");
+        setTimeout(() => itemMenu.classList.remove("spark-burst"), 850);
+    }
 
     const vista = $(seccion);
     if(vista) vista.classList.add("active-view");
@@ -3591,6 +3840,9 @@ function cambiarVista(seccion){
         if(seccion === "metas") renderMetas();
         if(seccion === "comparativo") renderComparativoAnual();
         if(seccion === "mantenimientos") renderMantenimientos();
+        if(["analisisHomenaje","analisisClinicas","analisisMunicipios","analisisMuerte","analisisCementerios","analisisDestino"].includes(seccion)){
+            renderAnalisisAvanzados();
+        }
         redimensionarGraficos();
     }, 180);
 }
@@ -3614,10 +3866,11 @@ function ambienteDashboardActual(){
 
 function aplicarAmbienteDashboard(ambiente){
     const valor = AMBIENTES_DASHBOARD.includes(ambiente) ? ambiente : "normal";
-    document.body.classList.remove("theme-ocean","theme-sunset","dark-mode");
+    document.body.classList.remove("theme-ocean","theme-sunset","theme-dark","dark-mode");
 
     if(valor === "ocean") document.body.classList.add("theme-ocean");
     if(valor === "sunset") document.body.classList.add("theme-sunset");
+    if(valor === "dark") document.body.classList.add("theme-dark");
 
     localStorage.setItem("dashboardAmbiente", valor);
 
@@ -3635,6 +3888,10 @@ function aplicarAmbienteDashboard(ambiente){
             boton.title = "Ambiente visual: atardecer";
             if(icono) icono.className = "fas fa-sun";
             if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-sun"></i> Atardecer`;
+        }else if(valor === "dark"){
+            boton.title = "Ambiente visual: oscuro";
+            if(icono) icono.className = "fas fa-moon";
+            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-moon"></i> Oscuro`;
         }else{
             boton.title = "Ambiente visual: normal";
             if(icono) icono.className = "fas fa-circle-half-stroke";
@@ -3654,7 +3911,8 @@ function alternarTema(){
     const nombres = {
         normal:"normal",
         ocean:"agua de mar",
-        sunset:"atardecer suave"
+        sunset:"atardecer suave",
+        dark:"oscuro"
     };
 
     toast(`Ambiente aplicado: ${nombres[siguiente]}.`);
