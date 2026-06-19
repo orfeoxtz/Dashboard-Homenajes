@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260705">
+<link rel="stylesheet" href="./style.css?v=20260706">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -106,8 +106,6 @@
 
         <div class="header-actions">
             <button id="btnSidebar" class="icon-btn" title="Colapsar menú"><i class="fas fa-bars"></i></button>
-            <button id="btnTema" class="icon-btn" title="Ambiente visual: normal"><i class="fas fa-sun"></i></button>
-            <button id="btnAmbiente" class="action-btn ambient-btn" title="Cambiar ambiente visual"><i class="fas fa-water"></i> Ambiente</button>
             <button id="btnFull" class="icon-btn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
             <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
             <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
@@ -116,6 +114,16 @@
         </div>
     </div>
 </header>
+
+<div class="theme-dock" aria-label="Selector discreto de temas">
+    <button class="theme-dot sun" data-theme="normal" title="Tema claro"><i class="fas fa-sun"></i></button>
+    <button class="theme-dot moon" data-theme="dark" title="Tema oscuro"><i class="fas fa-moon"></i></button>
+    <button class="theme-dot ocean" data-theme="ocean" title="Tema mar"></button>
+    <button class="theme-dot sunset" data-theme="sunset" title="Tema atardecer"></button>
+    <button class="theme-dot emerald" data-theme="emerald" title="Tema verde ejecutivo"></button>
+    <button class="theme-dot violet" data-theme="violet" title="Tema violeta"></button>
+    <button class="theme-dot slate" data-theme="slate" title="Tema grafito"></button>
+</div>
 
 <section class="filtros">
     <div class="quick-filters">
@@ -1244,6 +1252,6 @@
 
 </main>
 
-<script src="./app.js?v=20260705"></script>
+<script src="./app.js?v=20260706"></script>
 </body>
 </html>
