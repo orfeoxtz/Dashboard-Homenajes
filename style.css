@@ -3191,3 +3191,186 @@ body.theme-sunset .insight-card{
         grid-template-columns:1fr;
     }
 }
+
+/* Semáforo ejecutivo y acciones gerenciales 20260709 */
+.executive-command-center{
+    display:grid;
+    grid-template-columns:minmax(260px,.72fr) minmax(420px,1.28fr);
+    gap:11px;
+    margin:11px 0 12px;
+}
+
+.semaforo-card,
+.action-board{
+    border:1px solid rgba(0,79,42,.12);
+    border-radius:15px;
+    background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,252,249,.91));
+    box-shadow:0 12px 30px rgba(15,23,42,.075);
+    min-width:0;
+}
+
+.semaforo-card{
+    padding:13px 15px;
+    position:relative;
+    overflow:hidden;
+}
+
+.semaforo-card::after{
+    content:"";
+    position:absolute;
+    right:-28px;
+    top:-28px;
+    width:86px;
+    height:86px;
+    border-radius:50%;
+    opacity:.18;
+    background:#64748b;
+}
+
+.semaforo-card.ok::after{background:#16a34a;}
+.semaforo-card.warning::after{background:#f59e0b;}
+.semaforo-card.danger::after{background:#ef4444;}
+
+.semaforo-label{
+    display:block;
+    font-size:10.5px;
+    font-weight:950;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.45px;
+    margin-bottom:6px;
+}
+
+.semaforo-main{
+    display:flex;
+    align-items:flex-end;
+    gap:10px;
+    margin-bottom:6px;
+}
+
+.semaforo-main strong{
+    font-size:clamp(27px,2.1vw,38px);
+    line-height:.95;
+    letter-spacing:-.8px;
+    color:#0f172a;
+}
+
+.semaforo-main span{
+    padding:5px 8px;
+    border-radius:999px;
+    font-size:10.5px;
+    font-weight:950;
+    margin-bottom:2px;
+    background:#e2e8f0;
+    color:#334155;
+}
+
+.semaforo-card.ok .semaforo-main span{
+    background:#dcfce7;
+    color:#166534;
+}
+
+.semaforo-card.warning .semaforo-main span{
+    background:#fef3c7;
+    color:#92400e;
+}
+
+.semaforo-card.danger .semaforo-main span{
+    background:#fee2e2;
+    color:#991b1b;
+}
+
+.semaforo-card.ok .semaforo-main strong{color:#15803d;}
+.semaforo-card.warning .semaforo-main strong{color:#b45309;}
+.semaforo-card.danger .semaforo-main strong{color:#dc2626;}
+
+.semaforo-card p{
+    font-size:11px;
+    line-height:1.35;
+    font-weight:750;
+    color:#334155;
+    max-width:94%;
+}
+
+.action-board{
+    padding:13px 15px;
+}
+
+.action-title{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    font-weight:950;
+    color:#0f172a;
+    margin-bottom:8px;
+}
+
+.action-title i{
+    color:var(--green);
+}
+
+.action-board ul{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:7px 12px;
+    list-style:none;
+}
+
+.action-board li{
+    position:relative;
+    padding-left:17px;
+    font-size:11px;
+    line-height:1.35;
+    font-weight:750;
+    color:#334155;
+}
+
+.action-board li::before{
+    content:"✓";
+    position:absolute;
+    left:0;
+    top:0;
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    font-size:8px;
+    color:#fff;
+    background:linear-gradient(135deg,#008f46,#00c853);
+}
+
+body.theme-dark .semaforo-card,
+body.theme-dark .action-board,
+body.theme-slate .semaforo-card,
+body.theme-slate .action-board{
+    background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(2,6,23,.88));
+    border-color:rgba(148,163,184,.22);
+}
+
+body.theme-dark .semaforo-main strong,
+body.theme-dark .action-title,
+body.theme-slate .semaforo-main strong,
+body.theme-slate .action-title{
+    color:#f8fafc;
+}
+
+body.theme-dark .semaforo-card p,
+body.theme-dark .action-board li,
+body.theme-slate .semaforo-card p,
+body.theme-slate .action-board li{
+    color:#cbd5e1;
+}
+
+@media(max-width:1100px){
+    .executive-command-center{
+        grid-template-columns:1fr;
+    }
+}
+
+@media(max-width:700px){
+    .action-board ul{
+        grid-template-columns:1fr;
+    }
+}
