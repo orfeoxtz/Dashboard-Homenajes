@@ -2514,6 +2514,50 @@ function badgeMantenimiento(info){
     return `<span class="badge badge-warning">${info.estado}</span>`;
 }
 
+function actualizarAlertasMantenimientoDashboard(alertas, conteo){
+    const totalAlertas = alertas.length;
+    const top = $("alertaMantenimientoTop");
+    const topTexto = $("alertaMantenimientoTopTexto");
+    const strip = $("alertaDashboardPrincipal");
+
+    if(top && topTexto){
+        top.classList.remove("hidden", "danger", "warning", "ok");
+
+        if(totalAlertas === 0){
+            top.classList.add("ok");
+            topTexto.textContent = "Sin alertas";
+        }else if((conteo.vencidos || 0) > 0 || (conteo.cinco || 0) > 0){
+            top.classList.add("danger");
+            topTexto.textContent = `${totalAlertas} alerta${totalAlertas === 1 ? "" : "s"} crítica${totalAlertas === 1 ? "" : "s"}`;
+        }else{
+            top.classList.add("warning");
+            topTexto.textContent = `${totalAlertas} alerta${totalAlertas === 1 ? "" : "s"} próxima${totalAlertas === 1 ? "" : "s"}`;
+        }
+    }
+
+    if(strip){
+        if(totalAlertas === 0){
+            strip.classList.add("hidden");
+            strip.innerHTML = "";
+        }else{
+            const primera = alertas[0];
+            const detalle = primera
+                ? `${escapeHtml(primera.item.tipo)} · ${escapeHtml(primera.item.activo)} · ${primera.info.dias < 0 ? `${Math.abs(primera.info.dias)} días vencido` : `faltan ${primera.info.dias} días`}`
+                : "";
+
+            strip.classList.remove("hidden", "danger", "warning");
+            strip.classList.add((conteo.vencidos || 0) > 0 || (conteo.cinco || 0) > 0 ? "danger" : "warning");
+            strip.innerHTML = `
+                <div>
+                    <strong><i class="fas fa-triangle-exclamation"></i> Alertas de mantenimiento activas</strong>
+                    <span>${formatNumber(totalAlertas)} control${totalAlertas === 1 ? "" : "es"} requiere${totalAlertas === 1 ? "" : "n"} seguimiento. ${detalle}</span>
+                </div>
+                <button class="action-btn" onclick="cambiarVista('mantenimientos')">Ver mantenimientos</button>
+            `;
+        }
+    }
+}
+
 function renderMantenimientos(){
     const data = cargarMantenimientos().sort((a,b) => String(a.fecha || "").localeCompare(String(b.fecha || "")));
     const conteo = {vencidos:0, cinco:0, diez:0, ok:0};
@@ -2541,6 +2585,8 @@ function renderMantenimientos(){
         <strong>${conteo.diez}</strong> alertas a 10 días y
         <strong>${conteo.ok}</strong> controles al día.
     `);
+
+    actualizarAlertasMantenimientoDashboard(alertas, conteo);
 
     const alertasBox = $("alertasMantenimiento");
     if(alertasBox){
@@ -2615,21 +2661,6 @@ function limpiarMantenimientos(){
     guardarColeccionLocal("mantenimientosOperacion", []);
     renderMantenimientos();
     toast("Mantenimientos eliminados.");
-}
-
-function prepararCorreoMantenimiento(){
-    const correo = $("mantCorreo")?.value || "JORGEKORFAN@GMAIL.COM";
-    const alertas = cargarMantenimientos().filter(item => {
-        const info = estadoMantenimiento(item);
-        return ["VENCIDO","ALERTA 5 DÍAS","ALERTA 10 DÍAS"].includes(info.estado);
-    });
-
-    const cuerpo = alertas.length ? alertas.map(item => {
-        const info = estadoMantenimiento(item);
-        return `${item.tipo} - ${item.activo} - ${formatFechaProfesional(item.fecha)} - ${info.estado}`;
-    }).join("%0A") : "No hay alertas de mantenimiento pendientes.";
-
-    window.location.href = `mailto:${encodeURIComponent(correo)}?subject=${encodeURIComponent("Alertas de mantenimiento Dashboard Homenajes")}&body=${cuerpo}`;
 }
 
 function datosVacacionesIniciales(){
@@ -4224,6 +4255,10 @@ document.querySelectorAll(".menu-item").forEach(item => {
     item.addEventListener("click", () => cambiarVista(item.dataset.seccion));
 });
 
+document.querySelectorAll("[data-seccion]:not(.menu-item)").forEach(item => {
+    item.addEventListener("click", () => cambiarVista(item.dataset.seccion));
+});
+
 document.querySelectorAll(".quick-btn").forEach(btn => {
     btn.addEventListener("click", () => aplicarRangoRapido(btn.dataset.rango));
 });
@@ -4254,7 +4289,6 @@ $("btnLimpiarEnergia")?.addEventListener("click", limpiarEnergia);
 
 $("btnAgregarMantenimiento")?.addEventListener("click", agregarMantenimiento);
 $("btnLimpiarMantenimientos")?.addEventListener("click", limpiarMantenimientos);
-$("btnMailMantenimiento")?.addEventListener("click", prepararCorreoMantenimiento);
 
 $("btnAgregarVacacion")?.addEventListener("click", agregarVacacion);
 $("btnLimpiarVacaciones")?.addEventListener("click", limpiarVacaciones);
