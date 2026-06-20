@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260709">
+<link rel="stylesheet" href="./style.css?v=20260710">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -107,6 +107,7 @@
         <div class="header-actions">
             <button id="btnSidebar" class="icon-btn" title="Colapsar menú"><i class="fas fa-bars"></i></button>
             <button id="btnFull" class="icon-btn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
+            <button id="btnPresentacion" class="icon-btn presentation-btn" title="Modo presentación gerencial"><i class="fas fa-display"></i></button>
             <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
             <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
             <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
@@ -245,6 +246,19 @@
         <div class="insight-card"><span>Mejor gestor</span><strong id="insightGestor">-</strong><small id="insightGestorDetalle">-</small></div>
         <div class="insight-card"><span>Clínica líder</span><strong id="insightClinica">-</strong><small id="insightClinicaDetalle">-</small></div>
         <div class="insight-card"><span>Destino principal</span><strong id="insightDestino">-</strong><small id="insightDestinoDetalle">-</small></div>
+    </section>
+
+    <section class="month-compare-board">
+        <div class="compare-title">
+            <i class="fas fa-chart-simple"></i>
+            Comparativo comercial mensual
+        </div>
+        <div class="compare-grid">
+            <div class="compare-card"><span>Mes actual</span><strong id="compMesActual">$0</strong><small id="compMesActualTexto">-</small></div>
+            <div class="compare-card"><span>Mes anterior</span><strong id="compMesAnterior">$0</strong><small id="compMesAnteriorTexto">-</small></div>
+            <div class="compare-card"><span>Variación</span><strong id="compVariacion">0%</strong><small id="compVariacionTexto">Sin comparación</small></div>
+            <div class="compare-card"><span>Alerta comercial</span><strong id="compAlerta">Sin datos</strong><small id="compAlertaTexto">Esperando información</small></div>
+        </div>
     </section>
 
     <section class="kpis kpis-principales">
@@ -1276,6 +1290,6 @@
 
 </main>
 
-<script src="./app.js?v=20260709"></script>
+<script src="./app.js?v=20260710"></script>
 </body>
 </html>
