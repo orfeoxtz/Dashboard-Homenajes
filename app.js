@@ -1,8 +1,8 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260710");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260713");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
-const GOOGLE_SHEET_PARAMETROS_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=1505384889";
+const GOOGLE_SHEET_FALLECIDOS_PLANES_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/gviz/tq?tqx=out:csv&sheet=FALLECIDOS%20PLANES";
 
 let ACCESS_CODE = localStorage.getItem("dashboardAccessCode") || "JKFH2026";
 let META_MENSUAL_BASE = Number(localStorage.getItem("metaMensualBase")) || 219133881;
@@ -15,6 +15,7 @@ let DATASET_API = [];
 let DATASET_MANUAL = [];
 let DATASET_NORMAL = [];
 let DATASET_FILTRADO = [];
+let DATASET_FALLECIDOS_PLANES = [];
 
 let PARAMETROS = {
     gestor:{},
@@ -34,8 +35,6 @@ let ULTIMO_RESUMEN = null;
 let ULTIMA_META_INFO = null;
 let AGENDA_CURSOR = new Date();
 let AGENDA_DIA_SELECCIONADO = fechaISO(new Date());
-
-const AMBIENTES_DASHBOARD = ["normal","dark","ocean","sunset","emerald","violet","slate"];
 
 const $ = id => document.getElementById(id);
 
@@ -124,39 +123,34 @@ function formatNumber(valor, decimales=0){
     });
 }
 
-function formatFechaProfesional(fecha, fallback="-"){
-    const f = fecha instanceof Date ? fecha : parseFecha(fecha);
-    if(!f || isNaN(f.getTime())) return fallback;
-
-    return f.toLocaleDateString("es-CO", {
-        year:"numeric",
-        month:"2-digit",
-        day:"2-digit"
-    });
-}
-
-function nombreGestorCorto(nombre){
-    const partes = String(nombre || "").trim().split(/\s+/).filter(Boolean);
-    if(partes.length === 0) return "-";
-    if(partes.length === 1) return partes[0];
-
-    const primerNombre = partes[0];
-    const primerApellido = partes.length >= 3 ? partes[2] : partes[1];
-    const inicial = primerApellido ? primerApellido.charAt(0).toUpperCase() + "." : "";
-
-    return `${primerNombre} ${inicial}`.trim();
-}
-
 function formatChartValue(valor, tipo="money"){
     if(tipo === "number") return formatNumber(valor);
     if(tipo === "kwh") return `${formatNumber(valor)} kWh`;
     if(tipo === "percent") return `${Number(toNumber(valor)).toFixed(1)}%`;
     if(tipo === "days") return `${formatNumber(valor)} días`;
-    return formatMoney(valor);
+    return formatMoneyCompact(valor);
+}
+
+function isDarkChartTheme(){
+    return document.body.classList.contains("dark-mode")
+        || document.body.classList.contains("theme-dark")
+        || document.body.classList.contains("theme-slate");
 }
 
 function chartTextColor(){
-    return document.body.classList.contains("dark-mode") || document.body.classList.contains("theme-dark") ? "#f8fafc" : "#0f172a";
+    return isDarkChartTheme() ? "#f8fafc" : "#0f172a";
+}
+
+function chartGridColor(){
+    return isDarkChartTheme() ? "rgba(203,213,225,.24)" : "rgba(15,23,42,.12)";
+}
+
+function chartValueLabelStyle(){
+    return {
+        color:"#0f172a",
+        backgroundColor:"rgba(255,255,255,.96)",
+        borderColor:isDarkChartTheme() ? "rgba(255,255,255,.36)" : "rgba(0,79,42,.18)"
+    };
 }
 
 function registrarPluginGraficas(){
@@ -236,16 +230,44 @@ function getDestinoFinalItem(item){
     return getCampo(item, ["TIPO_DESTINO_FINAL","Tipo Destino Final","Destino Final"]);
 }
 
+function getFechaOrdenPlanItem(item){
+    return getCampo(item, ["FECHA DE LA ORDEN","Fecha de la orden","FECHA_ORDEN","Fecha Orden"]);
+}
+
+function getOrdenPlanItem(item){
+    return getCampo(item, ["ORDEN SERVICIO FUNERARIO","ORDEN_SERVICIO_FUNERARIO","Orden Servicio Funerario","Orden Servicio"]);
+}
+
+function getPlanFallecidoItem(item){
+    return getCampo(item, ["PLAN","Plan"]);
+}
+
+function getTiempoAfiliacionPlanItem(item){
+    return getCampo(item, ["TIEMPO AFILIACION DEL SER QUERIDO FALLECIDO","TIEMPO AFILIACIÓN DEL SER QUERIDO FALLECIDO","Tiempo Afiliacion","Tiempo Afiliación","TIEMPO_AFILIACION"]);
+}
+
+function getEdadPlanItem(item){
+    return getCampo(item, ["EDAD","Edad"]);
+}
+
+function getTipoAfiliacionPlanItem(item){
+    return getCampo(item, ["TIPO DE AFILIACION","TIPO DE AFILIACIÓN","Tipo de afiliacion","Tipo de afiliación","TIPO_AFILIACION"]);
+}
+
+function getNumeroContratoPlanItem(item){
+    return getCampo(item, ["NUMERO DEL CONTRATO","NÚMERO DEL CONTRATO","Numero del contrato","Número del contrato","NUMERO_CONTRATO"]);
+}
+
+function getFallecidoPlanItem(item){
+    return getCampo(item, ["FALLECIDO","SER QUERIDO","NOMBRE DEL FALLECIDO","NOMBRE"]);
+}
+
 function getValorServicioItem(item){
     return getCampo(item, ["VALOR SERVICIO","Valor Servicio","VALOR_SERVICIO"]);
 }
 
 function getValorExcedenteItem(item){
     return getCampo(item, ["VALOR EXCEDENTE","Valor Excedente","VALOR_EXCEDENTE"]);
-}
-
-function getCantidadItem(item){
-    return getCampo(item, ["CANTIDAD","Cantidad","cantidad"]);
 }
 
 function convertirArrayAObjetos(tabla){
@@ -438,33 +460,10 @@ function esFilaParametro(item){
     const valor = getCampo(item, ["Valor","VALOR","valor"]);
 
     return (
-        ["SEDE","GESTOR","META_CATEGORIA","META_EXCEDENTE"].includes(tipo) &&
+        ["GESTOR","META_CATEGORIA","META_EXCEDENTE"].includes(tipo) &&
         String(nombre || "").trim() !== "" &&
         String(valor || "").trim() !== ""
     );
-}
-
-function parametrosBaseDashboard(){
-    return [
-        {Tipo:"SEDE", Nombre:"Monteria", Valor:219133881},
-        {Tipo:"GESTOR", Nombre:"Fernando Argel", Valor:25000000},
-        {Tipo:"GESTOR", Nombre:"Osvaldo Ramos", Valor:25000000},
-        {Tipo:"GESTOR", Nombre:"Carlos Lopez", Valor:25000000},
-        {Tipo:"GESTOR", Nombre:"Alexis Ayazo", Valor:25000000},
-        {Tipo:"GESTOR", Nombre:"Wendy Cordero", Valor:7000000},
-        {Tipo:"META_CATEGORIA", Nombre:"PARTICULAR", Valor:69090369},
-        {Tipo:"META_CATEGORIA", Nombre:"RED", Valor:127371072},
-        {Tipo:"META_CATEGORIA", Nombre:"EXCEDENTES", Valor:22672440},
-        {Tipo:"META_EXCEDENTE", Nombre:"CARTELES", Valor:136560},
-        {Tipo:"META_EXCEDENTE", Nombre:"ARREGLOS FLORALES", Valor:4727400},
-        {Tipo:"META_EXCEDENTE", Nombre:"VELACION", Valor:4564800},
-        {Tipo:"META_EXCEDENTE", Nombre:"SERVICIO DE BUS", Valor:510000},
-        {Tipo:"META_EXCEDENTE", Nombre:"TRASLADOS", Valor:1835280},
-        {Tipo:"META_EXCEDENTE", Nombre:"HABITOS", Valor:214800},
-        {Tipo:"META_EXCEDENTE", Nombre:"EXCEDENTES POR COFRES", Valor:9558000},
-        {Tipo:"META_EXCEDENTE", Nombre:"PREPARACIONES", Valor:60000},
-        {Tipo:"META_EXCEDENTE", Nombre:"OTROS SERVICIOS ADICIONALES", Valor:1068600}
-    ];
 }
 
 function procesarParametros(datos){
@@ -474,9 +473,7 @@ function procesarParametros(datos){
         excedente:{}
     };
 
-    const fuente = [...parametrosBaseDashboard(), ...(Array.isArray(datos) ? datos : [])];
-
-    fuente.filter(esFilaParametro).forEach(item => {
+    datos.filter(esFilaParametro).forEach(item => {
         const tipo = normalizarTexto(getCampo(item, ["Tipo","TIPO","tipo"]));
         const nombre = normalizarTexto(getCampo(item, ["Nombre","NOMBRE","nombre"]));
         const valor = toNumber(getCampo(item, ["Valor","VALOR","valor"]));
@@ -486,7 +483,6 @@ function procesarParametros(datos){
         if(tipo === "GESTOR") PARAMETROS.gestor[nombre] = valor;
         if(tipo === "META_CATEGORIA") PARAMETROS.categoria[nombre] = valor;
         if(tipo === "META_EXCEDENTE") PARAMETROS.excedente[nombre] = valor;
-        if(tipo === "SEDE" && valor > 0) META_MENSUAL_BASE = valor;
     });
 
     procesarParametrosManuales();
@@ -652,7 +648,7 @@ function normalizarRegistro(item, origen="API"){
         origen,
         raw:item,
         fecha,
-        fechaTexto:fecha ? formatFechaProfesional(fecha) : String(getFechaItem(item) || ""),
+        fechaTexto:getFechaItem(item),
         valorOriginal,
         valorServicio,
         valorExcedente,
@@ -671,97 +667,29 @@ function normalizarRegistro(item, origen="API"){
     };
 
     row.categoriaGerencial = obtenerCategoriaGerencial(row);
-    row.cantidadAtendida = Math.max(toNumber(getCantidadItem(item)) || 1, 1);
-
-    if(valorExcedente > 0){
-        row.categoriaGerencial = "EXCEDENTES";
-        row.valorVenta = valorExcedente;
-        row.generaVenta = true;
-    }else{
-        row.generaVenta = categoriaGeneraVenta(row.categoriaGerencial);
-        row.valorVenta = row.generaVenta ? (valorServicio > 0 ? valorServicio : valorBase) : 0;
-    }
+    row.generaVenta = categoriaGeneraVenta(row.categoriaGerencial);
+    row.valorVenta = row.generaVenta ? valorOriginal : 0;
+    row.cantidadAtendida = 1;
 
     return row;
 }
 
-function normalizarRegistroExpandido(item, origen="API"){
-    const base = normalizarRegistro(item, origen);
-    const valorServicio = toNumber(getValorServicioItem(item));
-    const valorExcedente = toNumber(getValorExcedenteItem(item));
-    const valorBase = toNumber(getValorItem(item));
-    const categoriaOriginal = obtenerCategoriaGerencial({
-        categoria:String(getCategoriaItem(item) || "").trim(),
-        servicio:String(getServicioItem(item) || getTipoServicioItem(item) || "").trim()
-    });
-    const servicioOriginal = String(getServicioItem(item) || getTipoServicioItem(item) || base.servicio || "").trim();
-    const filas = [];
-
-    if(valorServicio > 0 && categoriaGeneraVenta(categoriaOriginal)){
-        filas.push({
-            ...base,
-            id:`${base.id}_servicio`,
-            categoriaGerencial:categoriaOriginal,
-            servicio:servicioOriginal || base.servicio,
-            valorOriginal:valorServicio,
-            valorServicio,
-            valorExcedente:0,
-            valorVenta:valorServicio,
-            generaVenta:true,
-            lineaValor:"SERVICIO"
-        });
-    }
-
-    if(valorExcedente > 0){
-        filas.push({
-            ...base,
-            id:`${base.id}_excedente`,
-            categoriaGerencial:"EXCEDENTES",
-            servicio:servicioOriginal || "EXCEDENTES",
-            valorOriginal:valorExcedente,
-            valorServicio:0,
-            valorExcedente,
-            valorVenta:valorExcedente,
-            generaVenta:true,
-            lineaValor:"EXCEDENTE"
-        });
-    }
-
-    if(filas.length) return filas;
-
-    return [{
-        ...base,
-        valorOriginal:valorBase || base.valorOriginal,
-        lineaValor:base.categoriaGerencial === "EXCEDENTES" ? "EXCEDENTE" : "SERVICIO"
-    }];
-}
-
 function cargarManuales(){
     DATASET_MANUAL = JSON.parse(localStorage.getItem("registrosManuales") || "[]");
-    return DATASET_MANUAL.flatMap(item => normalizarRegistroExpandido(item, "MANUAL"));
+    return DATASET_MANUAL.map(item => normalizarRegistro(item, "MANUAL"));
 }
 
 function validarEstructuraApi(datos){
     const columnas = datos.length ? Object.keys(datos[0]) : [];
     const existe = nombres => nombres.some(req => columnas.some(c => normalizarLlave(c) === normalizarLlave(req)));
-    const requeridas = [
-        "FECHA",
-        "ORDEN_SERVICIO_FUNERARIO",
-        "GESTOR",
-        "SEDE",
-        "TIPO_SERVICIO_TIPOSRV",
-        "TIPO_HOMENAJE",
-        "TIPO_EXCEDENTE",
-        "CLINICA",
-        "MUNICIPIO",
-        "TIPO_MUERTE",
-        "CEMENTERIO",
-        "TIPO_DESTINO_FINAL",
-        "CANTIDAD",
-        "VALOR SERVICIO",
-        "VALOR EXCEDENTE"
-    ];
-    const faltantes = requeridas.filter(nombre => !existe([nombre]));
+    const faltantes = [];
+
+    if(!existe(["Fecha","FECHA"])) faltantes.push("FECHA");
+    if(!existe(["Gestor","GESTOR"])) faltantes.push("GESTOR");
+    if(!existe(["Tipo_Homenaje","TIPO_HOMENAJE"])) faltantes.push("TIPO_HOMENAJE");
+    if(!existe(["Tipo_Excedente","TIPO_EXCEDENTE","TIPO_SERVICIO_TIPOSRV"])) faltantes.push("TIPO_EXCEDENTE / TIPO_SERVICIO_TIPOSRV");
+    if(!existe(["Valor","VALOR","VALOR SERVICIO","Valor Servicio","VALOR_EXCEDENTE","VALOR EXCEDENTE"])) faltantes.push("VALOR SERVICIO / VALOR EXCEDENTE");
+    if(!existe(["Sede","SEDE"])) faltantes.push("SEDE");
 
     return {
         ok:datos.length > 0 && faltantes.length === 0,
@@ -770,6 +698,108 @@ function validarEstructuraApi(datos){
         columnas,
         faltantes
     };
+}
+
+function textoTiempoDesdeDias(dias){
+    const totalDias = Math.max(Math.round(toNumber(dias)), 0);
+    const meses = Math.floor(totalDias / 30.4375);
+    const anios = Math.floor(meses / 12);
+    const mesesRestantes = meses % 12;
+    const diasRestantes = Math.max(Math.round(totalDias - (meses * 30.4375)), 0);
+
+    let texto = "";
+    if(anios > 0) texto += `${anios} año${anios === 1 ? "" : "s"}`;
+    if(mesesRestantes > 0) texto += `${texto ? ", " : ""}${mesesRestantes} mes${mesesRestantes === 1 ? "" : "es"}`;
+    if(!texto) texto = `${totalDias} día${totalDias === 1 ? "" : "s"}`;
+    if(texto && anios === 0 && mesesRestantes > 0 && diasRestantes > 0) texto += `, ${diasRestantes} día${diasRestantes === 1 ? "" : "s"}`;
+    return texto;
+}
+
+function clasificarDiasAfiliado(dias){
+    const d = toNumber(dias);
+    if(d <= 0) return "REVISAR";
+    if(d < 90) return "MENOS DE 3 MESES";
+    if(d < 180) return "3 A 6 MESES";
+    if(d < 365) return "6 A 12 MESES";
+    if(d < 1095) return "1 A 3 AÑOS";
+    if(d < 1825) return "3 A 5 AÑOS";
+    return "MÁS DE 5 AÑOS";
+}
+
+function parseTiempoAfiliacionTexto(valor){
+    const original = String(valor || "").trim();
+    if(!original) return {valido:false, dias:0, texto:"Sin tiempo", clasificacion:"REVISAR"};
+
+    const texto = normalizarTexto(original).replace(/ANIOS/g,"AÑOS").replace(/ANO/g,"AÑO");
+    let dias = 0;
+    const numero = patron => {
+        const m = texto.match(patron);
+        return m ? toNumber(m[1]) : 0;
+    };
+
+    dias += numero(/(\d+(?:[\.,]\d+)?)\s*AÑOS?/) * 365;
+    dias += numero(/(\d+(?:[\.,]\d+)?)\s*MESES?/) * 30.4375;
+    dias += numero(/(\d+(?:[\.,]\d+)?)\s*DIAS?/) || numero(/(\d+(?:[\.,]\d+)?)\s*DÍAS?/);
+
+    if(dias <= 0){
+        const soloNumero = texto.match(/(\d+(?:[\.,]\d+)?)/);
+        if(soloNumero) dias = toNumber(soloNumero[1]);
+    }
+
+    dias = Math.max(Math.round(dias), 0);
+    return {
+        valido:dias > 0,
+        dias,
+        meses:Math.floor(dias / 30.4375),
+        anios:Math.floor((dias / 30.4375) / 12),
+        texto:dias > 0 ? textoTiempoDesdeDias(dias) : original,
+        clasificacion:clasificarDiasAfiliado(dias),
+        textoOriginal:original
+    };
+}
+
+function normalizarFallecidoPlan(item, index=0){
+    const fechaOrden = parseFecha(getFechaOrdenPlanItem(item));
+    const orden = String(getOrdenPlanItem(item) || "").trim();
+    const contrato = String(getNumeroContratoPlanItem(item) || "").trim();
+    const plan = String(getPlanFallecidoItem(item) || "").trim();
+    const fallecido = String(getFallecidoPlanItem(item) || "").trim();
+    const tiempoTexto = String(getTiempoAfiliacionPlanItem(item) || "").trim();
+    const tiempo = parseTiempoAfiliacionTexto(tiempoTexto);
+
+    return {
+        id:`sheet_plan_${normalizarLlave(orden || index)}_${normalizarLlave(contrato || plan || index)}`,
+        origen:"FALLECIDOS PLANES",
+        fallecido:fallecido || (orden ? `Orden ${orden}` : `Registro ${index + 1}`),
+        ordenServicio:orden,
+        contrato:contrato || plan || orden,
+        numeroContrato:contrato,
+        plan,
+        sede:"",
+        fechaOrden:fechaOrden ? fechaISO(fechaOrden) : String(getFechaOrdenPlanItem(item) || ""),
+        fechaAfiliacion:"",
+        fechaFallecimiento:fechaOrden ? fechaISO(fechaOrden) : "",
+        tiempoAfiliacionTexto:tiempoTexto,
+        tiempoAfiliacionDias:tiempo.dias,
+        edad:String(getEdadPlanItem(item) || "").trim(),
+        tipoAfiliacion:String(getTipoAfiliacionPlanItem(item) || "").trim(),
+        observacion:"Cargado desde hoja FALLECIDOS PLANES"
+    };
+}
+
+async function cargarFallecidosPlanesRemotos(){
+    try{
+        const response = await fetch(GOOGLE_SHEET_FALLECIDOS_PLANES_CSV_URL, { cache:"no-store" });
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        const texto = await response.text();
+        const datos = parseTablaTexto(texto);
+        return datos
+            .map((item,index) => normalizarFallecidoPlan(item,index))
+            .filter(item => item.ordenServicio || item.numeroContrato || item.tiempoAfiliacionTexto || item.fechaOrden);
+    }catch(error){
+        console.warn("No se pudo cargar la hoja FALLECIDOS PLANES.", error);
+        return [];
+    }
 }
 
 async function cargarDatosRemotos(){
@@ -801,34 +831,21 @@ async function cargarDatosRemotos(){
     throw new Error(errores.join(" | "));
 }
 
-async function cargarParametrosRemotos(){
-    try{
-        const response = await fetch(GOOGLE_SHEET_PARAMETROS_CSV_URL, { cache:"no-store" });
-        if(!response.ok) throw new Error(`HTTP ${response.status}`);
-        const texto = await response.text();
-        const data = parseTablaTexto(texto);
-        return data.length ? data : [];
-    }catch(error){
-        console.warn("No se pudieron cargar parámetros remotos. Se usan parámetros base.", error);
-        return [];
-    }
-}
-
 async function cargarDashboard(){
     setEstadoApi("cargando", "Cargando...");
     showLoading(true);
 
     try{
         const remoto = await cargarDatosRemotos();
-        const parametrosRemotos = await cargarParametrosRemotos();
         const datosCompletos = remoto.datos;
+        DATASET_FALLECIDOS_PLANES = await cargarFallecidosPlanesRemotos();
 
-        procesarParametros([...parametrosRemotos, ...datosCompletos]);
+        procesarParametros(datosCompletos);
 
         const datosVentas = datosCompletos.filter(item => !esFilaParametro(item));
         DATASET_API = datosVentas;
 
-        const normalApi = datosVentas.flatMap(item => normalizarRegistroExpandido(item, "API"));
+        const normalApi = datosVentas.map(item => normalizarRegistro(item, "API"));
         const normalManual = cargarManuales();
 
         DATASET_NORMAL = [...normalApi, ...normalManual];
@@ -837,7 +854,7 @@ async function cargarDashboard(){
         poblarFiltros();
         aplicarFiltrosYRender();
 
-        setEstadoApi("ok", "Datos actualizados");
+        setEstadoApi("ok", `Conectado · ${remoto.fuente}`);
         toast("Dashboard actualizado correctamente.");
 
     }catch(error){
@@ -847,6 +864,7 @@ async function cargarDashboard(){
         const normalManual = cargarManuales();
 
         DATASET_API = [];
+        DATASET_FALLECIDOS_PLANES = await cargarFallecidosPlanesRemotos();
         DATASET_NORMAL = [...normalManual];
 
         API_STATUS = {
@@ -949,21 +967,7 @@ function coincideFiltrosNoFecha(row, f){
     if(f.sede && row.sede !== f.sede) return false;
 
     if(f.busqueda){
-        const texto = normalizarTexto(`
-            ${row.ordenServicio}
-            ${row.gestor}
-            ${row.categoriaGerencial}
-            ${row.categoria}
-            ${row.servicio}
-            ${row.tipoServicio}
-            ${row.sede}
-            ${row.clinica}
-            ${row.municipio}
-            ${row.tipoMuerte}
-            ${row.cementerio}
-            ${row.destinoFinal}
-            ${row.observacion}
-        `);
+        const texto = normalizarTexto(`${row.gestor} ${row.categoriaGerencial} ${row.categoria} ${row.servicio} ${row.sede} ${row.observacion}`);
         if(!texto.includes(f.busqueda)) return false;
     }
 
@@ -1024,64 +1028,6 @@ function calcularResumen(rows){
     };
 }
 
-function filasMesComparativo(fechaReferencia, offsetMes=0){
-    const referencia = new Date(fechaReferencia.getFullYear(), fechaReferencia.getMonth() + offsetMes, 1);
-    const inicio = inicioMes(referencia);
-    const fin = finMes(referencia);
-    const filtros = obtenerFiltros();
-
-    const rows = DATASET_NORMAL.filter(row => {
-        if(!row.fecha) return false;
-        if(row.fecha < inicio || row.fecha > fin) return false;
-        return coincideFiltrosNoFecha(row, filtros);
-    });
-
-    return {rows, inicio, fin};
-}
-
-function renderComparativoMensual(metaInfo){
-    const fechaReferencia = metaInfo?.fin && !isNaN(metaInfo.fin.getTime()) ? metaInfo.fin : new Date();
-    const actual = filasMesComparativo(fechaReferencia, 0);
-    const anterior = filasMesComparativo(fechaReferencia, -1);
-    const resumenActual = calcularResumen(actual.rows);
-    const resumenAnterior = calcularResumen(anterior.rows);
-    const ventaActual = resumenActual.total;
-    const ventaAnterior = resumenAnterior.total;
-    const variacion = ventaAnterior > 0 ? ((ventaActual - ventaAnterior) / ventaAnterior) * 100 : (ventaActual > 0 ? 100 : 0);
-    const diferencia = ventaActual - ventaAnterior;
-
-    const estado = variacion >= 10
-        ? "Crecimiento"
-        : variacion >= 0
-            ? "Estable"
-            : variacion <= -15
-                ? "Caída crítica"
-                : "Caída moderada";
-
-    const alerta = variacion >= 10
-        ? "Tendencia positiva"
-        : variacion >= 0
-            ? "Mantener ritmo"
-            : variacion <= -15
-                ? "Reacción inmediata"
-                : "Revisar gestión";
-
-    setHtml("compMesActual", formatMoney(ventaActual));
-    setHtml("compMesActualTexto", `${nombreMes(actual.inicio.getMonth() + 1)} ${actual.inicio.getFullYear()} · ${formatNumber(contarOrdenesUnicas(actual.rows))} servicios`);
-    setHtml("compMesAnterior", formatMoney(ventaAnterior));
-    setHtml("compMesAnteriorTexto", `${nombreMes(anterior.inicio.getMonth() + 1)} ${anterior.inicio.getFullYear()} · ${formatNumber(contarOrdenesUnicas(anterior.rows))} servicios`);
-    setHtml("compVariacion", `${variacion >= 0 ? "+" : ""}${variacion.toFixed(1)}%`);
-    setHtml("compVariacionTexto", `${diferencia >= 0 ? "Aumento" : "Disminución"} de ${formatMoney(Math.abs(diferencia))}`);
-    setHtml("compAlerta", alerta);
-    setHtml("compAlertaTexto", estado);
-
-    const board = document.querySelector(".month-compare-board");
-    if(board){
-        board.classList.remove("ok","warning","danger");
-        board.classList.add(variacion >= 0 ? "ok" : variacion <= -15 ? "danger" : "warning");
-    }
-}
-
 function agruparCategorias(rows){
     const obj = {
         PARTICULAR:{categoria:"PARTICULAR", cantidad:0, valor:0, generaVenta:true},
@@ -1102,7 +1048,7 @@ function agruparCategorias(rows){
             };
         }
 
-        obj[cat].cantidad += toNumber(row.cantidadAtendida) || 1;
+        obj[cat].cantidad += 1;
         obj[cat].valor += categoriaGeneraVenta(cat) ? toNumber(row.valorVenta) : 0;
     });
 
@@ -1119,7 +1065,7 @@ function agruparGestores(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
+        obj[nombre].cantidad += 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1136,7 +1082,7 @@ function agruparSedes(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
+        obj[nombre].cantidad += 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1159,7 +1105,7 @@ function agruparExcedentes(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
+        obj[nombre].cantidad += 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1214,7 +1160,7 @@ function agruparParticularesDetalle(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
+        obj[nombre].cantidad += 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1232,7 +1178,7 @@ function agruparClinicas(rows){
             obj[nombre] = {nombre, cantidad:0, valor:0};
         }
 
-        obj[nombre].cantidad += toNumber(row.cantidadAtendida) || 1;
+        obj[nombre].cantidad += 1;
         obj[nombre].valor += toNumber(row.valorVenta);
     });
 
@@ -1252,7 +1198,7 @@ function agruparMensual(rows){
         }
 
         obj[key].venta += toNumber(row.valorVenta);
-        obj[key].cantidad += toNumber(row.cantidadAtendida) || 1;
+        obj[key].cantidad += 1;
     });
 
     return obj;
@@ -1263,7 +1209,6 @@ function renderTodo(resumen, metaInfo){
     crearResumenEjecutivo(resumen, metaInfo);
     renderGraficosDashboard(resumen);
     renderCategorias();
-    renderAnalisisAvanzados();
     renderGestores();
     renderExcedentes();
     renderMetas();
@@ -1273,7 +1218,6 @@ function renderTodo(resumen, metaInfo){
     renderDatos();
     renderAlertas(resumen);
     renderEnergia();
-    renderMantenimientos();
     renderVacaciones();
     renderAgenda();
     renderTiempoAfiliado();
@@ -1304,10 +1248,10 @@ function actualizarKPIs(resumen, metaInfo){
     const ventaTotal = resumen.total;
     const cumplimientoGeneral = META_RANGO_ACTUAL > 0 ? (ventaTotal / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - ventaTotal, 0);
-    const faltantePct = META_RANGO_ACTUAL > 0 ? (faltante / META_RANGO_ACTUAL) * 100 : 0;
 
     const diasAnalizados = Math.max(Math.min(DIAS_RANGO_ACTUAL, diasEntre(metaInfo.inicio, new Date())), 1);
     const promedioDiarioReal = ventaTotal / diasAnalizados;
+    const proyeccion = promedioDiarioReal * DIAS_RANGO_ACTUAL;
 
     const categorias = agruparCategorias(DATASET_FILTRADO);
     const particular = categorias["PARTICULAR"];
@@ -1315,13 +1259,9 @@ function actualizarKPIs(resumen, metaInfo){
     const excedentes = categorias["EXCEDENTES"];
     const plan = categorias["PLAN"];
 
-    const metaParticular = metaCategoriaMensual("PARTICULAR") * MESES_EQUIVALENTES_ACTUAL;
-    const metaRed = metaCategoriaMensual("RED") * MESES_EQUIVALENTES_ACTUAL;
-    const metaExcedentes = metaCategoriaMensual("EXCEDENTES") * MESES_EQUIVALENTES_ACTUAL;
-
-    const cParticular = metaParticular > 0 ? (particular.valor / metaParticular) * 100 : 0;
-    const cRed = metaRed > 0 ? (red.valor / metaRed) * 100 : 0;
-    const cExcedentes = metaExcedentes > 0 ? (excedentes.valor / metaExcedentes) * 100 : 0;
+    const pParticular = ventaTotal > 0 ? (particular.valor / ventaTotal) * 100 : 0;
+    const pRed = ventaTotal > 0 ? (red.valor / ventaTotal) * 100 : 0;
+    const pExcedentes = ventaTotal > 0 ? (excedentes.valor / ventaTotal) * 100 : 0;
 
     const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
     const mejorGestor = gestores[0];
@@ -1330,29 +1270,25 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("ventas", formatMoney(ventaTotal));
     setHtml("cumplimiento", `${cumplimientoGeneral.toFixed(1)}%`);
     setHtml("faltante", formatMoney(faltante));
+    setHtml("proyeccion", formatMoney(proyeccion));
     setHtml("estadoCumplimientoTexto", textoEstado(cumplimientoGeneral));
-    setHtml("ventasCumplimientoPill", `${cumplimientoGeneral.toFixed(1)}%`);
-    setHtml("estadoCumplimientoPill", textoEstado(cumplimientoGeneral));
-    setHtml("faltantePctPill", `${faltantePct.toFixed(1)}%`);
 
     setHtml("metaMensual", formatMoney(metaMensualTotal()));
     setHtml("metaAnual", formatMoney(metaMensualTotal() * 12));
     setHtml("mesesEquivalentes", MESES_EQUIVALENTES_ACTUAL.toFixed(2));
     setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
     setHtml("mejorGestor", mejorGestor ? mejorGestor.nombre : "-");
-    setHtml("totalRegistros", contarOrdenesUnicas(DATASET_FILTRADO));
+    setHtml("totalRegistros", DATASET_FILTRADO.length);
+    setHtml("kpiCalidadDatos", calcularCalidadDatos().calidad.toFixed(1) + "%");
 
     setHtml("kpiParticularValor", formatMoney(particular.valor));
-    setHtml("kpiParticularCumplimiento", `${cParticular.toFixed(1)}%`);
-    setHtml("kpiParticularCantidad", `${particular.cantidad} homenajes | Meta ${formatMoney(metaParticular)}`);
+    setHtml("kpiParticularCantidad", `${particular.cantidad} homenajes atendidos | ${pParticular.toFixed(1)}%`);
 
     setHtml("kpiRedValor", formatMoney(red.valor));
-    setHtml("kpiRedCumplimiento", `${cRed.toFixed(1)}%`);
-    setHtml("kpiRedCantidad", `${red.cantidad} homenajes | Meta ${formatMoney(metaRed)}`);
+    setHtml("kpiRedCantidad", `${red.cantidad} homenajes atendidos | ${pRed.toFixed(1)}%`);
 
     setHtml("kpiExcedentesValor", formatMoney(excedentes.valor));
-    setHtml("kpiExcedentesCumplimiento", `${cExcedentes.toFixed(1)}%`);
-    setHtml("kpiExcedentesCantidad", `${excedentes.cantidad} unidades | Meta ${formatMoney(metaExcedentes)}`);
+    setHtml("kpiExcedentesCantidad", `${excedentes.cantidad} unidades | ${pExcedentes.toFixed(1)}%`);
 
     setHtml("kpiPlanCantidad", plan.cantidad);
     setHtml("metaRangoDetalle", `${fechaISO(metaInfo.inicio)} a ${fechaISO(metaInfo.fin)}`);
@@ -1360,55 +1296,11 @@ function actualizarKPIs(resumen, metaInfo){
 
     const cumplimientoEl = $("cumplimiento");
     if(cumplimientoEl) cumplimientoEl.style.color = colorPorPorcentaje(cumplimientoGeneral);
-
-    [
-        ["ventasCumplimientoPill", cumplimientoGeneral],
-        ["estadoCumplimientoPill", cumplimientoGeneral],
-        ["kpiParticularCumplimiento", cParticular],
-        ["kpiRedCumplimiento", cRed],
-        ["kpiExcedentesCumplimiento", cExcedentes]
-    ].forEach(([id, pct]) => {
-        const el = $(id);
-        if(!el) return;
-        el.classList.remove("ok","warning","danger");
-        el.classList.add(pct >= 100 ? "ok" : pct >= 80 ? "warning" : "danger");
-    });
 }
 
 function crearResumenEjecutivo(resumen, metaInfo){
     const cumplimiento = META_RANGO_ACTUAL > 0 ? (resumen.total / META_RANGO_ACTUAL) * 100 : 0;
     const faltante = Math.max(META_RANGO_ACTUAL - resumen.total, 0);
-    const categorias = Object.values(agruparCategorias(DATASET_FILTRADO))
-        .filter(item => categoriaGeneraVenta(item.categoria))
-        .sort((a,b) => b.valor - a.valor);
-    const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
-    const clinicas = Object.values(agruparClinicas(DATASET_FILTRADO)).sort((a,b) => b.cantidad - a.cantidad || b.valor - a.valor);
-    const destinos = agruparAnalisis(DATASET_FILTRADO.filter(row => row.destinoFinal), row => row.destinoFinal);
-    const categoriaMayor = categorias[0];
-    const gestorMayor = gestores[0];
-    const clinicaMayor = clinicas[0];
-    const destinoMayor = destinos[0];
-    const estadoGerencial = textoEstado(cumplimiento);
-    const nivelGerencial = cumplimiento >= 100 ? "ok" : cumplimiento >= 80 ? "warning" : "danger";
-    const diasRestantes = Math.max(diasEntre(new Date(), metaInfo.fin), 1);
-    const ritmoRequerido = faltante > 0 ? faltante / diasRestantes : 0;
-    const brechasCategoria = ["PARTICULAR","RED","EXCEDENTES"].map(categoria => {
-        const data = agruparCategorias(DATASET_FILTRADO)[categoria] || {valor:0, cantidad:0, categoria};
-        const meta = metaCategoriaMensual(categoria) * MESES_EQUIVALENTES_ACTUAL;
-        return {
-            categoria,
-            valor:data.valor,
-            meta,
-            brecha:Math.max(meta - data.valor, 0),
-            cumplimiento:meta > 0 ? (data.valor / meta) * 100 : 0
-        };
-    }).sort((a,b) => b.brecha - a.brecha);
-    const categoriaFoco = brechasCategoria[0];
-    const recomendacion = cumplimiento >= 100
-        ? "Se recomienda sostener la estrategia comercial actual y documentar las prácticas que generaron el cumplimiento."
-        : cumplimiento >= 80
-            ? "Se recomienda reforzar seguimiento diario a gestores y priorizar categorías con mayor brecha frente a la meta."
-            : "Se recomienda activar plan de choque comercial, seguimiento por gestor y revisión de oportunidades en particulares, red y excedentes.";
 
     setHtml("resumenEjecutivoTexto", `
         El rango seleccionado comprende <strong>${MESES_EQUIVALENTES_ACTUAL.toFixed(2)} meses equivalentes</strong>.
@@ -1418,44 +1310,7 @@ function crearResumenEjecutivo(resumen, metaInfo){
         <strong>${cumplimiento.toFixed(1)}%</strong>. 
         El faltante para cumplir la meta es <strong>${formatMoney(faltante)}</strong>.
         PLAN registra <strong>${resumen.planCantidad}</strong> atenciones, pero no suma ventas.
-        <br><br><strong>Lectura gerencial:</strong> ${recomendacion}
     `);
-
-    const semaforo = $("semaforoGerencial");
-    if(semaforo){
-        semaforo.classList.remove("ok","warning","danger");
-        semaforo.classList.add(nivelGerencial);
-    }
-
-    setHtml("semaforoGerencialPct", `${cumplimiento.toFixed(1)}%`);
-    setHtml("semaforoGerencialEstado", estadoGerencial);
-    setHtml("semaforoGerencialDetalle", faltante > 0
-        ? `Faltan ${formatMoney(faltante)}. Ritmo sugerido: ${formatMoney(ritmoRequerido)} diarios hasta el cierre del rango.`
-        : `La meta del rango está cubierta. Mantener seguimiento para sostener el resultado.`);
-
-    setHtml("accionGerencial1", cumplimiento >= 100
-        ? `Sostener estrategia actual y documentar qué gestores/categorías generaron el cumplimiento.`
-        : `Activar seguimiento diario hasta recuperar ${formatMoney(faltante)} frente a la meta del rango.`);
-    setHtml("accionGerencial2", categoriaFoco && categoriaFoco.brecha > 0
-        ? `Foco comercial: ${categoriaFoco.categoria}, brecha ${formatMoney(categoriaFoco.brecha)} y cumplimiento ${categoriaFoco.cumplimiento.toFixed(1)}%.`
-        : `Las categorías principales no presentan brecha crítica en el rango seleccionado.`);
-    setHtml("accionGerencial3", gestorMayor
-        ? `Replicar prácticas del gestor líder: ${escapeHtml(gestorMayor.nombre)} con ${formatMoney(gestorMayor.valor)}.`
-        : `Sin gestor líder identificado para el rango seleccionado.`);
-    setHtml("accionGerencial4", clinicaMayor
-        ? `Monitorear fuente de reportes: ${escapeHtml(clinicaMayor.nombre)} concentra ${formatNumber(clinicaMayor.cantidad)} reportes.`
-        : `Sin clínica principal identificada para el rango seleccionado.`);
-
-    setHtml("insightCategoria", categoriaMayor ? categoriaMayor.categoria : "-");
-    setHtml("insightCategoriaDetalle", categoriaMayor ? `${formatMoney(categoriaMayor.valor)} · ${formatNumber(categoriaMayor.cantidad)} registros` : "Sin datos");
-    setHtml("insightGestor", gestorMayor ? gestorMayor.nombre : "-");
-    setHtml("insightGestorDetalle", gestorMayor ? `${formatMoney(gestorMayor.valor)} · ${formatNumber(gestorMayor.cantidad)} servicios` : "Sin datos");
-    setHtml("insightClinica", clinicaMayor ? clinicaMayor.nombre : "-");
-    setHtml("insightClinicaDetalle", clinicaMayor ? `${formatNumber(clinicaMayor.cantidad)} reportes · ${formatMoney(clinicaMayor.valor)}` : "Sin datos");
-    setHtml("insightDestino", destinoMayor ? destinoMayor.nombre : "-");
-    setHtml("insightDestinoDetalle", destinoMayor ? `${formatNumber(destinoMayor.cantidad)} servicios · ${formatMoney(destinoMayor.valor)}` : "Sin datos");
-
-    renderComparativoMensual(metaInfo);
 }
 
 function destruirChart(id){
@@ -1472,22 +1327,16 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
     registrarPluginGraficas();
     destruirChart(idCanvas);
 
-    const maxValue = Math.max(...data.map(v => Math.abs(toNumber(v))), 0);
-    const chartHeight = horizontal
-        ? Math.max(330, Math.min(760, (labels.length * 30) + 128))
-        : Math.max(300, Math.min(540, (labels.length * 18) + 230));
+    const maxValue = Math.max(...(data || []).map(v => Math.abs(toNumber(v))), 0);
+    const cantidad = Array.isArray(labels) ? labels.length : 0;
+    const alto = horizontal ? Math.min(Math.max(330, cantidad * 34 + 125), 780) : 340;
+    const labelStyle = chartValueLabelStyle();
+    const contenedor = canvas.parentElement;
 
-    const labelBg = chartTextColor() === "#f8fafc" ? "rgba(15,23,42,.92)" : "rgba(255,255,255,.92)";
-    const labelBorder = chartTextColor() === "#f8fafc" ? "rgba(248,250,252,.22)" : "rgba(0,79,42,.16)";
-    const chartBox = canvas.parentElement;
-
-    canvas.setAttribute("height", String(chartHeight));
-    canvas.style.setProperty("height", `${chartHeight}px`, "important");
-    canvas.style.setProperty("display", "block");
-    canvas.style.setProperty("width", "100%", "important");
-    chartBox?.style.setProperty("min-height", `${chartHeight + 78}px`);
-    chartBox?.style.setProperty("height", `${chartHeight + 78}px`, "important");
-    chartBox?.classList.add("chart-card-enhanced");
+    canvas.setAttribute("height", String(alto));
+    canvas.style.setProperty("height", `${alto}px`, "important");
+    contenedor?.style.setProperty("min-height", `${alto + 84}px`);
+    contenedor?.classList.add("chart-card-enhanced");
 
     charts[idCanvas] = new Chart(canvas, {
         type:"bar",
@@ -1496,44 +1345,29 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
             datasets:[{
                 label,
                 data,
-                backgroundColor:"rgba(0,143,70,.92)",
-                borderColor:"rgba(0,79,42,.95)",
+                backgroundColor:isDarkChartTheme() ? "rgba(0,200,83,.88)" : "rgba(0,143,70,.92)",
+                borderColor:isDarkChartTheme() ? "rgba(34,197,94,.95)" : "rgba(0,79,42,.95)",
                 borderWidth:1,
                 borderRadius:horizontal ? 9 : 12,
-                barThickness:horizontal ? 24 : 42,
-                maxBarThickness:horizontal ? 30 : 54,
-                minBarLength:horizontal ? 10 : 6,
-                barPercentage:.92,
-                categoryPercentage:.86
+                barThickness:horizontal ? 22 : 38,
+                maxBarThickness:horizontal ? 28 : 48,
+                minBarLength:horizontal ? 10 : 5,
+                barPercentage:.9,
+                categoryPercentage:.82
             }]
         },
         options:{
             responsive:true,
             maintainAspectRatio:false,
             resizeDelay:0,
-            interaction:{
-                mode:"nearest",
-                axis:horizontal ? "y" : "x",
-                intersect:false
-            },
-            hover:{
-                mode:"nearest",
-                intersect:false
-            },
-            layout:{
-                padding:horizontal
-                    ? {left:4, right:170, top:10, bottom:10}
-                    : {left:8, right:24, top:28, bottom:8}
-            },
             indexAxis:horizontal ? "y" : "x",
+            interaction:{mode:"nearest", axis:horizontal ? "y" : "x", intersect:false},
+            hover:{mode:"nearest", intersect:false},
+            layout:{padding:horizontal ? {left:6,right:180,top:12,bottom:14} : {left:8,right:30,top:30,bottom:8}},
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:15},padding:{bottom:18}},
-                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800"}}},
-                tooltip:{
-                    callbacks:{
-                        label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed[horizontal ? "x" : "y"], tipoValor)}`
-                    }
-                },
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?16:15},padding:{bottom:18}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?12:11}}},
+                tooltip:{callbacks:{label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed[horizontal ? "x" : "y"], tipoValor)}`}},
                 datalabels:{
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
                     anchor:"end",
@@ -1541,56 +1375,22 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                     offset:horizontal ? 10 : 7,
                     clamp:true,
                     clip:false,
-                    color:chartTextColor(),
-                    backgroundColor:labelBg,
-                    borderColor:labelBorder,
+                    color:labelStyle.color,
+                    backgroundColor:labelStyle.backgroundColor,
+                    borderColor:labelStyle.borderColor,
                     borderWidth:1,
-                    borderRadius:6,
-                    padding:{top:3,right:6,bottom:3,left:6},
+                    borderRadius:7,
+                    padding:{top:3,right:7,bottom:3,left:7},
                     font:{size:horizontal ? 11 : 10,weight:"900"},
                     formatter:value => formatChartValue(value, tipoValor)
                 }
             },
             scales:horizontal ? {
-                y:{
-                    ticks:{
-                        color:chartTextColor(),
-                        font:{size:11,weight:"800"},
-                        autoSkip:false
-                    },
-                    grid:{color:"rgba(148,163,184,.10)"}
-                },
-                x:{
-                    beginAtZero:true,
-                    suggestedMax:maxValue > 0 ? maxValue * 1.18 : undefined,
-                    grid:{display:true, color:"rgba(148,163,184,.13)"},
-                    ticks:{
-                        color:chartTextColor(),
-                        font:{size:10,weight:"800"},
-                        callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)
-                    }
-                }
+                y:{ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?12:11,weight:"850"},autoSkip:false,padding:7},grid:{color:chartGridColor()}},
+                x:{beginAtZero:true,suggestedMax:maxValue>0?maxValue*1.18:undefined,grid:{display:true,color:chartGridColor()},ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)}}
             } : {
-                y:{
-                    beginAtZero:true,
-                    suggestedMax:maxValue > 0 ? maxValue * 1.14 : undefined,
-                    ticks:{
-                        color:chartTextColor(),
-                        font:{size:10,weight:"800"},
-                        callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)
-                    },
-                    grid:{color:"rgba(148,163,184,.16)"}
-                },
-                x:{
-                    ticks:{
-                        color:chartTextColor(),
-                        font:{size:10,weight:"800"},
-                        autoSkip:false,
-                        maxRotation:25,
-                        minRotation:0
-                    },
-                    grid:{display:false}
-                }
+                y:{beginAtZero:true,suggestedMax:maxValue>0?maxValue*1.14:undefined,ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)},grid:{color:chartGridColor()}},
+                x:{ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},autoSkip:false,maxRotation:25,minRotation:0},grid:{display:false}}
             }
         }
     });
@@ -1615,20 +1415,14 @@ function crearChartLine(idCanvas, labels, datasets, titulo, tipoValor="money"){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:13}},
-                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800"}}},
-                tooltip:{
-                    callbacks:{
-                        label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed.y, tipoValor)}`
-                    }
-                },
-                datalabels:{
-                    display:false
-                }
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?12:11}}},
+                tooltip:{callbacks:{label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed.y, tipoValor)}`}},
+                datalabels:{display:false}
             },
             scales:{
-                y:{beginAtZero:true,ticks:{color:chartTextColor(),font:{size:10,weight:"700"}},grid:{color:"rgba(148,163,184,.16)"}},
-                x:{grid:{display:false},ticks:{color:chartTextColor(),font:{size:10,weight:"700"},maxRotation:0}}
+                y:{beginAtZero:true,ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"}},grid:{color:chartGridColor()}},
+                x:{grid:{display:false},ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},maxRotation:0}}
             }
         }
     });
@@ -1641,19 +1435,15 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
     registrarPluginGraficas();
     destruirChart(idCanvas);
 
+    const labelStyle = chartValueLabelStyle();
     charts[idCanvas] = new Chart(canvas, {
         type:"doughnut",
         data:{
             labels,
             datasets:[{
                 data,
-                backgroundColor:[
-                    "rgba(37,99,235,.95)",
-                    "rgba(0,166,81,.95)",
-                    "rgba(245,158,11,.95)",
-                    "rgba(100,116,139,.95)"
-                ],
-                borderColor:"#ffffff",
+                backgroundColor:["rgba(37,99,235,.95)","rgba(0,166,81,.95)","rgba(245,158,11,.95)","rgba(100,116,139,.95)"],
+                borderColor:isDarkChartTheme()?"rgba(15,23,42,.92)":"#ffffff",
                 borderWidth:2
             }]
         },
@@ -1661,19 +1451,20 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
             responsive:true,
             maintainAspectRatio:false,
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:13}},
-                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800"}}},
-                tooltip:{
-                    callbacks:{
-                        label:ctx => `${ctx.label}: ${formatChartValue(ctx.parsed, tipoValor)}`
-                    }
-                },
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?12:11}}},
+                tooltip:{callbacks:{label:ctx => `${ctx.label}: ${formatChartValue(ctx.parsed, tipoValor)}`}},
                 datalabels:{
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
-                    color:"#ffffff",
-                    textStrokeColor:"rgba(15,23,42,.45)",
-                    textStrokeWidth:2,
-                    font:{size:8,weight:"900"},
+                    color:isDarkChartTheme()?labelStyle.color:"#ffffff",
+                    backgroundColor:isDarkChartTheme()?labelStyle.backgroundColor:"transparent",
+                    borderColor:isDarkChartTheme()?labelStyle.borderColor:"transparent",
+                    borderWidth:isDarkChartTheme()?1:0,
+                    borderRadius:isDarkChartTheme()?6:0,
+                    padding:isDarkChartTheme()?{top:2,right:5,bottom:2,left:5}:0,
+                    textStrokeColor:isDarkChartTheme()?"transparent":"rgba(15,23,42,.45)",
+                    textStrokeWidth:isDarkChartTheme()?0:2,
+                    font:{size:9,weight:"900"},
                     formatter:value => formatChartValue(value, tipoValor)
                 }
             }
@@ -1836,207 +1627,6 @@ function renderCategorias(){
     );
 }
 
-function filasAnalisisActual(){
-    return DATASET_FILTRADO.length ? DATASET_FILTRADO : DATASET_NORMAL;
-}
-
-function diasAnalisisActual(rows=filasAnalisisActual()){
-    if(DIAS_RANGO_ACTUAL > 0) return DIAS_RANGO_ACTUAL;
-
-    const fechas = rows.map(r => r.fecha).filter(Boolean).sort((a,b) => a - b);
-    if(fechas.length < 2) return Math.max(fechas.length, 1);
-
-    return diasEntre(fechas[0], fechas[fechas.length - 1]);
-}
-
-function mesesAnalisisActual(rows=filasAnalisisActual()){
-    if(MESES_EQUIVALENTES_ACTUAL > 0) return MESES_EQUIVALENTES_ACTUAL;
-    return Math.max(diasAnalisisActual(rows) / 30, 1);
-}
-
-function llaveOrdenAnalisis(row){
-    return row.ordenServicio || row.raw?.ORDEN_SERVICIO_FUNERARIO || row.id || cryptoRandom();
-}
-
-function contarOrdenesUnicas(rows){
-    return new Set(rows.map(row => llaveOrdenAnalisis(row)).filter(Boolean)).size;
-}
-
-function agruparAnalisis(rows, obtenerNombre){
-    const obj = {};
-
-    rows.forEach(row => {
-        const nombre = normalizarTexto(obtenerNombre(row)) || "SIN DATO";
-
-        if(!obj[nombre]){
-            obj[nombre] = {nombre, ordenes:new Set(), valor:0, cantidad:0};
-        }
-
-        obj[nombre].ordenes.add(llaveOrdenAnalisis(row));
-        obj[nombre].valor += toNumber(row.valorVenta);
-        obj[nombre].cantidad = obj[nombre].ordenes.size;
-    });
-
-    return Object.values(obj).sort((a,b) => b.cantidad - a.cantidad || b.valor - a.valor);
-}
-
-function totalCantidadAnalisis(data){
-    return data.reduce((acc,item) => acc + item.cantidad, 0);
-}
-
-function renderTablaAnalisisCantidad(selector, data, dias, meses, incluirVenta=true){
-    const tbody = document.querySelector(`${selector} tbody`);
-    if(!tbody) return;
-
-    const total = totalCantidadAnalisis(data);
-    tbody.innerHTML = data.length ? data.map(item => {
-        const pct = total > 0 ? (item.cantidad / total) * 100 : 0;
-        return `
-            <tr>
-                <td>${escapeHtml(item.nombre)}</td>
-                <td>${formatNumber(item.cantidad)}</td>
-                <td>${pct.toFixed(1)}%</td>
-                <td>${formatNumber(item.cantidad / dias, 2)}</td>
-                <td>${formatNumber(item.cantidad / meses, 2)}</td>
-                ${incluirVenta ? `<td>${formatMoney(item.valor)}</td>` : ""}
-            </tr>
-        `;
-    }).join("") : `<tr><td colspan="${incluirVenta ? 6 : 5}">Sin registros</td></tr>`;
-}
-
-function renderAnalisisHomenajeExcedente(){
-    const rows = filasAnalisisActual();
-    const dias = diasAnalisisActual(rows);
-    const totalVenta = sumar(rows);
-    const data = agruparAnalisis(rows, row => `${row.categoria || row.categoriaGerencial || "SIN HOMENAJE"} · ${row.servicio || "SIN EXCEDENTE"}`);
-    const mayor = data[0];
-
-    setHtml("kpiHomenajeVenta", formatMoney(totalVenta));
-    setHtml("kpiHomenajeRegistros", formatNumber(totalCantidadAnalisis(data)));
-    setHtml("kpiHomenajeMayor", mayor ? mayor.nombre.split("·")[0].trim() : "-");
-    setHtml("kpiHomenajePromedio", formatMoney(totalVenta / dias));
-    setHtml("textoAnalisisHomenaje", `Discriminación por <strong>TIPO_HOMENAJE</strong> y <strong>TIPO_EXCEDENTE</strong>. Venta total analizada: <strong>${formatMoney(totalVenta)}</strong>.`);
-
-    crearChartBar("graficoHomenajeExcedente", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.valor), "Venta", "Venta por tipo de homenaje / excedente", true);
-
-    const tbody = document.querySelector("#tablaHomenajeExcedente tbody");
-    if(tbody){
-        tbody.innerHTML = data.length ? data.map(item => {
-            const [homenaje, excedente] = item.nombre.split("·").map(x => x.trim());
-            const pct = totalVenta > 0 ? (item.valor / totalVenta) * 100 : 0;
-            return `
-                <tr>
-                    <td>${escapeHtml(homenaje || "-")}</td>
-                    <td>${escapeHtml(excedente || "-")}</td>
-                    <td>${formatNumber(item.cantidad)}</td>
-                    <td>${formatMoney(item.valor)}</td>
-                    <td>${pct.toFixed(1)}%</td>
-                    <td>${formatMoney(item.valor / dias)}</td>
-                </tr>
-            `;
-        }).join("") : `<tr><td colspan="6">Sin registros</td></tr>`;
-    }
-}
-
-function renderAnalisisClinicas(){
-    const rows = filasAnalisisActual().filter(row => row.clinica);
-    const dias = diasAnalisisActual(rows);
-    const meses = mesesAnalisisActual(rows);
-    const data = agruparAnalisis(rows, row => row.clinica);
-    const total = totalCantidadAnalisis(data);
-    const mayor = data[0];
-
-    setHtml("kpiClinicasTotal", data.length);
-    setHtml("kpiClinicasReportes", formatNumber(total));
-    setHtml("kpiClinicasMayor", mayor ? mayor.nombre : "-");
-    setHtml("kpiClinicasPromedio", formatNumber(total / dias, 2));
-    setHtml("textoAnalisisClinicas", `Clínicas que más reportan fallecidos. Mayor reporte: <strong>${escapeHtml(mayor?.nombre || "-")}</strong> con <strong>${formatNumber(mayor?.cantidad || 0)}</strong> reportes.`);
-
-    crearChartBar("graficoClinicasReporte", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Reportes", "Ranking de clínicas", true, "number");
-    renderTablaAnalisisCantidad("#tablaClinicasReporte", data, dias, meses);
-}
-
-function renderAnalisisMunicipios(){
-    const rows = filasAnalisisActual().filter(row => row.municipio);
-    const dias = diasAnalisisActual(rows);
-    const meses = mesesAnalisisActual(rows);
-    const data = agruparAnalisis(rows, row => row.municipio);
-    const total = totalCantidadAnalisis(data);
-    const mayor = data[0];
-
-    setHtml("kpiMunicipiosTotal", data.length);
-    setHtml("kpiMunicipiosReportes", formatNumber(total));
-    setHtml("kpiMunicipiosMayor", mayor ? mayor.nombre : "-");
-    setHtml("kpiMunicipiosPromedio", formatNumber(total / dias, 2));
-    setHtml("textoAnalisisMunicipios", `Atención de seres queridos fallecidos por municipio. Municipio con mayor registro: <strong>${escapeHtml(mayor?.nombre || "-")}</strong>.`);
-
-    crearChartBar("graficoMunicipios", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Atenciones", "Atenciones por municipio", true, "number");
-    renderTablaAnalisisCantidad("#tablaMunicipios", data, dias, meses);
-}
-
-function renderAnalisisMuerte(){
-    const rows = filasAnalisisActual().filter(row => row.tipoMuerte);
-    const dias = diasAnalisisActual(rows);
-    const data = agruparAnalisis(rows, row => row.tipoMuerte);
-    const total = totalCantidadAnalisis(data);
-    const natural = data.find(x => x.nombre.includes("NATURAL") && !x.nombre.includes("NO"))?.cantidad || 0;
-    const noNatural = data.find(x => x.nombre.includes("NO NATURAL"))?.cantidad || 0;
-
-    setHtml("kpiMuerteNatural", `${(total > 0 ? (natural / total) * 100 : 0).toFixed(1)}%`);
-    setHtml("kpiMuerteNoNatural", `${(total > 0 ? (noNatural / total) * 100 : 0).toFixed(1)}%`);
-    setHtml("kpiMuerteTotal", formatNumber(total));
-    setHtml("kpiMuertePromedio", formatNumber(total / dias, 2));
-    setHtml("textoAnalisisMuerte", `Representación por tipo de muerte. Natural: <strong>${formatNumber(natural)}</strong>; no natural: <strong>${formatNumber(noNatural)}</strong>.`);
-
-    crearChartDoughnut("graficoTipoMuerte", data.map(x => x.nombre), data.map(x => x.cantidad), "Tipo de muerte", "number");
-    renderTablaAnalisisCantidad("#tablaTipoMuerte", data, dias, mesesAnalisisActual(rows));
-}
-
-function renderAnalisisCementerios(){
-    const rows = filasAnalisisActual().filter(row => row.cementerio);
-    const dias = diasAnalisisActual(rows);
-    const meses = mesesAnalisisActual(rows);
-    const data = agruparAnalisis(rows, row => row.cementerio);
-    const total = totalCantidadAnalisis(data);
-    const mayor = data[0];
-
-    setHtml("kpiCementeriosTotal", data.length);
-    setHtml("kpiCementeriosServicios", formatNumber(total));
-    setHtml("kpiCementeriosMayor", mayor ? mayor.nombre : "-");
-    setHtml("kpiCementeriosMensual", formatNumber(total / meses, 2));
-    setHtml("textoAnalisisCementerios", `Cementerios con mayor destino de seres queridos. Mayor registro: <strong>${escapeHtml(mayor?.nombre || "-")}</strong>.`);
-
-    crearChartBar("graficoCementerios", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Servicios", "Servicios por cementerio", true, "number");
-    renderTablaAnalisisCantidad("#tablaCementerios", data, dias, meses);
-}
-
-function renderAnalisisDestino(){
-    const rows = filasAnalisisActual().filter(row => row.destinoFinal);
-    const dias = diasAnalisisActual(rows);
-    const meses = mesesAnalisisActual(rows);
-    const data = agruparAnalisis(rows, row => row.destinoFinal);
-    const total = totalCantidadAnalisis(data);
-    const mayor = data[0];
-
-    setHtml("kpiDestinoTotal", data.length);
-    setHtml("kpiDestinoServicios", formatNumber(total));
-    setHtml("kpiDestinoMayor", mayor ? mayor.nombre : "-");
-    setHtml("kpiDestinoMensual", formatNumber(total / meses, 2));
-    setHtml("textoAnalisisDestino", `Promedio diario y mensual según <strong>TIPO_DESTINO_FINAL</strong>. Mayor destino: <strong>${escapeHtml(mayor?.nombre || "-")}</strong>.`);
-
-    crearChartBar("graficoDestinoFinal", data.slice(0,15).map(x => x.nombre), data.slice(0,15).map(x => x.cantidad), "Servicios", "Servicios por destino final", true, "number");
-    renderTablaAnalisisCantidad("#tablaDestinoFinal", data, dias, meses);
-}
-
-function renderAnalisisAvanzados(){
-    renderAnalisisHomenajeExcedente();
-    renderAnalisisClinicas();
-    renderAnalisisMunicipios();
-    renderAnalisisMuerte();
-    renderAnalisisCementerios();
-    renderAnalisisDestino();
-}
-
 function renderGestores(){
     const gestores = Object.values(agruparGestores(DATASET_FILTRADO)).sort((a,b) => b.valor - a.valor);
     const cantidadGestores = gestores.filter(g => g.nombre !== "SIN GESTOR").length;
@@ -2175,90 +1765,18 @@ function renderMetas(){
     ], `Producción vs meta acumulada ${anio}`);
 }
 
-function asegurarVistaCumplimiento(forzar=false){
-    const vista = $("vistaCumplimiento");
-    if(!vista || (!forzar && $("cumplimientoMetaVista"))) return;
-
-    vista.innerHTML = `
-        <h1 class="vista-titulo">Cumplimiento</h1>
-        <section class="resumen-ejecutivo">
-            <h2>Lectura de cumplimiento</h2>
-            <p id="textoCumplimientoVista">Cargando cumplimiento desde Google Sheet...</p>
-        </section>
-        <section class="kpis-secundarios kpis-cumplimiento-vista">
-            <div class="card kpi-mini"><h3>🎯 Meta del periodo</h3><h2 id="cumplimientoMetaVista">$0</h2></div>
-            <div class="card kpi-mini"><h3>💰 Venta real</h3><h2 id="cumplimientoVentaVista">$0</h2></div>
-            <div class="card kpi-mini"><h3>📈 Cumplimiento</h3><h2 id="cumplimientoPctVista">0%</h2></div>
-            <div class="card kpi-mini"><h3>⚠️ Faltante</h3><h2 id="cumplimientoFaltanteVista">$0</h2></div>
-            <div class="card kpi-mini"><h3>🏆 Mejor mes</h3><h2 id="cumplimientoMejorMesVista">-</h2></div>
-            <div class="card kpi-mini"><h3>📅 Meses con venta</h3><h2 id="cumplimientoMesesVentaVista">0</h2></div>
-        </section>
-        <div class="grafico-card grafico-full">
-            <h3>Cumplimiento mensual</h3>
-            <canvas id="graficoCumplimientoMensual"></canvas>
-        </div>
-        <div class="tabla-cumplimiento">
-            <h2>Detalle mensual</h2>
-            <table id="tablaCumplimientoMensual">
-                <thead>
-                    <tr>
-                        <th>Mes</th>
-                        <th>Meta</th>
-                        <th>Venta</th>
-                        <th>%</th>
-                        <th>Faltante</th>
-                        <th>Estado</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    `;
-}
-
 function renderCumplimientoMensual(){
-    asegurarVistaCumplimiento();
     const f = obtenerFiltros();
     const anio = anioReferenciaFiltros();
     const meses = Array.from({length:12}, (_,i) => i + 1);
     const labels = meses.map(m => `${nombreMes(m)} ${anio}`);
-    const rowsBase = DATASET_FILTRADO.length ? DATASET_FILTRADO : DATASET_NORMAL.filter(row =>
+    const ventas = meses.map(m => sumar(DATASET_NORMAL.filter(row =>
         row.fecha &&
         row.fecha.getFullYear() === anio &&
+        row.fecha.getMonth() + 1 === m &&
         coincideFiltrosNoFecha(row, f)
-    );
-    const metaFallback = calcularMetaPorRango(f.fechaInicio, f.fechaFin);
-    const metaPeriodo = META_RANGO_ACTUAL || metaFallback.meta || metaMensualTotal();
-    const ventas = meses.map(m => sumar(rowsBase.filter(row =>
-        row.fecha &&
-        row.fecha.getFullYear() === anio &&
-        row.fecha.getMonth() + 1 === m
     )));
     const metas = labels.map(() => metaMensualTotal());
-    const ventaPeriodo = sumar(rowsBase);
-    const cumplimientoPeriodo = metaPeriodo > 0 ? (ventaPeriodo / metaPeriodo) * 100 : 0;
-    const faltantePeriodo = Math.max(metaPeriodo - ventaPeriodo, 0);
-    const mesesConVenta = ventas.filter(v => v > 0).length;
-    const mejorIndex = ventas.reduce((best, value, index) => value > ventas[best] ? index : best, 0);
-    const mejorMes = ventas[mejorIndex] > 0 ? `${nombreMes(meses[mejorIndex])} · ${formatMoney(ventas[mejorIndex])}` : "-";
-
-    setHtml("cumplimientoMetaVista", formatMoney(metaPeriodo));
-    setHtml("cumplimientoVentaVista", formatMoney(ventaPeriodo));
-    setHtml("cumplimientoPctVista", `${cumplimientoPeriodo.toFixed(1)}%`);
-    setHtml("cumplimientoFaltanteVista", formatMoney(faltantePeriodo));
-    setHtml("cumplimientoMejorMesVista", mejorMes);
-    setHtml("cumplimientoMesesVentaVista", mesesConVenta);
-    setHtml("textoCumplimientoVista", `
-        Datos tomados de Google Sheet${DATASET_FILTRADO.length ? " para el rango filtrado" : " para el año seleccionado"}.
-        La venta real es
-        <strong>${formatMoney(ventaPeriodo)}</strong> frente a una meta de
-        <strong>${formatMoney(metaPeriodo)}</strong>, con cumplimiento de
-        <strong>${cumplimientoPeriodo.toFixed(1)}%</strong> y faltante de
-        <strong>${formatMoney(faltantePeriodo)}</strong>.
-    `);
-
-    const pctVista = $("cumplimientoPctVista");
-    if(pctVista) pctVista.style.color = colorPorPorcentaje(cumplimientoPeriodo);
 
     crearChartLine("graficoCumplimientoMensual", labels, [
         {label:"Venta", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
@@ -2423,25 +1941,17 @@ function renderDatos(){
     if(tbody){
         const muestra = DATASET_FILTRADO.slice(0, 70);
 
-            tbody.innerHTML = muestra.length ? muestra.map(row => `
-                <tr>
-                    <td>${formatFechaProfesional(row.fecha, row.fechaTexto || "-")}</td>
-                    <td>${escapeHtml(row.ordenServicio || "-")}</td>
-                    <td title="${escapeHtml(row.gestor || "-")}">${escapeHtml(nombreGestorCorto(row.gestor))}</td>
-                    <td>${escapeHtml(row.sede || "-")}</td>
-                    <td>${escapeHtml(row.tipoServicio || "-")}</td>
-                    <td>${escapeHtml(row.categoria || "-")}</td>
-                    <td>${escapeHtml(row.servicio || "-")}</td>
-                    <td>${escapeHtml(row.clinica || "-")}</td>
-                    <td>${escapeHtml(row.municipio || "-")}</td>
-                    <td>${escapeHtml(row.tipoMuerte || "-")}</td>
-                    <td>${escapeHtml(row.cementerio || "-")}</td>
-                    <td>${escapeHtml(row.destinoFinal || "-")}</td>
-                    <td>${formatNumber(row.cantidadAtendida || 1)}</td>
-                    <td>${formatMoney(row.valorServicio)}</td>
-                    <td>${formatMoney(row.valorExcedente)}</td>
+        tbody.innerHTML = muestra.length ? muestra.map(row => `
+            <tr>
+                <td>${row.origen}</td>
+                <td>${row.fechaTexto || "-"}</td>
+                <td>${row.gestor || "-"}</td>
+                <td>${row.categoriaGerencial || "-"}</td>
+                <td>${row.servicio || "-"}</td>
+                <td>${row.sede || "-"}</td>
+                <td>${formatMoney(row.valorVenta)}</td>
             </tr>
-        `).join("") : `<tr><td colspan="15">Sin registros</td></tr>`;
+        `).join("") : `<tr><td colspan="7">Sin registros</td></tr>`;
     }
 }
 
@@ -2468,13 +1978,6 @@ function renderAlertas(resumen){
     if((PARAMETROS.categoria["PARTICULAR"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para PARTICULAR.");
     if((PARAMETROS.categoria["RED"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para RED.");
     if((PARAMETROS.categoria["EXCEDENTES"] || 0) === 0) alertas.push("No se detectó META_CATEGORIA para EXCEDENTES.");
-
-    cargarMantenimientos().forEach(item => {
-        const info = estadoMantenimiento(item);
-        if(["VENCIDO","ALERTA 5 DÍAS","ALERTA 10 DÍAS"].includes(info.estado)){
-            alertas.push(`${info.estado}: ${item.tipo} de ${item.activo} con fecha ${formatFechaProfesional(item.fecha)}.`);
-        }
-    });
 
     const html = alertas.map(a => `
         <div class="alerta-item">
@@ -2503,26 +2006,6 @@ function cargarColeccionLocal(clave, datosIniciales=[]){
 
 function guardarColeccionLocal(clave, data){
     localStorage.setItem(clave, JSON.stringify(data));
-}
-
-function cargarColeccionLocalConEjemplos(clave, datosIniciales=[], versionClave=""){
-    const data = cargarColeccionLocal(clave, datosIniciales);
-    if(!versionClave || localStorage.getItem(versionClave) === "20260701") return data;
-
-    const ids = new Set(data.map(item => item.id).filter(Boolean));
-    let actualizado = false;
-
-    datosIniciales.forEach(item => {
-        if(item.id && !ids.has(item.id)){
-            data.push(item);
-            actualizado = true;
-        }
-    });
-
-    if(actualizado) guardarColeccionLocal(clave, data);
-    localStorage.setItem(versionClave, "20260701");
-
-    return data;
 }
 
 function anioOperativoActual(){
@@ -2653,214 +2136,17 @@ function limpiarEnergia(){
     toast("Registros de energía eliminados.");
 }
 
-function datosMantenimientosIniciales(){
-    const anio = new Date().getFullYear();
-    return [
-        {id:"mant_soat_carroza_1", tipo:"SOAT", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-07-10`, responsable:"Coordinación Homenajes", observacion:"Vencimiento SOAT"},
-        {id:"mant_tecno_carroza_1", tipo:"TECNOMECANICA", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-07-15`, responsable:"Coordinación Homenajes", observacion:"Revisión técnico mecánica"},
-        {id:"mant_seguro_carroza_1", tipo:"SEGURO VEHICULAR", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-08-05`, responsable:"Administración", observacion:"Renovación póliza todo riesgo"},
-        {id:"mant_aceite_carroza_1", tipo:"CAMBIO ACEITE", activo:"Carroza Toyota placa HJM-421", fecha:`${anio}-06-30`, responsable:"Conductores", observacion:"Cambio por kilometraje"},
-        {id:"mant_soat_van_1", tipo:"SOAT", activo:"Van operativa placa KOR-214", fecha:`${anio}-09-12`, responsable:"Coordinación Homenajes", observacion:"Control documental"},
-        {id:"mant_tecno_van_1", tipo:"TECNOMECANICA", activo:"Van operativa placa KOR-214", fecha:`${anio}-09-20`, responsable:"Coordinación Homenajes", observacion:"Revisión preventiva"},
-        {id:"mant_aceite_van_1", tipo:"CAMBIO ACEITE", activo:"Van operativa placa KOR-214", fecha:`${anio}-07-03`, responsable:"Conductores", observacion:"Aceite y filtros"},
-        {id:"mant_autos_frenos", tipo:"MANTENIMIENTO AUTOS", activo:"Vehículos operativos", fecha:`${anio}-07-18`, responsable:"Taller autorizado", observacion:"Revisión frenos, luces y llantas"},
-        {id:"mant_jardin_sede", tipo:"JARDINERIA", activo:"Jardines sede principal", fecha:`${anio}-07-05`, responsable:"Servicios Generales", observacion:"Poda, limpieza y riego"},
-        {id:"mant_pintura_capilla", tipo:"PINTURA INFRAESTRUCTURA", activo:"Capilla y zonas comunes", fecha:`${anio}-08-14`, responsable:"Mantenimiento", observacion:"Retoques de pintura institucional"},
-        {id:"mant_filtros_cafeteria", tipo:"FILTROS CAFETERIA", activo:"Cafetería sede principal", fecha:`${anio}-07-22`, responsable:"Servicios Generales", observacion:"Cambio filtros de agua y limpieza"},
-        {id:"mant_lavado_autos", tipo:"MANTENIMIENTO AUTOS", activo:"Flota operativa", fecha:`${anio}-06-24`, responsable:"Conductores", observacion:"Lavado, desinfección y revisión diaria"}
-    ];
-}
-
-function cargarMantenimientos(){
-    return cargarColeccionLocalConEjemplos("mantenimientosOperacion", datosMantenimientosIniciales(), "mantenimientosSeedVersion");
-}
-
-function estadoMantenimiento(item){
-    const fecha = parseFecha(item.fecha);
-    if(!fecha) return {estado:"SIN FECHA", dias:null, clase:"warning"};
-
-    const hoy = inicioDia(new Date());
-    const vencimiento = inicioDia(fecha);
-    const dias = Math.ceil((vencimiento - hoy) / 86400000);
-
-    if(dias < 0) return {estado:"VENCIDO", dias, clase:"danger"};
-    if(dias <= 5) return {estado:"ALERTA 5 DÍAS", dias, clase:"danger"};
-    if(dias <= 10) return {estado:"ALERTA 10 DÍAS", dias, clase:"warning"};
-    return {estado:"AL DÍA", dias, clase:"ok"};
-}
-
-function badgeMantenimiento(info){
-    if(info.clase === "ok") return `<span class="badge badge-ok">${info.estado}</span>`;
-    if(info.clase === "danger") return `<span class="badge badge-danger">${info.estado}</span>`;
-    return `<span class="badge badge-warning">${info.estado}</span>`;
-}
-
-function actualizarAlertasMantenimientoDashboard(alertas, conteo){
-    const totalAlertas = alertas.length;
-    const top = $("alertaMantenimientoTop");
-    const topTexto = $("alertaMantenimientoTopTexto");
-    const strip = $("alertaDashboardPrincipal");
-
-    if(top && topTexto){
-        top.classList.remove("hidden", "danger", "warning", "ok");
-
-        if(totalAlertas === 0){
-            top.classList.add("ok");
-            topTexto.textContent = "Sin alertas";
-        }else if((conteo.vencidos || 0) > 0 || (conteo.cinco || 0) > 0){
-            top.classList.add("danger");
-            topTexto.textContent = `${totalAlertas} alerta${totalAlertas === 1 ? "" : "s"} crítica${totalAlertas === 1 ? "" : "s"}`;
-        }else{
-            top.classList.add("warning");
-            topTexto.textContent = `${totalAlertas} alerta${totalAlertas === 1 ? "" : "s"} próxima${totalAlertas === 1 ? "" : "s"}`;
-        }
-    }
-
-    if(strip){
-        if(totalAlertas === 0){
-            strip.classList.add("hidden");
-            strip.innerHTML = "";
-        }else{
-            const primera = alertas[0];
-            const detalle = primera
-                ? `${escapeHtml(primera.item.tipo)} · ${escapeHtml(primera.item.activo)} · ${primera.info.dias < 0 ? `${Math.abs(primera.info.dias)} días vencido` : `faltan ${primera.info.dias} días`}`
-                : "";
-
-            strip.classList.remove("hidden", "danger", "warning");
-            strip.classList.add((conteo.vencidos || 0) > 0 || (conteo.cinco || 0) > 0 ? "danger" : "warning");
-            strip.innerHTML = `
-                <div>
-                    <strong><i class="fas fa-triangle-exclamation"></i> Alertas de mantenimiento activas</strong>
-                    <span>${formatNumber(totalAlertas)} control${totalAlertas === 1 ? "" : "es"} requiere${totalAlertas === 1 ? "" : "n"} seguimiento. ${detalle}</span>
-                </div>
-                <button class="action-btn" onclick="cambiarVista('mantenimientos')">Ver mantenimientos</button>
-            `;
-        }
-    }
-}
-
-function renderMantenimientos(){
-    const data = cargarMantenimientos().sort((a,b) => String(a.fecha || "").localeCompare(String(b.fecha || "")));
-    const conteo = {vencidos:0, cinco:0, diez:0, ok:0};
-    const alertas = [];
-
-    data.forEach(item => {
-        const info = estadoMantenimiento(item);
-        if(info.estado === "VENCIDO") conteo.vencidos++;
-        else if(info.estado === "ALERTA 5 DÍAS") conteo.cinco++;
-        else if(info.estado === "ALERTA 10 DÍAS") conteo.diez++;
-        else if(info.estado === "AL DÍA") conteo.ok++;
-
-        if(["VENCIDO","ALERTA 5 DÍAS","ALERTA 10 DÍAS"].includes(info.estado)){
-            alertas.push({item, info});
-        }
-    });
-
-    setHtml("kpiMantVencidos", conteo.vencidos);
-    setHtml("kpiMantCinco", conteo.cinco);
-    setHtml("kpiMantDiez", conteo.diez);
-    setHtml("kpiMantOk", conteo.ok);
-    setHtml("textoMantenimientos", `
-        Control operativo con <strong>${conteo.vencidos}</strong> vencidos,
-        <strong>${conteo.cinco}</strong> alertas a 5 días,
-        <strong>${conteo.diez}</strong> alertas a 10 días y
-        <strong>${conteo.ok}</strong> controles al día.
-    `);
-
-    actualizarAlertasMantenimientoDashboard(alertas, conteo);
-
-    const alertasBox = $("alertasMantenimiento");
-    if(alertasBox){
-        alertasBox.innerHTML = alertas.length ? alertas.map(({item, info}) => `
-            <div class="alerta-item">
-                <i class="fas fa-triangle-exclamation"></i>
-                <span>
-                    <strong>${escapeHtml(item.tipo)}</strong> · ${escapeHtml(item.activo)}
-                    vence el <strong>${formatFechaProfesional(item.fecha)}</strong>
-                    (${info.dias < 0 ? `${Math.abs(info.dias)} días vencido` : `faltan ${info.dias} días`}).
-                </span>
-            </div>
-        `).join("") : `<p>Sin alertas de mantenimiento por el momento.</p>`;
-    }
-
-    const tbody = document.querySelector("#tablaMantenimientos tbody");
-    if(tbody){
-        tbody.innerHTML = data.length ? data.map(item => {
-            const info = estadoMantenimiento(item);
-
-            return `
-                <tr>
-                    <td>${escapeHtml(item.tipo || "-")}</td>
-                    <td>${escapeHtml(item.activo || "-")}</td>
-                    <td>${formatFechaProfesional(item.fecha)}</td>
-                    <td>${info.dias === null ? "-" : info.dias}</td>
-                    <td>${escapeHtml(item.responsable || "-")}</td>
-                    <td>${badgeMantenimiento(info)}</td>
-                    <td>${escapeHtml(item.observacion || "-")}</td>
-                    <td><button class="danger-btn" onclick="eliminarMantenimiento('${escapeHtml(item.id)}')">Eliminar</button></td>
-                </tr>
-            `;
-        }).join("") : `<tr><td colspan="8">Sin controles de mantenimiento</td></tr>`;
-    }
-}
-
-function agregarMantenimiento(){
-    const item = {
-        id:cryptoRandom(),
-        tipo:$("mantTipo")?.value || "",
-        activo:($("mantActivo")?.value || "").trim(),
-        fecha:$("mantFecha")?.value || "",
-        responsable:$("mantResponsable")?.value || "",
-        observacion:$("mantObservacion")?.value || ""
-    };
-
-    if(!item.tipo || !item.activo || !item.fecha){
-        toast("Tipo, activo y fecha son obligatorios.", "warning");
-        return;
-    }
-
-    const data = cargarMantenimientos();
-    data.push(item);
-    guardarColeccionLocal("mantenimientosOperacion", data);
-
-    ["mantTipo","mantActivo","mantFecha","mantResponsable","mantObservacion"].forEach(id => setValue(id, ""));
-    renderMantenimientos();
-    toast("Control de mantenimiento agregado.");
-}
-
-function eliminarMantenimiento(id){
-    const data = cargarMantenimientos().filter(item => item.id !== id);
-    guardarColeccionLocal("mantenimientosOperacion", data);
-    renderMantenimientos();
-    toast("Control de mantenimiento eliminado.");
-}
-
-window.eliminarMantenimiento = eliminarMantenimiento;
-
-function limpiarMantenimientos(){
-    if(!confirm("¿Deseas eliminar todos los mantenimientos?")) return;
-    guardarColeccionLocal("mantenimientosOperacion", []);
-    renderMantenimientos();
-    toast("Mantenimientos eliminados.");
-}
-
 function datosVacacionesIniciales(){
     return [
         {id:"vac_javier", nombre:"Javier Mendoza Galván", cargo:"Conductor Tanatopractor", fechaBase:"2025-07-01", inicio:"2026-07-02", fin:"2026-07-21", dias:15, estado:"PROGRAMADA"},
         {id:"vac_raul", nombre:"Raúl López", cargo:"Conductor Tanatopractor", fechaBase:"2024-12-01", inicio:"", fin:"", dias:0, estado:"VENCIDA"},
         {id:"vac_hazael", nombre:"Hazael Galván", cargo:"Conductor Tanatopractor", fechaBase:"2025-08-15", inicio:"", fin:"", dias:0, estado:"PENDIENTE"},
-        {id:"vac_wendy", nombre:"Wendy Paola Cordero", cargo:"Gestora de Protocolo", fechaBase:"2025-05-20", inicio:"2026-05-05", fin:"2026-05-24", dias:15, estado:"DISFRUTADA"},
-        {id:"vac_fernando", nombre:"Fernando Argel Martínez", cargo:"Gestor de Homenajes", fechaBase:"2025-02-10", inicio:"2026-02-12", fin:"2026-03-03", dias:15, estado:"DISFRUTADA"},
-        {id:"vac_carlos", nombre:"Carlos López Pérez", cargo:"Gestor de Homenajes", fechaBase:"2025-04-03", inicio:"2026-07-15", fin:"2026-08-03", dias:15, estado:"PROGRAMADA"},
-        {id:"vac_osvaldo", nombre:"Osvaldo Ramos Ruiz", cargo:"Gestor de Homenajes", fechaBase:"2025-09-22", inicio:"", fin:"", dias:0, estado:"PENDIENTE"},
-        {id:"vac_alexis", nombre:"Alexis Ayazo Alvarez", cargo:"Gestor de Homenajes", fechaBase:"2024-11-18", inicio:"", fin:"", dias:0, estado:"VENCIDA"},
-        {id:"vac_jessica", nombre:"Jessica Avila de Hoyos", cargo:"Auxiliar Administrativo", fechaBase:"2025-06-12", inicio:"2026-06-15", fin:"2026-07-04", dias:15, estado:"PROGRAMADA"},
-        {id:"vac_samir", nombre:"Samir Chadid Corena", cargo:"Apoyo Operativo", fechaBase:"2025-10-01", inicio:"", fin:"", dias:0, estado:"PENDIENTE"}
+        {id:"vac_wendy", nombre:"Wendy Paola Cordero", cargo:"Gestora de Protocolo", fechaBase:"2025-05-20", inicio:"2026-05-05", fin:"2026-05-24", dias:15, estado:"DISFRUTADA"}
     ];
 }
 
 function cargarVacaciones(){
-    return cargarColeccionLocalConEjemplos("vacacionesPersonal", datosVacacionesIniciales(), "vacacionesSeedVersion");
+    return cargarColeccionLocal("vacacionesPersonal", datosVacacionesIniciales());
 }
 
 function estadoVacacion(item){
@@ -2990,25 +2276,14 @@ function datosAgendaIniciales(){
     return [
         {id:"act_preoperacional", fecha:`${anio}-01-02`, hora:"06:00", titulo:"Verificar reporte preoperacional de vehículos", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Control diario antes de entregar turno."},
         {id:"act_bitacora", fecha:`${anio}-01-02`, hora:"07:00", titulo:"Revisar bitácora de parque automotor", frecuencia:"DIARIA", estado:"EN PROCESO", responsable:"Coordinación Homenajes", detalle:"Confirmar novedades y entrega de llaves."},
-        {id:"act_limpieza_autos", fecha:`${anio}-01-02`, hora:"08:00", titulo:"Limpieza y desinfección de vehículos", frecuencia:"DIARIA", estado:"CUMPLIDA", responsable:"Conductores", detalle:"Interior, camilla, cabina y elementos de bioseguridad."},
-        {id:"act_documentos_autos", fecha:`${anio}-01-02`, hora:"09:00", titulo:"Validar documentos de vehículos", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"SOAT, tecnomecánica, seguros y tarjetas."},
-        {id:"act_check_funerario", fecha:`${anio}-01-03`, hora:"06:00", titulo:"Checklist de elementos para servicio", frecuencia:"DIARIA", estado:"PENDIENTE", responsable:"Equipo operativo", detalle:"Confirmar cofres, implementos y soportes del servicio."},
-        {id:"act_reporte_clinicas", fecha:`${anio}-01-03`, hora:"11:00", titulo:"Seguimiento reportes de clínicas", frecuencia:"DIARIA", estado:"EN PROCESO", responsable:"Gestores", detalle:"Actualizar novedades por clínica y municipio."},
         {id:"act_implementos", fecha:`${anio}-06-20`, hora:"09:00", titulo:"Seguimiento implementos de velación en casa", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Gestores", detalle:"Validar elementos vigentes, por recoger y recogidos."},
-        {id:"act_inventario", fecha:`${anio}-06-22`, hora:"10:00", titulo:"Inventario mensual de implementos", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Bodega / Homenajes", detalle:"Sillas, carpas, atriles, avisos y elementos de velación."},
-        {id:"act_soat", fecha:`${anio}-07-10`, hora:"08:00", titulo:"Revisión vencimientos SOAT", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Validar alertas a 10 y 5 días."},
-        {id:"act_tecnomecanica", fecha:`${anio}-07-15`, hora:"09:00", titulo:"Revisión tecnomecánica flota", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Programar taller si aplica."},
-        {id:"act_jardineria", fecha:`${anio}-07-05`, hora:"07:00", titulo:"Mantenimiento jardinería", frecuencia:"MENSUAL", estado:"CUMPLIDA", responsable:"Servicios Generales", detalle:"Poda, limpieza y estado visual sede."},
-        {id:"act_cafeteria", fecha:`${anio}-07-22`, hora:"10:00", titulo:"Cambio filtros cafetería", frecuencia:"MENSUAL", estado:"PENDIENTE", responsable:"Servicios Generales", detalle:"Filtros de agua y limpieza preventiva."},
         {id:"act_residuos", fecha:`${anio}-07-01`, hora:"10:00", titulo:"Capacitación residuos y desinfección", frecuencia:"ANUAL", estado:"CUMPLIDA", responsable:"Talento Humano / Homenajes", detalle:"Refuerzo obligatorio para el equipo operativo."},
-        {id:"act_auditoria", fecha:`${anio}-11-10`, hora:"08:00", titulo:"Preparación auditoría interna", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Revisar R-15, R-56, RH1 y soportes operativos."},
-        {id:"act_pintura", fecha:`${anio}-08-14`, hora:"14:00", titulo:"Mantenimiento pintura infraestructura", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Mantenimiento", detalle:"Capillas, recepción, pasillos y zonas comunes."},
-        {id:"act_plan_fin_anio", fecha:`${anio}-12-05`, hora:"15:00", titulo:"Cierre operativo anual", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Dirección / Homenajes", detalle:"Revisión de indicadores, metas, pendientes y plan del siguiente año."}
+        {id:"act_auditoria", fecha:`${anio}-11-10`, hora:"08:00", titulo:"Preparación auditoría interna", frecuencia:"ANUAL", estado:"PENDIENTE", responsable:"Coordinación Homenajes", detalle:"Revisar R-15, R-56, RH1 y soportes operativos."}
     ];
 }
 
 function cargarAgenda(){
-    return cargarColeccionLocalConEjemplos("agendaHomenajes", datosAgendaIniciales(), "agendaSeedVersion");
+    return cargarColeccionLocal("agendaHomenajes", datosAgendaIniciales());
 }
 
 function actividadEnMes(item, anio, mes){
@@ -3107,53 +2382,9 @@ function renderCalendarioAgenda(data, anio, mes){
                 ${actividadesDia.length ? `<span>${actividadesDia.length} act.</span>` : ""}
             </div>
         `);
-
-        if(iso === AGENDA_DIA_SELECCIONADO){
-            celdas.push(htmlDiaAgendaExpandido(data, iso));
-        }
     }
 
     contenedor.innerHTML = celdas.join("");
-}
-
-function htmlDiaAgendaExpandido(data, fecha){
-    const actividadesDia = data
-        .filter(item => item.fecha === fecha)
-        .sort((a,b) => horaActividad(a).localeCompare(horaActividad(b)));
-
-    const filas = [];
-
-    for(let hora = 6; hora <= 19; hora++){
-        const horaTexto = `${String(hora).padStart(2,"0")}:00`;
-        const actividadesHora = actividadesDia.filter(item => Number(horaActividad(item).split(":")[0]) === hora);
-
-        filas.push(`
-            <div class="agenda-inline-hour">
-                <span>${formatoHoraAgenda(horaTexto)}</span>
-                <div>
-                    ${actividadesHora.length ? actividadesHora.map(item => `
-                        <article>
-                            <strong>${escapeHtml(item.titulo)}</strong>
-                            <small>${escapeHtml(item.responsable || "Sin responsable")} · ${escapeHtml(item.frecuencia || "ÚNICA")}</small>
-                            <select class="inline-select" onchange="actualizarEstadoActividad('${escapeHtml(item.id)}', this.value)">
-                                ${opcionesEstadoActividad(item.estado)}
-                            </select>
-                        </article>
-                    `).join("") : `<small>Sin actividad</small>`}
-                </div>
-            </div>
-        `);
-    }
-
-    return `
-        <div class="agenda-day-expanded">
-            <div class="agenda-expanded-title">
-                <strong>Agenda del día · ${fecha}</strong>
-                <button class="btn-secundario" onclick="event.stopPropagation(); setValue('actFecha','${fecha}')">Agregar en este día</button>
-            </div>
-            ${filas.join("")}
-        </div>
-    `;
 }
 
 function renderListaAgenda(actividades){
@@ -3353,50 +2584,55 @@ function datosTiempoAfiliadoIniciales(){
 }
 
 function cargarTiempoAfiliado(){
-    return cargarColeccionLocal("tiempoAfiliadoFallecidos", datosTiempoAfiliadoIniciales());
+    const locales = cargarColeccionLocal("tiempoAfiliadoFallecidos", datosTiempoAfiliadoIniciales())
+        .map(item => ({...item, origen:item.origen || "LOCAL"}));
+    const remotos = (DATASET_FALLECIDOS_PLANES || []).map(item => ({...item, origen:"FALLECIDOS PLANES"}));
+    const vistos = new Set();
+
+    return [...remotos, ...locales].filter(item => {
+        const key = String(item.id || `${item.ordenServicio || ""}_${item.contrato || ""}_${item.fallecido || ""}`);
+        if(vistos.has(key)) return false;
+        vistos.add(key);
+        return true;
+    });
 }
 
 function calcularTiempoAfiliado(item){
+    if(item.tiempoAfiliacionDias || item.tiempoAfiliacionTexto){
+        const tiempo = item.tiempoAfiliacionDias
+            ? parseTiempoAfiliacionTexto(`${item.tiempoAfiliacionDias} días`)
+            : parseTiempoAfiliacionTexto(item.tiempoAfiliacionTexto);
+
+        if(tiempo.valido){
+            return {
+                valido:true,
+                dias:tiempo.dias,
+                meses:tiempo.meses,
+                anios:tiempo.anios,
+                texto:tiempo.textoOriginal || tiempo.texto,
+                clasificacion:tiempo.clasificacion
+            };
+        }
+    }
+
     const inicio = parseFecha(item.fechaAfiliacion);
-    const fin = parseFecha(item.fechaFallecimiento);
+    const fin = parseFecha(item.fechaFallecimiento || item.fechaOrden);
 
     if(!inicio || !fin || fin < inicio){
-        return {
-            valido:false,
-            dias:0,
-            meses:0,
-            anios:0,
-            texto:"Fecha inválida",
-            clasificacion:"REVISAR"
-        };
+        return {valido:false,dias:0,meses:0,anios:0,texto:"Fecha inválida",clasificacion:"REVISAR"};
     }
 
     const dias = diasEntre(inicio, fin);
     const meses = Math.floor(dias / 30.4375);
     const anios = Math.floor(meses / 12);
-    const mesesRestantes = meses % 12;
-    const diasRestantes = Math.max(Math.round(dias - (meses * 30.4375)), 0);
-
-    let texto = "";
-    if(anios > 0) texto += `${anios} año${anios === 1 ? "" : "s"}`;
-    if(mesesRestantes > 0) texto += `${texto ? ", " : ""}${mesesRestantes} mes${mesesRestantes === 1 ? "" : "es"}`;
-    if(!texto) texto = `${dias} día${dias === 1 ? "" : "s"}`;
-    if(texto && anios === 0 && mesesRestantes > 0 && diasRestantes > 0) texto += `, ${diasRestantes} día${diasRestantes === 1 ? "" : "s"}`;
-
-    let clasificacion = "MÁS DE 5 AÑOS";
-    if(dias < 90) clasificacion = "MENOS DE 3 MESES";
-    else if(dias < 180) clasificacion = "3 A 6 MESES";
-    else if(dias < 365) clasificacion = "6 A 12 MESES";
-    else if(dias < 1095) clasificacion = "1 A 3 AÑOS";
-    else if(dias < 1825) clasificacion = "3 A 5 AÑOS";
 
     return {
         valido:true,
         dias,
         meses,
         anios,
-        texto,
-        clasificacion
+        texto:textoTiempoDesdeDias(dias),
+        clasificacion:clasificarDiasAfiliado(dias)
     };
 }
 
@@ -3450,10 +2686,11 @@ function renderTiempoAfiliado(){
     setHtml("kpiAfiliadoMenor", resumen.menor ? resumen.menor.tiempo.texto : "-");
     setHtml("kpiAfiliadoMayor", resumen.mayor ? resumen.mayor.tiempo.texto : "-");
 
+    const origenSheet = resumen.enriquecidos.filter(item => item.origen === "FALLECIDOS PLANES").length;
     setHtml("textoTiempoAfiliado", `
-        Se registran <strong>${resumen.enriquecidos.length}</strong> casos.
+        Se registran <strong>${resumen.enriquecidos.length}</strong> casos, de los cuales <strong>${origenSheet}</strong> provienen de la hoja <strong>FALLECIDOS PLANES</strong>.
         El promedio de permanencia vivo estando afiliado es de <strong>${formatNumber(resumen.promedioDias)} días</strong>.
-        ${resumen.mayor ? `El mayor tiempo registrado corresponde a <strong>${escapeHtml(resumen.mayor.fallecido)}</strong> con <strong>${resumen.mayor.tiempo.texto}</strong>.` : ""}
+        ${resumen.mayor ? `El mayor tiempo registrado corresponde a <strong>${escapeHtml(resumen.mayor.fallecido)}</strong> con <strong>${escapeHtml(resumen.mayor.tiempo.texto)}</strong>.` : ""}
     `);
 
     const labels = Object.keys(resumen.rangos);
@@ -3466,17 +2703,19 @@ function renderTiempoAfiliado(){
             .sort((a,b) => b.tiempo.dias - a.tiempo.dias)
             .map(item => `
                 <tr>
-                    <td>${escapeHtml(item.fallecido || "-")}</td>
-                    <td>${escapeHtml(item.contrato || "-")}</td>
-                    <td>${escapeHtml(item.sede || "-")}</td>
-                    <td>${escapeHtml(item.fechaAfiliacion || "-")}</td>
-                    <td>${escapeHtml(item.fechaFallecimiento || "-")}</td>
+                    <td>${escapeHtml(item.fallecido || item.ordenServicio || "-")}</td>
+                    <td>${escapeHtml(item.ordenServicio || "-")}</td>
+                    <td>${escapeHtml(item.contrato || item.numeroContrato || "-")}</td>
+                    <td>${escapeHtml(item.plan || item.sede || "-")}</td>
+                    <td>${escapeHtml(item.tipoAfiliacion || "-")}</td>
+                    <td>${escapeHtml(item.edad || "-")}</td>
+                    <td>${escapeHtml(item.fechaOrden || item.fechaFallecimiento || item.fechaAfiliacion || "-")}</td>
                     <td>${escapeHtml(item.tiempo.texto)}</td>
                     <td>${formatNumber(item.tiempo.dias)}</td>
                     <td>${badgeTiempoAfiliado(item.tiempo.clasificacion)}</td>
-                    <td><button class="danger-btn" onclick="eliminarTiempoAfiliado('${escapeHtml(item.id)}')">Eliminar</button></td>
+                    <td>${item.origen === "FALLECIDOS PLANES" ? '<span class="badge badge-info">Google Sheet</span>' : `<button class="danger-btn" onclick="eliminarTiempoAfiliado('${escapeHtml(item.id)}')">Eliminar</button>`}</td>
                 </tr>
-            `).join("") : `<tr><td colspan="9">Sin casos registrados</td></tr>`;
+            `).join("") : `<tr><td colspan="11">Sin casos registrados</td></tr>`;
     }
 }
 
@@ -3888,7 +3127,6 @@ function exportarExcel(){
 
     const datos = DATASET_FILTRADO.map(row => ({
         Origen:row.origen,
-        Linea_Valor:row.lineaValor || "",
         Fecha:row.fechaTexto,
         Orden_Servicio:row.ordenServicio,
         Gestor:row.gestor,
@@ -3902,7 +3140,6 @@ function exportarExcel(){
         Cementerio:row.cementerio,
         Destino_Final:row.destinoFinal,
         Sede:row.sede,
-        Cantidad:row.cantidadAtendida,
         Valor_Servicio:row.valorServicio,
         Valor_Excedente:row.valorExcedente,
         Valor_Original:row.valorOriginal,
@@ -3971,10 +3208,16 @@ function exportarExcel(){
 
     const tiempoAfiliado = operativo.tiempoAfiliado.enriquecidos.map(item => ({
         Fallecido:item.fallecido || "",
-        Contrato_Plan:item.contrato || "",
+        Orden_Servicio:item.ordenServicio || "",
+        Contrato_Plan:item.contrato || item.numeroContrato || "",
+        Plan:item.plan || "",
+        Tipo_Afiliacion:item.tipoAfiliacion || "",
+        Edad:item.edad || "",
         Sede:item.sede || "",
+        Fecha_Orden:item.fechaOrden || "",
         Fecha_Afiliacion:item.fechaAfiliacion || "",
         Fecha_Fallecimiento:item.fechaFallecimiento || "",
+        Fuente:item.origen || "LOCAL",
         Tiempo_Texto:item.tiempo.texto,
         Dias:item.tiempo.dias,
         Meses_Aproximados:item.tiempo.meses,
@@ -3999,48 +3242,8 @@ function exportarExcel(){
 }
 
 function exportarCSV(){
-    const headers = [
-        "Origen",
-        "Linea_Valor",
-        "Fecha",
-        "Orden_Servicio",
-        "Gestor",
-        "Sede",
-        "Categoria_Original",
-        "Categoria_Gerencial",
-        "Tipo_Servicio",
-        "Tipo_Excedente",
-        "Clinica",
-        "Municipio",
-        "Tipo_Muerte",
-        "Cementerio",
-        "Destino_Final",
-        "Cantidad",
-        "Valor_Servicio",
-        "Valor_Excedente",
-        "Valor_Venta"
-    ];
-    const rows = DATASET_FILTRADO.map(r => [
-        r.origen,
-        r.lineaValor || "",
-        r.fechaTexto,
-        r.ordenServicio,
-        r.gestor,
-        r.sede,
-        r.categoria,
-        r.categoriaGerencial,
-        r.tipoServicio,
-        r.servicio,
-        r.clinica,
-        r.municipio,
-        r.tipoMuerte,
-        r.cementerio,
-        r.destinoFinal,
-        r.cantidadAtendida,
-        r.valorServicio,
-        r.valorExcedente,
-        r.valorVenta
-    ]);
+    const headers = ["Origen","Fecha","Gestor","Categoria_Gerencial","Servicio","Sede","Valor_Venta"];
+    const rows = DATASET_FILTRADO.map(r => [r.origen, r.fechaTexto, r.gestor, r.categoriaGerencial, r.servicio, r.sede, r.valorVenta]);
 
     const csv = [headers, ...rows]
         .map(row => row.map(cell => `"${String(cell ?? "").replace(/"/g,'""')}"`).join(","))
@@ -4106,9 +3309,8 @@ function limpiarCache(){
 
     [
         "dashboardTema",
-            "dashboardSidebar",
-            "dashboardAmbiente",
-            "dashboardTitulo",
+        "dashboardSidebar",
+        "dashboardTitulo",
         "dashboardSubtitulo",
         "dashboardEmpresa",
         "dashboardArea",
@@ -4172,27 +3374,12 @@ function cambiarVista(seccion){
     document.querySelectorAll(".vista").forEach(vista => vista.classList.remove("active-view"));
 
     const itemMenu = document.querySelector(`.menu-item[data-seccion="${seccion}"]`);
-    if(itemMenu){
-        itemMenu.classList.add("active","selection-check");
-        setTimeout(() => itemMenu.classList.remove("selection-check"), 650);
-    }
+    if(itemMenu) itemMenu.classList.add("active");
 
     const vista = $(seccion);
     if(vista) vista.classList.add("active-view");
 
-    setTimeout(() => {
-        if(seccion === "vistaCumplimiento"){
-            asegurarVistaCumplimiento(true);
-            renderCumplimientoMensual();
-        }
-        if(seccion === "metas") renderMetas();
-        if(seccion === "comparativo") renderComparativoAnual();
-        if(seccion === "mantenimientos") renderMantenimientos();
-        if(["analisisHomenaje","analisisClinicas","analisisMunicipios","analisisMuerte","analisisCementerios","analisisDestino"].includes(seccion)){
-            renderAnalisisAvanzados();
-        }
-        redimensionarGraficos();
-    }, 180);
+    setTimeout(redimensionarGraficos, 150);
 }
 
 function redimensionarGraficos(){
@@ -4207,114 +3394,18 @@ function alternarSidebar(){
     setTimeout(redimensionarGraficos, 200);
 }
 
-function aplicarModoPresentacion(activo){
-    document.body.classList.toggle("presentation-mode", activo);
-    localStorage.setItem("dashboardPresentacion", activo ? "1" : "0");
-
-    const btn = $("btnPresentacion");
-    if(btn){
-        btn.classList.toggle("active", activo);
-        btn.title = activo ? "Salir de modo presentación" : "Modo presentación gerencial";
-        btn.innerHTML = activo ? `<i class="fas fa-table-columns"></i>` : `<i class="fas fa-display"></i>`;
-    }
-
-    setTimeout(redimensionarGraficos, 240);
-}
-
-function alternarModoPresentacion(){
-    aplicarModoPresentacion(!document.body.classList.contains("presentation-mode"));
-}
-
-function ambienteDashboardActual(){
-    const guardado = localStorage.getItem("dashboardAmbiente") || "normal";
-    return AMBIENTES_DASHBOARD.includes(guardado) ? guardado : "normal";
-}
-
-function aplicarAmbienteDashboard(ambiente){
-    const valor = AMBIENTES_DASHBOARD.includes(ambiente) ? ambiente : "normal";
-    document.body.classList.remove("theme-ocean","theme-sunset","theme-dark","theme-emerald","theme-violet","theme-slate","dark-mode");
-
-    if(valor === "ocean") document.body.classList.add("theme-ocean");
-    if(valor === "sunset") document.body.classList.add("theme-sunset");
-    if(valor === "dark") document.body.classList.add("theme-dark");
-    if(valor === "emerald") document.body.classList.add("theme-emerald");
-    if(valor === "violet") document.body.classList.add("theme-violet");
-    if(valor === "slate") document.body.classList.add("theme-slate");
-
-    localStorage.setItem("dashboardAmbiente", valor);
-
-    const botones = [$("btnTema"), $("btnAmbiente")].filter(Boolean);
-
-    botones.forEach(boton => {
-        const icono = boton.querySelector("i");
-        boton.classList.toggle("ambient-active", valor !== "normal");
-
-        if(valor === "ocean"){
-            boton.title = "Ambiente visual: mar";
-            if(icono) icono.className = "fas fa-water";
-            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-water"></i> Mar`;
-        }else if(valor === "sunset"){
-            boton.title = "Ambiente visual: atardecer";
-            if(icono) icono.className = "fas fa-sun";
-            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-sun"></i> Atardecer`;
-        }else if(valor === "dark"){
-            boton.title = "Ambiente visual: oscuro";
-            if(icono) icono.className = "fas fa-moon";
-            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-moon"></i> Oscuro`;
-        }else{
-            boton.title = "Ambiente visual: normal";
-            if(icono) icono.className = "fas fa-circle-half-stroke";
-            if(boton.id === "btnAmbiente") boton.innerHTML = `<i class="fas fa-water"></i> Ambiente`;
-        }
-    });
-
-    document.querySelectorAll(".theme-dot").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.theme === valor);
-    });
-
-    setTimeout(redimensionarGraficos, 180);
-}
-
 function alternarTema(){
-    const actual = ambienteDashboardActual();
-    const indice = AMBIENTES_DASHBOARD.indexOf(actual);
-    const siguiente = AMBIENTES_DASHBOARD[(indice + 1) % AMBIENTES_DASHBOARD.length];
-    aplicarAmbienteDashboard(siguiente);
-
-    const nombres = {
-        normal:"normal",
-        dark:"oscuro",
-        ocean:"agua de mar",
-        sunset:"atardecer suave",
-        emerald:"verde ejecutivo",
-        violet:"violeta",
-        slate:"grafito"
-    };
-
-    toast(`Ambiente aplicado: ${nombres[siguiente]}.`);
+    document.body.classList.toggle("dark-mode");
+    localStorage.setItem("dashboardTema", document.body.classList.contains("dark-mode") ? "dark" : "light");
+    setTimeout(() => {
+        aplicarFiltrosYRender();
+        Object.values(charts).forEach(chart => chart?.resize?.());
+    }, 120);
 }
 
 function pantallaCompleta(){
     if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
-}
-
-function mostrarChuloFijoClick(event){
-    if(event.target.closest(".click-check-pin")) return;
-
-    let pin = $("clickCheckPin");
-    if(!pin){
-        pin = document.createElement("span");
-        pin.id = "clickCheckPin";
-        pin.className = "click-check-pin";
-        document.body.appendChild(pin);
-    }
-
-    pin.style.left = `${event.clientX}px`;
-    pin.style.top = `${event.clientY}px`;
-    pin.classList.remove("click-check-pin");
-    void pin.offsetWidth;
-    pin.classList.add("click-check-pin");
 }
 
 function validarAcceso(){
@@ -4436,9 +3527,8 @@ function actualizarConfiguracion(){
 }
 
 function aplicarPreferencias(){
-    aplicarAmbienteDashboard(ambienteDashboardActual());
+    if(localStorage.getItem("dashboardTema") === "dark") document.body.classList.add("dark-mode");
     if(localStorage.getItem("dashboardSidebar") === "collapsed") document.body.classList.add("sidebar-collapsed");
-    aplicarModoPresentacion(localStorage.getItem("dashboardPresentacion") === "1");
 }
 
 function obtenerItemsDeGrupoSidebar(titulo){
@@ -4483,21 +3573,9 @@ document.querySelectorAll(".menu-item").forEach(item => {
     item.addEventListener("click", () => cambiarVista(item.dataset.seccion));
 });
 
-document.querySelectorAll("[data-seccion]:not(.menu-item)").forEach(item => {
-    item.addEventListener("click", () => cambiarVista(item.dataset.seccion));
-});
-
 document.querySelectorAll(".quick-btn").forEach(btn => {
     btn.addEventListener("click", () => aplicarRangoRapido(btn.dataset.rango));
 });
-
-document.querySelectorAll(".theme-dot").forEach(btn => {
-    btn.addEventListener("click", () => {
-        aplicarAmbienteDashboard(btn.dataset.theme || "normal");
-    });
-});
-
-document.addEventListener("click", mostrarChuloFijoClick, true);
 
 $("btnFiltrar")?.addEventListener("click", aplicarFiltrosYRender);
 $("btnLimpiar")?.addEventListener("click", limpiarFiltros);
@@ -4505,10 +3583,8 @@ $("btnRecargar")?.addEventListener("click", cargarDashboard);
 $("btnPdf")?.addEventListener("click", exportarPDF);
 $("btnExcel")?.addEventListener("click", exportarExcel);
 $("btnTema")?.addEventListener("click", alternarTema);
-$("btnAmbiente")?.addEventListener("click", alternarTema);
 $("btnSidebar")?.addEventListener("click", alternarSidebar);
 $("btnFull")?.addEventListener("click", pantallaCompleta);
-$("btnPresentacion")?.addEventListener("click", alternarModoPresentacion);
 $("btnLogout")?.addEventListener("click", cerrarSesion);
 
 $("reporteExcelResumen")?.addEventListener("click", exportarExcel);
@@ -4523,9 +3599,6 @@ $("btnEliminarManuales")?.addEventListener("click", eliminarTodosManuales);
 
 $("btnAgregarEnergia")?.addEventListener("click", agregarEnergia);
 $("btnLimpiarEnergia")?.addEventListener("click", limpiarEnergia);
-
-$("btnAgregarMantenimiento")?.addEventListener("click", agregarMantenimiento);
-$("btnLimpiarMantenimientos")?.addEventListener("click", limpiarMantenimientos);
 
 $("btnAgregarVacacion")?.addEventListener("click", agregarVacacion);
 $("btnLimpiarVacaciones")?.addEventListener("click", limpiarVacaciones);
