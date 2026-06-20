@@ -3374,3 +3374,179 @@ body.theme-slate .action-board li{
         grid-template-columns:1fr;
     }
 }
+
+/* Comparativo mensual y modo presentación 20260710 */
+.month-compare-board{
+    margin:11px 0 12px;
+    border:1px solid rgba(0,79,42,.12);
+    border-radius:15px;
+    background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,252,249,.91));
+    box-shadow:0 12px 30px rgba(15,23,42,.075);
+    padding:13px 15px;
+}
+
+.compare-title{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    font-weight:950;
+    color:#0f172a;
+    margin-bottom:10px;
+}
+
+.compare-title i{
+    color:var(--green);
+}
+
+.compare-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+}
+
+.compare-card{
+    min-width:0;
+    border-radius:13px;
+    padding:11px 12px;
+    background:
+        linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,253,246,.82));
+    border:1px solid rgba(0,79,42,.10);
+    position:relative;
+    overflow:hidden;
+}
+
+.compare-card::after{
+    content:"";
+    position:absolute;
+    right:-20px;
+    top:-24px;
+    width:62px;
+    height:62px;
+    border-radius:50%;
+    background:rgba(0,143,70,.10);
+}
+
+.month-compare-board.ok .compare-card::after{background:rgba(22,163,74,.13);}
+.month-compare-board.warning .compare-card::after{background:rgba(245,158,11,.16);}
+.month-compare-board.danger .compare-card::after{background:rgba(239,68,68,.15);}
+
+.compare-card span{
+    display:block;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.35px;
+    font-size:10px;
+    font-weight:950;
+    margin-bottom:6px;
+}
+
+.compare-card strong{
+    display:block;
+    color:#0f172a;
+    font-size:clamp(18px,1.25vw,25px);
+    line-height:1.05;
+    letter-spacing:-.45px;
+    overflow-wrap:anywhere;
+}
+
+.compare-card small{
+    display:block;
+    margin-top:5px;
+    color:#475569;
+    font-size:10.5px;
+    font-weight:750;
+    line-height:1.25;
+}
+
+.presentation-btn.active{
+    background:linear-gradient(135deg,#004f2a,#00a651);
+    color:#fff;
+    box-shadow:0 0 0 3px rgba(0,143,70,.16),0 10px 24px rgba(0,79,42,.20);
+}
+
+body.presentation-mode .sidebar,
+body.presentation-mode .filtros,
+body.presentation-mode .theme-dock,
+body.presentation-mode .ultima-act,
+body.presentation-mode #btnSidebar,
+body.presentation-mode #btnRecargar,
+body.presentation-mode #btnLogout{
+    display:none !important;
+}
+
+body.presentation-mode .main{
+    margin-left:0 !important;
+    width:100vw !important;
+    max-width:100vw !important;
+    padding:14px 18px 22px !important;
+}
+
+body.presentation-mode .topbar{
+    position:relative;
+    top:0;
+    max-width:1840px;
+}
+
+body.presentation-mode .vista.active-view,
+body.presentation-mode .topbar{
+    max-width:1840px;
+}
+
+body.presentation-mode .resumen-ejecutivo{
+    margin-top:10px;
+}
+
+body.presentation-mode .executive-command-center,
+body.presentation-mode .month-compare-board,
+body.presentation-mode .executive-insights,
+body.presentation-mode .kpis,
+body.presentation-mode .kpis-secundarios{
+    max-width:1840px;
+}
+
+body.presentation-mode .grafico-card,
+body.presentation-mode .tabla-cumplimiento,
+body.presentation-mode .card,
+body.presentation-mode .insight-card,
+body.presentation-mode .semaforo-card,
+body.presentation-mode .action-board,
+body.presentation-mode .month-compare-board{
+    box-shadow:0 10px 26px rgba(15,23,42,.07);
+}
+
+body.theme-dark .month-compare-board,
+body.theme-slate .month-compare-board,
+body.theme-dark .compare-card,
+body.theme-slate .compare-card{
+    background:linear-gradient(180deg,rgba(15,23,42,.95),rgba(2,6,23,.88));
+    border-color:rgba(148,163,184,.22);
+}
+
+body.theme-dark .compare-title,
+body.theme-slate .compare-title,
+body.theme-dark .compare-card strong,
+body.theme-slate .compare-card strong{
+    color:#f8fafc;
+}
+
+body.theme-dark .compare-card small,
+body.theme-slate .compare-card small{
+    color:#cbd5e1;
+}
+
+@media(max-width:1200px){
+    .compare-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+}
+
+@media(max-width:620px){
+    .compare-grid{
+        grid-template-columns:1fr;
+    }
+
+    body.presentation-mode .main{
+        padding:10px !important;
+    }
+}
