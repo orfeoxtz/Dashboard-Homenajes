@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260710">
+<link rel="stylesheet" href="./style.css?v=20260713">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -57,15 +57,9 @@
 
         <li class="sidebar-section-title">METAS</li>
         <li class="menu-item" data-seccion="metas"><i class="fas fa-bullseye"></i> Metas</li>
-        <li class="menu-item" data-seccion="vistaCumplimiento"><i class="fas fa-chart-line"></i> Cumplimiento</li>
+        <li class="menu-item" data-seccion="cumplimiento"><i class="fas fa-chart-line"></i> Cumplimiento</li>
 
         <li class="sidebar-section-title">ANÁLISIS</li>
-        <li class="menu-item" data-seccion="analisisHomenaje"><i class="fas fa-clipboard-list"></i> Homenaje / Excedente</li>
-        <li class="menu-item" data-seccion="analisisClinicas"><i class="fas fa-hospital"></i> Clínicas</li>
-        <li class="menu-item" data-seccion="analisisMunicipios"><i class="fas fa-map-location-dot"></i> Municipios</li>
-        <li class="menu-item" data-seccion="analisisMuerte"><i class="fas fa-heart-pulse"></i> Tipo muerte</li>
-        <li class="menu-item" data-seccion="analisisCementerios"><i class="fas fa-cross"></i> Cementerios</li>
-        <li class="menu-item" data-seccion="analisisDestino"><i class="fas fa-route"></i> Destino final</li>
         <li class="menu-item" data-seccion="comparativo"><i class="fas fa-scale-balanced"></i> Comparativo</li>
         <li class="menu-item" data-seccion="pareto"><i class="fas fa-chart-pie"></i> Pareto 80/20</li>
         <li class="menu-item" data-seccion="alertas"><i class="fas fa-triangle-exclamation"></i> Alertas</li>
@@ -73,7 +67,6 @@
 
         <li class="sidebar-section-title">OPERACIÓN</li>
         <li class="menu-item" data-seccion="energia"><i class="fas fa-bolt"></i> Energía eléctrica</li>
-        <li class="menu-item" data-seccion="mantenimientos"><i class="fas fa-screwdriver-wrench"></i> Mantenimientos</li>
         <li class="menu-item" data-seccion="vacaciones"><i class="fas fa-umbrella-beach"></i> Vacaciones</li>
         <li class="menu-item" data-seccion="agenda"><i class="fas fa-calendar-check"></i> Agenda anual</li>
 
@@ -97,17 +90,13 @@
     </div>
 
     <div class="header-right">
-        <button id="alertaMantenimientoTop" class="alerta-topbar hidden" data-seccion="mantenimientos" title="Ver alertas de mantenimiento">
-            <i class="fas fa-bell"></i>
-            <span id="alertaMantenimientoTopTexto">Sin alertas</span>
-        </button>
         <div class="estado-api cargando" id="estadoApi"><i class="fas fa-circle"></i> Conectando...</div>
         <div class="ultima-act">Última actualización: <span id="ultimaActualizacion">-</span></div>
 
         <div class="header-actions">
             <button id="btnSidebar" class="icon-btn" title="Colapsar menú"><i class="fas fa-bars"></i></button>
+            <button id="btnTema" class="icon-btn" title="Modo oscuro"><i class="fas fa-moon"></i></button>
             <button id="btnFull" class="icon-btn" title="Pantalla completa"><i class="fas fa-expand"></i></button>
-            <button id="btnPresentacion" class="icon-btn presentation-btn" title="Modo presentación gerencial"><i class="fas fa-display"></i></button>
             <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
             <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
             <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
@@ -115,16 +104,6 @@
         </div>
     </div>
 </header>
-
-<div class="theme-dock" aria-label="Selector discreto de temas">
-    <button class="theme-dot sun" data-theme="normal" title="Tema claro"><i class="fas fa-sun"></i></button>
-    <button class="theme-dot moon" data-theme="dark" title="Tema oscuro"><i class="fas fa-moon"></i></button>
-    <button class="theme-dot ocean" data-theme="ocean" title="Tema mar"></button>
-    <button class="theme-dot sunset" data-theme="sunset" title="Tema atardecer"></button>
-    <button class="theme-dot emerald" data-theme="emerald" title="Tema verde ejecutivo"></button>
-    <button class="theme-dot violet" data-theme="violet" title="Tema violeta"></button>
-    <button class="theme-dot slate" data-theme="slate" title="Tema grafito"></button>
-</div>
 
 <section class="filtros">
     <div class="quick-filters">
@@ -197,7 +176,7 @@
 
     <div class="filtro-item filtro-grow">
         <label>Búsqueda general</label>
-        <input type="text" id="busquedaGeneral" placeholder="Gestor, clínica, cementerio, municipio, destino, orden o servicio">
+        <input type="text" id="busquedaGeneral" placeholder="Gestor, sede, categoría, servicio u observación">
     </div>
 
     <div class="filtro-item">
@@ -209,150 +188,83 @@
     </div>
 </section>
 
-    <section id="dashboard" class="vista active-view">
-    <div id="alertaDashboardPrincipal" class="dashboard-alert-strip hidden"></div>
-
+<section id="dashboard" class="vista active-view">
     <section class="resumen-ejecutivo">
         <h2>Resumen Ejecutivo</h2>
         <p id="resumenEjecutivoTexto">Cargando análisis gerencial...</p>
     </section>
 
-    <section class="executive-command-center">
-        <div class="semaforo-card" id="semaforoGerencial">
-            <span class="semaforo-label">Semáforo ejecutivo</span>
-            <div class="semaforo-main">
-                <strong id="semaforoGerencialPct">0%</strong>
-                <span id="semaforoGerencialEstado">Sin datos</span>
-            </div>
-            <p id="semaforoGerencialDetalle">Esperando información del rango seleccionado.</p>
-        </div>
-
-        <div class="action-board">
-            <div class="action-title">
-                <i class="fas fa-list-check"></i>
-                Siguientes acciones gerenciales
-            </div>
-            <ul>
-                <li id="accionGerencial1">Cargando recomendación principal...</li>
-                <li id="accionGerencial2">Cargando foco comercial...</li>
-                <li id="accionGerencial3">Cargando lectura operativa...</li>
-                <li id="accionGerencial4">Cargando seguimiento sugerido...</li>
-            </ul>
-        </div>
-    </section>
-
-    <section class="executive-insights" id="insightsEjecutivos">
-        <div class="insight-card"><span>Mayor categoría</span><strong id="insightCategoria">-</strong><small id="insightCategoriaDetalle">-</small></div>
-        <div class="insight-card"><span>Mejor gestor</span><strong id="insightGestor">-</strong><small id="insightGestorDetalle">-</small></div>
-        <div class="insight-card"><span>Clínica líder</span><strong id="insightClinica">-</strong><small id="insightClinicaDetalle">-</small></div>
-        <div class="insight-card"><span>Destino principal</span><strong id="insightDestino">-</strong><small id="insightDestinoDetalle">-</small></div>
-    </section>
-
-    <section class="month-compare-board">
-        <div class="compare-title">
-            <i class="fas fa-chart-simple"></i>
-            Comparativo comercial mensual
-        </div>
-        <div class="compare-grid">
-            <div class="compare-card"><span>Mes actual</span><strong id="compMesActual">$0</strong><small id="compMesActualTexto">-</small></div>
-            <div class="compare-card"><span>Mes anterior</span><strong id="compMesAnterior">$0</strong><small id="compMesAnteriorTexto">-</small></div>
-            <div class="compare-card"><span>Variación</span><strong id="compVariacion">0%</strong><small id="compVariacionTexto">Sin comparación</small></div>
-            <div class="compare-card"><span>Alerta comercial</span><strong id="compAlerta">Sin datos</strong><small id="compAlertaTexto">Esperando información</small></div>
-        </div>
-    </section>
-
-    <section class="kpis kpis-principales">
-        <div class="card kpi-compact">
-            <div class="card-headline">
-                <span class="card-icon green"><i class="fas fa-flag-checkered"></i></span>
-                <h3>Meta del Rango</h3>
-            </div>
-            <div class="card-value-row">
-                <h2 id="metaGrupal">$0</h2>
-                <span class="kpi-pill neutral">100%</span>
-            </div>
+    <section class="kpis">
+        <div class="card">
+            <span class="card-icon green"><i class="fas fa-flag-checkered"></i></span>
+            <h3>Meta del Rango</h3>
+            <h2 id="metaGrupal">$0</h2>
             <p class="mini-text" id="metaRangoDetalle">-</p>
         </div>
 
-        <div class="card kpi-compact">
-            <div class="card-headline">
-                <span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span>
-                <h3>Ventas Acumuladas</h3>
-            </div>
-            <div class="card-value-row">
-                <h2 id="ventas">$0</h2>
-                <span class="kpi-pill" id="ventasCumplimientoPill">0%</span>
-            </div>
+        <div class="card">
+            <span class="card-icon blue"><i class="fas fa-sack-dollar"></i></span>
+            <h3>Ventas Acumuladas</h3>
+            <h2 id="ventas">$0</h2>
             <p class="mini-text">Particular + Red + Excedentes</p>
         </div>
 
-        <div class="card kpi-compact">
-            <div class="card-headline">
-                <span class="card-icon violet"><i class="fas fa-percent"></i></span>
-                <h3>Cumplimiento</h3>
-            </div>
-            <div class="card-value-row">
-                <h2 id="cumplimiento">0%</h2>
-                <span class="kpi-pill" id="estadoCumplimientoPill">Bajo</span>
-            </div>
+        <div class="card">
+            <span class="card-icon violet"><i class="fas fa-percent"></i></span>
+            <h3>Cumplimiento</h3>
+            <h2 id="cumplimiento">0%</h2>
             <p class="mini-text" id="estadoCumplimientoTexto">Sin datos</p>
         </div>
 
-        <div class="card kpi-compact">
-            <div class="card-headline">
-                <span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span>
-                <h3>Faltante</h3>
-            </div>
-            <div class="card-value-row">
-                <h2 id="faltante">$0</h2>
-                <span class="kpi-pill danger" id="faltantePctPill">0%</span>
-            </div>
-            <p class="mini-text">Valor pendiente para cumplir</p>
+        <div class="card">
+            <span class="card-icon red"><i class="fas fa-arrow-trend-down"></i></span>
+            <h3>Faltante</h3>
+            <h2 id="faltante">$0</h2>
+            <p class="mini-text">Para cumplir meta</p>
+        </div>
+
+        <div class="card">
+            <span class="card-icon amber"><i class="fas fa-chart-simple"></i></span>
+            <h3>Proyección</h3>
+            <h2 id="proyeccion">$0</h2>
+            <p class="mini-text">Ritmo actual</p>
         </div>
     </section>
 
     <section class="kpis-secundarios categoria-kpis">
-        <div class="card card-categoria particular kpi-compact">
+        <div class="card card-categoria particular">
             <h3>🧾 Particular</h3>
-            <div class="card-value-row">
-                <h2 id="kpiParticularValor">$0</h2>
-                <span class="kpi-pill" id="kpiParticularCumplimiento">0%</span>
-            </div>
-            <p class="mini-text" id="kpiParticularCantidad">0 homenajes | Meta $0</p>
+            <h2 id="kpiParticularValor">$0</h2>
+            <p class="mini-text" id="kpiParticularCantidad">0 homenajes atendidos | 0%</p>
         </div>
 
-        <div class="card card-categoria red kpi-compact">
+        <div class="card card-categoria red">
             <h3>🌐 Red</h3>
-            <div class="card-value-row">
-                <h2 id="kpiRedValor">$0</h2>
-                <span class="kpi-pill" id="kpiRedCumplimiento">0%</span>
-            </div>
-            <p class="mini-text" id="kpiRedCantidad">0 homenajes | Meta $0</p>
+            <h2 id="kpiRedValor">$0</h2>
+            <p class="mini-text" id="kpiRedCantidad">0 homenajes atendidos | 0%</p>
         </div>
 
-        <div class="card card-categoria excedentes kpi-compact">
+        <div class="card card-categoria excedentes">
             <h3>➕ Excedentes</h3>
-            <div class="card-value-row">
-                <h2 id="kpiExcedentesValor">$0</h2>
-                <span class="kpi-pill" id="kpiExcedentesCumplimiento">0%</span>
-            </div>
-            <p class="mini-text" id="kpiExcedentesCantidad">0 unidades | Meta $0</p>
+            <h2 id="kpiExcedentesValor">$0</h2>
+            <p class="mini-text" id="kpiExcedentesCantidad">0 unidades | 0%</p>
         </div>
 
-        <div class="card card-categoria plan kpi-compact">
+        <div class="card card-categoria plan">
             <h3>📋 Plan</h3>
             <h2 id="kpiPlanCantidad">0</h2>
             <p class="mini-text">Cantidad atendida | No suma ventas</p>
         </div>
     </section>
 
-    <section class="kpis-secundarios kpis-operativos">
-        <div class="card kpi-mini"><h3>📅 Meta Mensual</h3><h2 id="metaMensual">$0</h2></div>
-        <div class="card kpi-mini"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
-        <div class="card kpi-mini"><h3>⏱ Meses Equiv.</h3><h2 id="mesesEquivalentes">0</h2></div>
-        <div class="card kpi-mini"><h3>📈 Promedio Diario</h3><h2 id="promedioDiarioReal">$0</h2></div>
-        <div class="card kpi-mini"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
-        <div class="card kpi-mini"><h3>📊 Registros</h3><h2 id="totalRegistros">0</h2></div>
+    <section class="kpis-secundarios">
+        <div class="card"><h3>📅 Meta Mensual</h3><h2 id="metaMensual">$0</h2></div>
+        <div class="card"><h3>🎯 Meta Anual</h3><h2 id="metaAnual">$0</h2></div>
+        <div class="card"><h3>⏱ Meses Equiv.</h3><h2 id="mesesEquivalentes">0</h2></div>
+        <div class="card"><h3>📈 Promedio Diario</h3><h2 id="promedioDiarioReal">$0</h2></div>
+        <div class="card"><h3>🏆 Mejor Gestor</h3><h2 id="mejorGestor">-</h2></div>
+        <div class="card"><h3>📊 Registros</h3><h2 id="totalRegistros">0</h2></div>
+        <div class="card"><h3>🔐 Calidad Datos</h3><h2 id="kpiCalidadDatos">0%</h2></div>
     </section>
 
     <section class="graficos">
@@ -556,22 +468,8 @@
     </div>
 </section>
 
-<section id="vistaCumplimiento" class="vista">
+<section id="cumplimiento" class="vista">
     <h1 class="vista-titulo">Cumplimiento</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Lectura de cumplimiento</h2>
-        <p id="textoCumplimientoVista">Cargando cumplimiento desde Google Sheet...</p>
-    </section>
-
-    <section class="kpis-secundarios kpis-cumplimiento-vista">
-        <div class="card kpi-mini"><h3>🎯 Meta del periodo</h3><h2 id="cumplimientoMetaVista">$0</h2></div>
-        <div class="card kpi-mini"><h3>💰 Venta real</h3><h2 id="cumplimientoVentaVista">$0</h2></div>
-        <div class="card kpi-mini"><h3>📈 Cumplimiento</h3><h2 id="cumplimientoPctVista">0%</h2></div>
-        <div class="card kpi-mini"><h3>⚠️ Faltante</h3><h2 id="cumplimientoFaltanteVista">$0</h2></div>
-        <div class="card kpi-mini"><h3>🏆 Mejor mes</h3><h2 id="cumplimientoMejorMesVista">-</h2></div>
-        <div class="card kpi-mini"><h3>📅 Meses con venta</h3><h2 id="cumplimientoMesesVentaVista">0</h2></div>
-    </section>
 
     <div class="grafico-card grafico-full">
         <h3>Cumplimiento mensual</h3>
@@ -593,104 +491,6 @@
             </thead>
             <tbody></tbody>
         </table>
-    </div>
-</section>
-
-<section id="analisisHomenaje" class="vista">
-    <h1 class="vista-titulo">Tipo de Homenaje y Excedente</h1>
-    <section class="resumen-ejecutivo"><h2>Ventas y participación</h2><p id="textoAnalisisHomenaje">Cargando análisis...</p></section>
-    <section class="kpis-secundarios kpis-analisis">
-        <div class="card kpi-mini"><h3>💰 Venta total</h3><h2 id="kpiHomenajeVenta">$0</h2></div>
-        <div class="card kpi-mini"><h3>📋 Registros</h3><h2 id="kpiHomenajeRegistros">0</h2></div>
-        <div class="card kpi-mini"><h3>🏆 Mayor rubro</h3><h2 id="kpiHomenajeMayor">-</h2></div>
-        <div class="card kpi-mini"><h3>📈 Promedio diario</h3><h2 id="kpiHomenajePromedio">$0</h2></div>
-    </section>
-    <div class="grafico-card grafico-full"><h3>Ventas por tipo de homenaje y excedente</h3><canvas id="graficoHomenajeExcedente"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle tipo homenaje / excedente</h2>
-        <table id="tablaHomenajeExcedente"><thead><tr><th>Tipo homenaje</th><th>Tipo excedente</th><th>Cantidad</th><th>Venta</th><th>% venta</th><th>Prom. diario</th></tr></thead><tbody></tbody></table>
-    </div>
-</section>
-
-<section id="analisisClinicas" class="vista">
-    <h1 class="vista-titulo">Clínicas que más reportan fallecidos</h1>
-    <section class="resumen-ejecutivo"><h2>Reporte por clínica</h2><p id="textoAnalisisClinicas">Cargando análisis...</p></section>
-    <section class="kpis-secundarios kpis-analisis">
-        <div class="card kpi-mini"><h3>🏥 Clínicas</h3><h2 id="kpiClinicasTotal">0</h2></div>
-        <div class="card kpi-mini"><h3>📋 Reportes</h3><h2 id="kpiClinicasReportes">0</h2></div>
-        <div class="card kpi-mini"><h3>🏆 Mayor reporte</h3><h2 id="kpiClinicasMayor">-</h2></div>
-        <div class="card kpi-mini"><h3>📈 Promedio diario</h3><h2 id="kpiClinicasPromedio">0</h2></div>
-    </section>
-    <div class="grafico-card grafico-full"><h3>Ranking de clínicas por reportes</h3><canvas id="graficoClinicasReporte"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle por clínica</h2>
-        <table id="tablaClinicasReporte"><thead><tr><th>Clínica</th><th>Reportes</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
-    </div>
-</section>
-
-<section id="analisisMunicipios" class="vista">
-    <h1 class="vista-titulo">Municipio de atención</h1>
-    <section class="resumen-ejecutivo"><h2>Seres queridos fallecidos por municipio</h2><p id="textoAnalisisMunicipios">Cargando análisis...</p></section>
-    <section class="kpis-secundarios kpis-analisis">
-        <div class="card kpi-mini"><h3>🗺 Municipios</h3><h2 id="kpiMunicipiosTotal">0</h2></div>
-        <div class="card kpi-mini"><h3>📋 Atenciones</h3><h2 id="kpiMunicipiosReportes">0</h2></div>
-        <div class="card kpi-mini"><h3>🏆 Mayor municipio</h3><h2 id="kpiMunicipiosMayor">-</h2></div>
-        <div class="card kpi-mini"><h3>📈 Prom. diario</h3><h2 id="kpiMunicipiosPromedio">0</h2></div>
-    </section>
-    <div class="grafico-card grafico-full"><h3>Atenciones por municipio</h3><canvas id="graficoMunicipios"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle por municipio</h2>
-        <table id="tablaMunicipios"><thead><tr><th>Municipio</th><th>Atenciones</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
-    </div>
-</section>
-
-<section id="analisisMuerte" class="vista">
-    <h1 class="vista-titulo">Tipo de muerte</h1>
-    <section class="resumen-ejecutivo"><h2>Natural vs no natural</h2><p id="textoAnalisisMuerte">Cargando análisis...</p></section>
-    <section class="kpis-secundarios kpis-analisis">
-        <div class="card kpi-mini"><h3>🌿 Natural</h3><h2 id="kpiMuerteNatural">0%</h2></div>
-        <div class="card kpi-mini"><h3>⚠️ No natural</h3><h2 id="kpiMuerteNoNatural">0%</h2></div>
-        <div class="card kpi-mini"><h3>📋 Total</h3><h2 id="kpiMuerteTotal">0</h2></div>
-        <div class="card kpi-mini"><h3>📈 Prom. diario</h3><h2 id="kpiMuertePromedio">0</h2></div>
-    </section>
-    <section class="graficos">
-        <div class="grafico-card grafico-full"><h3>Representación por tipo de muerte</h3><canvas id="graficoTipoMuerte"></canvas></div>
-    </section>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle por tipo de muerte</h2>
-        <table id="tablaTipoMuerte"><thead><tr><th>Tipo muerte</th><th>Fallecimientos</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
-    </div>
-</section>
-
-<section id="analisisCementerios" class="vista">
-    <h1 class="vista-titulo">Cementerios</h1>
-    <section class="resumen-ejecutivo"><h2>Destino cementerio</h2><p id="textoAnalisisCementerios">Cargando análisis...</p></section>
-    <section class="kpis-secundarios kpis-analisis">
-        <div class="card kpi-mini"><h3>⛪ Cementerios</h3><h2 id="kpiCementeriosTotal">0</h2></div>
-        <div class="card kpi-mini"><h3>📋 Servicios</h3><h2 id="kpiCementeriosServicios">0</h2></div>
-        <div class="card kpi-mini"><h3>🏆 Mayor cementerio</h3><h2 id="kpiCementeriosMayor">-</h2></div>
-        <div class="card kpi-mini"><h3>📆 Prom. mensual</h3><h2 id="kpiCementeriosMensual">0</h2></div>
-    </section>
-    <div class="grafico-card grafico-full"><h3>Servicios por cementerio</h3><canvas id="graficoCementerios"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle cementerios</h2>
-        <table id="tablaCementerios"><thead><tr><th>Cementerio</th><th>Servicios</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
-    </div>
-</section>
-
-<section id="analisisDestino" class="vista">
-    <h1 class="vista-titulo">Tipo de destino final</h1>
-    <section class="resumen-ejecutivo"><h2>Promedio por destino final</h2><p id="textoAnalisisDestino">Cargando análisis...</p></section>
-    <section class="kpis-secundarios kpis-analisis">
-        <div class="card kpi-mini"><h3>🧭 Tipos destino</h3><h2 id="kpiDestinoTotal">0</h2></div>
-        <div class="card kpi-mini"><h3>📋 Servicios</h3><h2 id="kpiDestinoServicios">0</h2></div>
-        <div class="card kpi-mini"><h3>🏆 Mayor destino</h3><h2 id="kpiDestinoMayor">-</h2></div>
-        <div class="card kpi-mini"><h3>📆 Prom. mensual</h3><h2 id="kpiDestinoMensual">0</h2></div>
-    </section>
-    <div class="grafico-card grafico-full"><h3>Servicios por tipo de destino final</h3><canvas id="graficoDestinoFinal"></canvas></div>
-    <div class="tabla-cumplimiento">
-        <h2>Detalle destino final</h2>
-        <table id="tablaDestinoFinal"><thead><tr><th>Tipo destino final</th><th>Servicios</th><th>%</th><th>Prom. diario</th><th>Prom. mensual</th><th>Venta asociada</th></tr></thead><tbody></tbody></table>
     </div>
 </section>
 
@@ -826,75 +626,6 @@
                     <th>kWh</th>
                     <th>Costo</th>
                     <th>Costo/kWh</th>
-                    <th>Observación</th>
-                    <th>Acción</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</section>
-
-<section id="mantenimientos" class="vista">
-    <h1 class="vista-titulo">Mantenimientos Operativos</h1>
-
-    <section class="resumen-ejecutivo">
-        <h2>Control preventivo</h2>
-        <p id="textoMantenimientos">Seguimiento de cambio de aceite, SOAT, tecnomecánica, jardinería, pintura, filtros de cafetería y mantenimientos de autos.</p>
-    </section>
-
-    <section class="kpis-secundarios kpis-mantenimiento">
-        <div class="card kpi-mini"><h3>🚨 Vencidos</h3><h2 id="kpiMantVencidos">0</h2></div>
-        <div class="card kpi-mini"><h3>⚠️ Vencen 5 días</h3><h2 id="kpiMantCinco">0</h2></div>
-        <div class="card kpi-mini"><h3>📩 Vencen 10 días</h3><h2 id="kpiMantDiez">0</h2></div>
-        <div class="card kpi-mini"><h3>✅ Al día</h3><h2 id="kpiMantOk">0</h2></div>
-    </section>
-
-    <div id="alertasMantenimiento" class="alertas-box card-big">
-        <p>Sin alertas de mantenimiento por el momento.</p>
-    </div>
-
-    <div class="config-grid">
-        <div class="config-card">
-            <h2>Registrar mantenimiento</h2>
-            <p>Registra el activo y la fecha de vencimiento o próxima intervención. El tablero alertará a 10 y 5 días.</p>
-            <select id="mantTipo">
-                <option value="">Tipo de control</option>
-                <option value="CAMBIO ACEITE">CAMBIO DE ACEITE AUTOS</option>
-                <option value="SOAT">VENCIMIENTO SOAT</option>
-                <option value="TECNOMECANICA">VENCIMIENTO TECNOMECÁNICA</option>
-                <option value="SEGURO VEHICULAR">VENCIMIENTO SEGURO VEHICULAR</option>
-                <option value="JARDINERIA">MANTENIMIENTO JARDINERÍA</option>
-                <option value="PINTURA INFRAESTRUCTURA">MANTENIMIENTO PINTURA INFRAESTRUCTURA</option>
-                <option value="FILTROS CAFETERIA">MANTENIMIENTO FILTROS CAFETERÍA</option>
-                <option value="MANTENIMIENTO AUTOS">MANTENIMIENTO DE AUTOS</option>
-            </select>
-            <input type="text" id="mantActivo" placeholder="Vehículo, área o equipo">
-            <input type="date" id="mantFecha" title="Fecha de vencimiento o próxima intervención">
-            <input type="text" id="mantResponsable" placeholder="Responsable">
-            <input type="text" id="mantObservacion" placeholder="Observación">
-            <button id="btnAgregarMantenimiento" class="action-btn">Agregar control</button>
-        </div>
-
-        <div class="config-card">
-            <h2>Alertas internas del dashboard</h2>
-            <p>El sistema mostrará alertas visuales dentro del panel cuando un control esté vencido, a 5 días o a 10 días.</p>
-            <button class="action-btn" data-seccion="alertas">Ver alertas gerenciales</button>
-            <button id="btnLimpiarMantenimientos" class="danger-btn">Eliminar mantenimientos</button>
-        </div>
-    </div>
-
-    <div class="tabla-cumplimiento">
-        <h2>Control de mantenimientos</h2>
-        <table id="tablaMantenimientos">
-            <thead>
-                <tr>
-                    <th>Tipo</th>
-                    <th>Activo / área</th>
-                    <th>Fecha</th>
-                    <th>Días</th>
-                    <th>Responsable</th>
-                    <th>Estado</th>
                     <th>Observación</th>
                     <th>Acción</th>
                 </tr>
@@ -1067,7 +798,7 @@
 
     <section class="resumen-ejecutivo">
         <h2>Análisis de permanencia</h2>
-        <p id="textoTiempoAfiliado">Control para identificar cuántos días, meses o años permaneció afiliado un ser querido antes de fallecer.</p>
+        <p id="textoTiempoAfiliado">Control para identificar cuántos días, meses o años permaneció afiliado un ser querido antes de fallecer. También lee la hoja Google <strong>FALLECIDOS PLANES</strong>.</p>
     </section>
 
     <section class="kpis-secundarios">
@@ -1109,15 +840,17 @@
         <table id="tablaTiempoAfiliado">
             <thead>
                 <tr>
-                    <th>Ser querido</th>
-                    <th>Contrato / plan</th>
-                    <th>Sede</th>
-                    <th>Afiliación</th>
-                    <th>Fallecimiento</th>
-                    <th>Tiempo</th>
+                    <th>Ser querido / referencia</th>
+                    <th>Orden</th>
+                    <th>Contrato</th>
+                    <th>Plan</th>
+                    <th>Tipo afiliación</th>
+                    <th>Edad</th>
+                    <th>Fecha orden</th>
+                    <th>Tiempo afiliación</th>
                     <th>Días</th>
                     <th>Clasificación</th>
-                    <th>Acción</th>
+                    <th>Fuente / acción</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -1157,21 +890,13 @@
         <table id="tablaBaseDatos">
             <thead>
                 <tr>
-                    <th>FECHA</th>
-                    <th>ORDEN_SERVICIO_FUNERARIO</th>
-                    <th>GESTOR</th>
-                    <th>SEDE</th>
-                    <th>TIPO_SERVICIO_TIPOSRV</th>
-                    <th>TIPO_HOMENAJE</th>
-                    <th>TIPO_EXCEDENTE</th>
-                    <th>CLINICA</th>
-                    <th>MUNICIPIO</th>
-                    <th>TIPO_MUERTE</th>
-                    <th>CEMENTERIO</th>
-                    <th>TIPO_DESTINO_FINAL</th>
-                    <th>CANTIDAD</th>
-                    <th>VALOR SERVICIO</th>
-                    <th>VALOR EXCEDENTE</th>
+                    <th>Origen</th>
+                    <th>Fecha</th>
+                    <th>Gestor</th>
+                    <th>Categoría</th>
+                    <th>Servicio</th>
+                    <th>Sede</th>
+                    <th>Valor venta</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -1290,6 +1015,6 @@
 
 </main>
 
-<script src="./app.js?v=20260710"></script>
+<script src="./app.js?v=20260713"></script>
 </body>
 </html>
