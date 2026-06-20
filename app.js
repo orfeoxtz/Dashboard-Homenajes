@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260709");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260710");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -1024,6 +1024,64 @@ function calcularResumen(rows){
     };
 }
 
+function filasMesComparativo(fechaReferencia, offsetMes=0){
+    const referencia = new Date(fechaReferencia.getFullYear(), fechaReferencia.getMonth() + offsetMes, 1);
+    const inicio = inicioMes(referencia);
+    const fin = finMes(referencia);
+    const filtros = obtenerFiltros();
+
+    const rows = DATASET_NORMAL.filter(row => {
+        if(!row.fecha) return false;
+        if(row.fecha < inicio || row.fecha > fin) return false;
+        return coincideFiltrosNoFecha(row, filtros);
+    });
+
+    return {rows, inicio, fin};
+}
+
+function renderComparativoMensual(metaInfo){
+    const fechaReferencia = metaInfo?.fin && !isNaN(metaInfo.fin.getTime()) ? metaInfo.fin : new Date();
+    const actual = filasMesComparativo(fechaReferencia, 0);
+    const anterior = filasMesComparativo(fechaReferencia, -1);
+    const resumenActual = calcularResumen(actual.rows);
+    const resumenAnterior = calcularResumen(anterior.rows);
+    const ventaActual = resumenActual.total;
+    const ventaAnterior = resumenAnterior.total;
+    const variacion = ventaAnterior > 0 ? ((ventaActual - ventaAnterior) / ventaAnterior) * 100 : (ventaActual > 0 ? 100 : 0);
+    const diferencia = ventaActual - ventaAnterior;
+
+    const estado = variacion >= 10
+        ? "Crecimiento"
+        : variacion >= 0
+            ? "Estable"
+            : variacion <= -15
+                ? "Caída crítica"
+                : "Caída moderada";
+
+    const alerta = variacion >= 10
+        ? "Tendencia positiva"
+        : variacion >= 0
+            ? "Mantener ritmo"
+            : variacion <= -15
+                ? "Reacción inmediata"
+                : "Revisar gestión";
+
+    setHtml("compMesActual", formatMoney(ventaActual));
+    setHtml("compMesActualTexto", `${nombreMes(actual.inicio.getMonth() + 1)} ${actual.inicio.getFullYear()} · ${formatNumber(contarOrdenesUnicas(actual.rows))} servicios`);
+    setHtml("compMesAnterior", formatMoney(ventaAnterior));
+    setHtml("compMesAnteriorTexto", `${nombreMes(anterior.inicio.getMonth() + 1)} ${anterior.inicio.getFullYear()} · ${formatNumber(contarOrdenesUnicas(anterior.rows))} servicios`);
+    setHtml("compVariacion", `${variacion >= 0 ? "+" : ""}${variacion.toFixed(1)}%`);
+    setHtml("compVariacionTexto", `${diferencia >= 0 ? "Aumento" : "Disminución"} de ${formatMoney(Math.abs(diferencia))}`);
+    setHtml("compAlerta", alerta);
+    setHtml("compAlertaTexto", estado);
+
+    const board = document.querySelector(".month-compare-board");
+    if(board){
+        board.classList.remove("ok","warning","danger");
+        board.classList.add(variacion >= 0 ? "ok" : variacion <= -15 ? "danger" : "warning");
+    }
+}
+
 function agruparCategorias(rows){
     const obj = {
         PARTICULAR:{categoria:"PARTICULAR", cantidad:0, valor:0, generaVenta:true},
@@ -1396,6 +1454,8 @@ function crearResumenEjecutivo(resumen, metaInfo){
     setHtml("insightClinicaDetalle", clinicaMayor ? `${formatNumber(clinicaMayor.cantidad)} reportes · ${formatMoney(clinicaMayor.valor)}` : "Sin datos");
     setHtml("insightDestino", destinoMayor ? destinoMayor.nombre : "-");
     setHtml("insightDestinoDetalle", destinoMayor ? `${formatNumber(destinoMayor.cantidad)} servicios · ${formatMoney(destinoMayor.valor)}` : "Sin datos");
+
+    renderComparativoMensual(metaInfo);
 }
 
 function destruirChart(id){
@@ -4147,6 +4207,24 @@ function alternarSidebar(){
     setTimeout(redimensionarGraficos, 200);
 }
 
+function aplicarModoPresentacion(activo){
+    document.body.classList.toggle("presentation-mode", activo);
+    localStorage.setItem("dashboardPresentacion", activo ? "1" : "0");
+
+    const btn = $("btnPresentacion");
+    if(btn){
+        btn.classList.toggle("active", activo);
+        btn.title = activo ? "Salir de modo presentación" : "Modo presentación gerencial";
+        btn.innerHTML = activo ? `<i class="fas fa-table-columns"></i>` : `<i class="fas fa-display"></i>`;
+    }
+
+    setTimeout(redimensionarGraficos, 240);
+}
+
+function alternarModoPresentacion(){
+    aplicarModoPresentacion(!document.body.classList.contains("presentation-mode"));
+}
+
 function ambienteDashboardActual(){
     const guardado = localStorage.getItem("dashboardAmbiente") || "normal";
     return AMBIENTES_DASHBOARD.includes(guardado) ? guardado : "normal";
@@ -4360,6 +4438,7 @@ function actualizarConfiguracion(){
 function aplicarPreferencias(){
     aplicarAmbienteDashboard(ambienteDashboardActual());
     if(localStorage.getItem("dashboardSidebar") === "collapsed") document.body.classList.add("sidebar-collapsed");
+    aplicarModoPresentacion(localStorage.getItem("dashboardPresentacion") === "1");
 }
 
 function obtenerItemsDeGrupoSidebar(titulo){
@@ -4429,6 +4508,7 @@ $("btnTema")?.addEventListener("click", alternarTema);
 $("btnAmbiente")?.addEventListener("click", alternarTema);
 $("btnSidebar")?.addEventListener("click", alternarSidebar);
 $("btnFull")?.addEventListener("click", pantallaCompleta);
+$("btnPresentacion")?.addEventListener("click", alternarModoPresentacion);
 $("btnLogout")?.addEventListener("click", cerrarSesion);
 
 $("reporteExcelResumen")?.addEventListener("click", exportarExcel);
