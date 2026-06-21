@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260725");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260726");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -4891,7 +4891,7 @@ function exportarExcelBlindado(){
         ${tablaHtmlExcel("Datos Filtrados", rows.map(row=>({Fecha:formatFechaProfesional(row.fecha,row.fechaTexto||""), Orden:row.ordenServicio, Gestor:row.gestor, Sede:row.sede, Categoria:row.categoriaGerencial, Servicio:row.servicio, Clinica:row.clinica, Municipio:row.municipio, Tipo_Muerte:row.tipoMuerte, Cementerio:row.cementerio, Destino_Final:row.destinoFinal, Cantidad:row.cantidadAtendida, Valor_Venta:Math.round(row.valorVenta)})))}
         ${tablaHtmlExcel("Vacaciones", operativo.vacaciones.map(item=>({Colaborador:item.nombre||"", Cargo:item.cargo||"", Inicio:item.inicio||"", Fin:item.fin||"", Dias:item.dias||0, Estado:estadoVacacion(item)})))}
         ${tablaHtmlExcel("Agenda", operativo.agenda.map(item=>({Fecha:item.fecha||"", Hora:horaActividad(item), Actividad:item.titulo||"", Responsable:item.responsable||"", Estado:item.estado||"", Detalle:item.detalle||""})))}
-        ${tablaHtmlExcel("Tiempo Afiliado", operativo.tiempoAfiliado.enriquecidos.map(item=>({Referencia:item.fallecido||"", Orden:item.ordenServicio||"", Contrato:item.contrato||item.numeroContrato||"", Plan:item.plan||"", Tipo_Afiliacion:item.tipoAfiliacion||"", Edad:item.edad||"", Tiempo:item.tiempo?.texto||"", Dias:item.tiempo?.dias||0, Fuente:item.origen||"LOCAL"})))}
+        ${tablaHtmlExcel("Tiempo Afiliado", operativo.tiempoAfiliado.enriquecidos.map(item=>({Orden:item.ordenServicio||"", Numero_Contrato:item.contrato||item.numeroContrato||"", Plan:item.plan||"", Tipo_Afiliacion:item.tipoAfiliacion||"", Edad:item.edad||"", Fecha_Orden:item.fechaOrden||"", Tiempo_Transcurrido:item.tiempo?.texto||"", Clasificacion:item.tiempo?.clasificacion||"", Fuente:item.origen||"LOCAL"})))}
         </body></html>`;
         const blob = new Blob(["\ufeff" + html], {type:"application/vnd.ms-excel;charset=utf-8"});
         descargarBlobBlindado(`dashboard_gerencial_homenajes_${fechaArchivoReporte()}.xls`, blob);
@@ -5050,7 +5050,7 @@ function crearExcelXmlMultiHoja(datos){
     hojas.push(hojaXmlExcel("Energia", operativo.energia.map(item=>({Año:item.anio, Mes:nombreMes(item.mes), kWh:toNumber(item.kwh), Costo:toNumber(item.costo), Observacion:item.observacion||""}))));
     hojas.push(hojaXmlExcel("Vacaciones", operativo.vacaciones.map(item=>({Colaborador:item.nombre||"", Cargo:item.cargo||"", Inicio:item.inicio||"", Fin:item.fin||"", Dias:item.dias||0, Estado:estadoVacacion(item)}))));
     hojas.push(hojaXmlExcel("Agenda", operativo.agenda.map(item=>({Fecha:item.fecha||"", Hora:horaActividad(item), Actividad:item.titulo||"", Responsable:item.responsable||"", Estado:item.estado||"", Detalle:item.detalle||""}))));
-    hojas.push(hojaXmlExcel("Tiempo Afiliado", operativo.tiempoAfiliado.enriquecidos.map(item=>({Referencia:item.fallecido||"", Orden:item.ordenServicio||"", Contrato:item.contrato||item.numeroContrato||"", Plan:item.plan||"", Tipo_Afiliacion:item.tipoAfiliacion||"", Edad:item.edad||"", Tiempo:item.tiempo?.texto||"", Dias:item.tiempo?.dias||0, Fuente:item.origen||"LOCAL"}))));
+    hojas.push(hojaXmlExcel("Tiempo Afiliado", operativo.tiempoAfiliado.enriquecidos.map(item=>({Orden:item.ordenServicio||"", Numero_Contrato:item.contrato||item.numeroContrato||"", Plan:item.plan||"", Tipo_Afiliacion:item.tipoAfiliacion||"", Edad:item.edad||"", Fecha_Orden:item.fechaOrden||"", Tiempo_Transcurrido:item.tiempo?.texto||"", Clasificacion:item.tiempo?.clasificacion||"", Fuente:item.origen||"LOCAL"}))));
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <?mso-application progid="Excel.Sheet"?>
@@ -5443,7 +5443,7 @@ function filasExcel20260718(datos){
         "Energia":(operativo.energia||[]).map(item=>({Año:item.anio,Mes:nombreMes(item.mes),kWh:toNumber(item.kwh),Costo:toNumber(item.costo),Observacion:item.observacion||""})),
         "Vacaciones":(operativo.vacaciones||[]).map(item=>({Colaborador:item.nombre||"",Cargo:item.cargo||"",Inicio:item.inicio||"",Fin:item.fin||"",Dias:item.dias||0,Estado:estadoVacacion(item)})),
         "Agenda":(operativo.agenda||[]).map(item=>({Fecha:item.fecha||"",Hora:horaActividad(item),Actividad:item.titulo||"",Responsable:item.responsable||"",Estado:item.estado||"",Detalle:item.detalle||""})),
-        "Tiempo Afiliado":(operativo.tiempoAfiliado?.enriquecidos||[]).map(item=>({Referencia:item.fallecido||"",Orden:item.ordenServicio||"",Contrato:item.contrato||item.numeroContrato||"",Plan:item.plan||"",Tipo_Afiliacion:item.tipoAfiliacion||"",Edad:item.edad||"",Tiempo:item.tiempo?.texto||"",Dias:item.tiempo?.dias||0,Fuente:item.origen||"LOCAL"}))
+        "Tiempo Afiliado":(operativo.tiempoAfiliado?.enriquecidos||[]).map(item=>({Orden:item.ordenServicio||"",Numero_Contrato:item.contrato||item.numeroContrato||"",Plan:item.plan||"",Tipo_Afiliacion:item.tipoAfiliacion||"",Edad:item.edad||"",Fecha_Orden:item.fechaOrden||"",Tiempo_Transcurrido:item.tiempo?.texto||"",Clasificacion:item.tiempo?.clasificacion||"",Fuente:item.origen||"LOCAL"}))
     };
 }
 
@@ -7176,4 +7176,102 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     }, 900);
 
     console.log("AJUSTES FINALES DE TABLAS Y CUMPLIMIENTO ACTIVOS - VERSION " + VERSION_AJUSTES_FINALES);
+})();
+
+
+/* =========================================================
+   CORRECCIÓN DEFINITIVA TABLA TIEMPO AFILIADO 20260726
+   Elimina columna de referencia y columna días, alinea datos reales.
+   ========================================================= */
+(function(){
+    const VERSION_TABLA_TIEMPO_AFILIADO = "20260726";
+
+    function limpiarOrdenServicio(valor){
+        const texto = String(valor || "").trim();
+        return texto.replace(/^ORDEN\s+/i, "").trim() || "-";
+    }
+
+    function fuenteAccionTiempoAfiliado(item){
+        if(item.origen === "FALLECIDOS PLANES") return '<span class="badge badge-info">Google Sheet</span>';
+        return `<button class="danger-btn" onclick="eliminarTiempoAfiliado('${escapeHtml(item.id || "")}')">Eliminar</button>`;
+    }
+
+    function encabezadoTiempoAfiliado(){
+        return `
+            <tr>
+                <th>Orden servicio funerario</th>
+                <th>Número contrato</th>
+                <th>Plan</th>
+                <th>Tipo afiliación</th>
+                <th>Edad</th>
+                <th>Fecha orden</th>
+                <th>Tiempo transcurrido entre la afiliación y fallecimiento</th>
+                <th>Clasificación</th>
+                <th>Fuente / acción</th>
+            </tr>
+        `;
+    }
+
+    window.renderTiempoAfiliado = function(){
+        const resumen = resumenTiempoAfiliado();
+
+        setHtml("kpiAfiliadoCasos", resumen.enriquecidos.length);
+        setHtml("kpiAfiliadoPromedio", resumen.validos.length ? `${formatNumber(resumen.promedioDias)} días` : "0 días");
+        setHtml("kpiAfiliadoMenor", resumen.menor ? resumen.menor.tiempo.texto : "-");
+        setHtml("kpiAfiliadoMayor", resumen.mayor ? resumen.mayor.tiempo.texto : "-");
+
+        const origenSheet = resumen.enriquecidos.filter(item => item.origen === "FALLECIDOS PLANES").length;
+        setHtml("textoTiempoAfiliado", `
+            Se registran <strong>${resumen.enriquecidos.length}</strong> casos, de los cuales <strong>${origenSheet}</strong> provienen de la hoja <strong>FALLECIDOS PLANES</strong>.
+            El promedio de permanencia vivo estando afiliado es de <strong>${formatNumber(resumen.promedioDias)} días</strong>.
+            ${resumen.mayor ? `El mayor tiempo registrado corresponde a la orden <strong>${escapeHtml(limpiarOrdenServicio(resumen.mayor.ordenServicio))}</strong> con <strong>${escapeHtml(resumen.mayor.tiempo.texto)}</strong>.` : ""}
+        `);
+
+        const labels = Object.keys(resumen.rangos);
+        const data = labels.map(label => resumen.rangos[label]);
+        crearChartBar(
+            "graficoTiempoAfiliado",
+            labels,
+            data,
+            "Casos",
+            "Casos por rango de permanencia",
+            true,
+            "number",
+            {total:data.reduce((acc,v)=>acc+toNumber(v),0), legendLabel:"Casos | % participación"}
+        );
+
+        const tabla = document.querySelector("#tablaTiempoAfiliado");
+        const thead = tabla?.querySelector("thead");
+        const tbody = tabla?.querySelector("tbody");
+        if(!tabla || !thead || !tbody) return;
+
+        thead.innerHTML = encabezadoTiempoAfiliado();
+
+        const registros = resumen.enriquecidos.slice().sort((a,b) => b.tiempo.dias - a.tiempo.dias);
+        tbody.innerHTML = registros.length ? registros.map(item => `
+            <tr>
+                <td>${escapeHtml(limpiarOrdenServicio(item.ordenServicio))}</td>
+                <td>${escapeHtml(item.numeroContrato || item.contrato || "-")}</td>
+                <td>${escapeHtml(item.plan || item.sede || "-")}</td>
+                <td>${escapeHtml(item.tipoAfiliacion || "-")}</td>
+                <td>${escapeHtml(item.edad || "-")}</td>
+                <td>${escapeHtml(item.fechaOrden || item.fechaFallecimiento || item.fechaAfiliacion || "-")}</td>
+                <td>${escapeHtml(item.tiempo.texto)}</td>
+                <td>${badgeTiempoAfiliado(item.tiempo.clasificacion)}</td>
+                <td>${fuenteAccionTiempoAfiliado(item)}</td>
+            </tr>
+        `).join("") : `<tr><td colspan="9">Sin casos registrados</td></tr>`;
+
+        if(typeof window.prepararTablasOrdenables === "function") window.prepararTablasOrdenables();
+    };
+
+    try{ renderTiempoAfiliado = window.renderTiempoAfiliado; }catch(error){}
+
+    setTimeout(() => {
+        if(document.querySelector("#tiempoAfiliado.active-view") && typeof window.renderTiempoAfiliado === "function"){
+            window.renderTiempoAfiliado();
+        }
+    }, 700);
+
+    console.log("TABLA TIEMPO AFILIADO DEPURADA - VERSION " + VERSION_TABLA_TIEMPO_AFILIADO);
 })();
