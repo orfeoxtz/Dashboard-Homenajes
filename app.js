@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260726");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260727");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -7274,4 +7274,800 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     }, 700);
 
     console.log("TABLA TIEMPO AFILIADO DEPURADA - VERSION " + VERSION_TABLA_TIEMPO_AFILIADO);
+})();
+
+
+/* =========================================================
+   REPORTE GERENCIAL COMPLETO 20260727
+   PDF multi-pagina, Imagen completa vertical y Excel multihoja.
+   No depende de capturar el dashboard visible.
+   ========================================================= */
+(function(){
+    const VERSION_REPORTE_COMPLETO = "20260727";
+
+    function rpText(value){
+        return String(value ?? "")
+            .replace(/[\u0000-\u001F\u007F]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function rpMoney(value){
+        if(typeof formatMoney === "function") return formatMoney(value);
+        const n = Math.round(Number(value || 0));
+        return "$" + n.toLocaleString("es-CO");
+    }
+
+    function rpNumber(value, dec=0){
+        if(typeof formatNumber === "function") return formatNumber(value, dec);
+        return Number(value || 0).toLocaleString("es-CO", {minimumFractionDigits:dec, maximumFractionDigits:dec});
+    }
+
+    function rpPct(value){
+        const n = Number(value || 0);
+        return `${n.toFixed(1)}%`;
+    }
+
+    function rpFechaArchivo(){
+        const d = new Date();
+        const p = n => String(n).padStart(2,"0");
+        return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+    }
+
+    function rpDescargar(nombre, blob){
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nombre;
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            URL.revokeObjectURL(url);
+            a.remove();
+        }, 1200);
+    }
+
+    function rpPrimerNombreGestor(nombre){
+        if(typeof window.primerNombreGestor === "function") return window.primerNombreGestor(nombre);
+        if(typeof primerNombreGestor === "function") return primerNombreGestor(nombre);
+        const partes = String(nombre || "").trim().toUpperCase().split(/\s+/).filter(Boolean);
+        const frecuentes = ["FERNANDO","CARLOS","OSVALDO","ALEXIS","WENDY","SAMIR","MARIO","JESSICA","JULIA","OSCAR","EDER","OCTAVIO"];
+        return frecuentes.find(n => partes.includes(n)) || partes[0] || "-";
+    }
+
+    function rpEstadoMeta(pct){
+        const n = Number(pct || 0);
+        if(n >= 100) return "Cumplida";
+        if(n >= 80) return "En riesgo";
+        return "No cumple";
+    }
+
+    function rpMetaGestorFlexible(nombre){
+        try{
+            const exacta = typeof metaGestorMensual === "function" ? metaGestorMensual(nombre) : 0;
+            if(exacta > 0) return exacta;
+            const corto = rpPrimerNombreGestor(nombre);
+            const parametros = (typeof PARAMETROS !== "undefined" && PARAMETROS.gestor) ? PARAMETROS.gestor : {};
+            for(const key of Object.keys(parametros)){
+                if(rpPrimerNombreGestor(key) === corto) return Number(parametros[key] || 0);
+            }
+        }catch(error){}
+        return 0;
+    }
+
+    function rpBase(){
+        const rowsFiltradas = (typeof DATASET_FILTRADO !== "undefined" && Array.isArray(DATASET_FILTRADO)) ? DATASET_FILTRADO : [];
+        const rowsNormales = (typeof DATASET_NORMAL !== "undefined" && Array.isArray(DATASET_NORMAL)) ? DATASET_NORMAL : [];
+        const rows = rowsFiltradas.length ? rowsFiltradas : rowsNormales;
+        const resumen = (typeof calcularResumen === "function") ? calcularResumen(rows) : (typeof ULTIMO_RESUMEN !== "undefined" && ULTIMO_RESUMEN ? ULTIMO_RESUMEN : {particular:0, red:0, excedentes:0, planCantidad:0, total:0});
+        const meta = Number((typeof META_RANGO_ACTUAL !== "undefined" && META_RANGO_ACTUAL) ? META_RANGO_ACTUAL : 0);
+        const cumplimiento = meta > 0 ? (Number(resumen.total || 0) / meta) * 100 : 0;
+        const faltante = Math.max(meta - Number(resumen.total || 0), 0);
+        const factorMes = Number((typeof MESES_EQUIVALENTES_ACTUAL !== "undefined" && MESES_EQUIVALENTES_ACTUAL) ? MESES_EQUIVALENTES_ACTUAL : 1) || 1;
+        return {rows, resumen, meta, cumplimiento, faltante, factorMes};
+    }
+
+    function rpGroup(rows, campo, opciones={}){
+        const mapa = new Map();
+        (rows || []).forEach(row => {
+            let nombre = rpText(row?.[campo] || "SIN REGISTRO") || "SIN REGISTRO";
+            let llave = nombre;
+            let display = nombre;
+            if(opciones.gestor){
+                display = rpPrimerNombreGestor(nombre);
+                llave = display;
+            }
+            if(opciones.compuesto){
+                nombre = opciones.compuesto(row);
+                llave = nombre;
+                display = nombre;
+            }
+            const actual = mapa.get(llave) || {label:display, nombre:display, full:nombre, cantidad:0, valor:0, meta:0, type:opciones.type || "money"};
+            actual.cantidad += Number(row?.cantidadAtendida || 1);
+            actual.valor += Number(row?.valorVenta || 0);
+            mapa.set(llave, actual);
+        });
+        let lista = Array.from(mapa.values());
+        if(opciones.meta){
+            lista.forEach(item => item.meta = Number(opciones.meta(item) || 0));
+        }
+        const ordenarPor = opciones.sortBy || (opciones.type === "number" ? "cantidad" : "valor");
+        lista.sort((a,b) => Number(b[ordenarPor] || 0) - Number(a[ordenarPor] || 0));
+        return lista.slice(0, opciones.limite || 12);
+    }
+
+    function rpCategorias(base){
+        const rows = base.rows || [];
+        const total = Number(base.resumen.total || 0) || 1;
+        const factor = base.factorMes || 1;
+        const cats = [
+            {label:"PARTICULAR", valor:Number(base.resumen.particular || 0), cantidad:rows.filter(r => r.categoriaGerencial === "PARTICULAR").length, meta:((typeof metaCategoriaMensual === "function" ? metaCategoriaMensual("PARTICULAR") : 0) || 0) * factor, type:"money"},
+            {label:"RED", valor:Number(base.resumen.red || 0), cantidad:rows.filter(r => r.categoriaGerencial === "RED").length, meta:((typeof metaCategoriaMensual === "function" ? metaCategoriaMensual("RED") : 0) || 0) * factor, type:"money"},
+            {label:"EXCEDENTES", valor:Number(base.resumen.excedentes || 0), cantidad:rows.filter(r => r.categoriaGerencial === "EXCEDENTES").length, meta:((typeof metaCategoriaMensual === "function" ? metaCategoriaMensual("EXCEDENTES") : 0) || 0) * factor, type:"money"},
+            {label:"PLAN", valor:0, cantidad:Number(base.resumen.planCantidad || 0), meta:0, type:"number", note:"No suma ventas"}
+        ];
+        cats.forEach(c => c.participacion = c.valor > 0 ? (c.valor / total) * 100 : 0);
+        return cats;
+    }
+
+    function rpExcedentes(base){
+        const factor = base.factorMes || 1;
+        return rpGroup(base.rows.filter(r => r.categoriaGerencial === "EXCEDENTES"), "servicio", {
+            limite:14,
+            type:"money",
+            meta:item => ((typeof metaExcedenteMensual === "function" ? metaExcedenteMensual(item.full || item.label) : 0) || 0) * factor
+        });
+    }
+
+    function rpHomenajeExcedente(base){
+        return rpGroup(base.rows, "servicio", {
+            limite:14,
+            type:"money",
+            compuesto: row => `${rpText(row.categoriaGerencial || row.categoria || "SIN CATEGORIA")} - ${rpText(row.servicio || "SERVICIO FUNERARIO")}`
+        });
+    }
+
+    function rpGestores(base){
+        const factor = base.factorMes || 1;
+        return rpGroup(base.rows, "gestor", {
+            limite:14,
+            gestor:true,
+            type:"money",
+            meta:item => rpMetaGestorFlexible(item.full || item.label) * factor
+        });
+    }
+
+    function rpTiempoAfiliadoRows(){
+        try{
+            if(typeof resumenTiempoAfiliado !== "function") return [];
+            const resumen = resumenTiempoAfiliado();
+            return (resumen.enriquecidos || [])
+                .slice()
+                .sort((a,b) => Number(b.tiempo?.dias || 0) - Number(a.tiempo?.dias || 0))
+                .slice(0, 12)
+                .map(item => ({
+                    label: rpText(`${item.ordenServicio || item.orden || "-"} - ${item.plan || "SIN PLAN"}`),
+                    valor: Number(item.tiempo?.dias || 0),
+                    cantidad: Number(item.tiempo?.dias || 0),
+                    type:"days",
+                    extra: rpText(`${item.tiempo?.texto || "-"} | ${item.tiempo?.clasificacion || "-"} | Edad ${item.edad || "-"}`),
+                    meta:0
+                }));
+        }catch(error){
+            console.warn("No se pudo preparar tiempo afiliado para reporte", error);
+            return [];
+        }
+    }
+
+    function rpOperativo(){
+        try{
+            return (typeof obtenerResumenOperativoReporte === "function") ? obtenerResumenOperativoReporte() : null;
+        }catch(error){
+            return null;
+        }
+    }
+
+    function rpEnergiaRows(operativo){
+        const data = operativo?.energiaActual || [];
+        return data.slice(0,12).map(item => ({
+            label:`${item.mes || item.nombre || "Mes"} ${item.anio || operativo?.anio || ""}`,
+            valor:Number(item.kwh || 0),
+            cantidad:Number(item.kwh || 0),
+            type:"kwh",
+            extra:`Costo ${rpMoney(item.costo || 0)}`
+        }));
+    }
+
+    function rpVacacionesRows(operativo){
+        const data = operativo?.vacaciones || [];
+        return data.slice(0,12).map(item => ({
+            label:rpText(item.nombre || item.colaborador || "SIN NOMBRE"),
+            valor:Number(item.dias || 0),
+            cantidad:Number(item.dias || 0),
+            type:"number",
+            extra:rpText(`${item.inicio || "-"} a ${item.fin || "-"} | ${typeof estadoVacacion === "function" ? estadoVacacion(item) : (item.estado || "-")}`)
+        }));
+    }
+
+    function rpAgendaRows(operativo){
+        const data = operativo?.agenda || [];
+        return data.slice(0,12).map(item => ({
+            label:rpText(item.titulo || item.actividad || "Actividad"),
+            valor:1,
+            cantidad:1,
+            type:"number",
+            extra:rpText(`${item.fecha || "-"} ${item.hora || ""} | ${item.estado || "-"}`)
+        }));
+    }
+
+    function rpAlertas(base){
+        const alertas = [];
+        if(typeof API_STATUS !== "undefined" && API_STATUS && !API_STATUS.ok) alertas.push(`Revisar conexion o estructura API: ${API_STATUS.mensaje || "Sin validar"}.`);
+        if(!base.rows.length) alertas.push("No hay registros para el rango seleccionado.");
+        if(base.cumplimiento < 80) alertas.push(`Cumplimiento bajo: ${base.cumplimiento.toFixed(1)}%. Requiere plan de accion.`);
+        else if(base.cumplimiento < 100) alertas.push(`Cumplimiento en riesgo: ${base.cumplimiento.toFixed(1)}%.`);
+        else alertas.push(`Meta cumplida o superada: ${base.cumplimiento.toFixed(1)}%.`);
+        try{
+            if((PARAMETROS.categoria["PARTICULAR"] || 0) === 0) alertas.push("No se detecto META_CATEGORIA para PARTICULAR.");
+            if((PARAMETROS.categoria["RED"] || 0) === 0) alertas.push("No se detecto META_CATEGORIA para RED.");
+            if((PARAMETROS.categoria["EXCEDENTES"] || 0) === 0) alertas.push("No se detecto META_CATEGORIA para EXCEDENTES.");
+        }catch(error){}
+        return alertas;
+    }
+
+    function rpSecciones(){
+        const base = rpBase();
+        const operativo = rpOperativo();
+        const rows = base.rows || [];
+        const dim = (campo, type="number", limite=12, sortBy="cantidad") => rpGroup(rows, campo, {limite, type, sortBy});
+        return {
+            base,
+            operativo,
+            secciones:[
+                {titulo:"Ventas por categoria", rows:rpCategorias(base), tipoPrincipal:"money"},
+                {titulo:"Ranking de gestores", rows:rpGestores(base), tipoPrincipal:"money"},
+                {titulo:"Excedentes por valor vendido", rows:rpExcedentes(base), tipoPrincipal:"money"},
+                {titulo:"Tipo de homenaje / excedente", rows:rpHomenajeExcedente(base), tipoPrincipal:"money"},
+                {titulo:"Clinicas que mas reportan", rows:dim("clinica", "number", 12, "cantidad"), tipoPrincipal:"number", detalleValor:"valor"},
+                {titulo:"Municipios de atencion", rows:dim("municipio", "number", 12, "cantidad"), tipoPrincipal:"number", detalleValor:"valor"},
+                {titulo:"Tipo de muerte", rows:dim("tipoMuerte", "number", 8, "cantidad"), tipoPrincipal:"number", detalleValor:"valor"},
+                {titulo:"Cementerios", rows:dim("cementerio", "number", 12, "cantidad"), tipoPrincipal:"number", detalleValor:"valor"},
+                {titulo:"Destino final", rows:dim("destinoFinal", "number", 8, "cantidad"), tipoPrincipal:"number", detalleValor:"valor"},
+                {titulo:"Tiempo afiliado", rows:rpTiempoAfiliadoRows(), tipoPrincipal:"days"},
+                {titulo:"Consumo energia electrica", rows:rpEnergiaRows(operativo), tipoPrincipal:"kwh"},
+                {titulo:"Vacaciones del personal", rows:rpVacacionesRows(operativo), tipoPrincipal:"number"},
+                {titulo:"Agenda anual", rows:rpAgendaRows(operativo), tipoPrincipal:"number"}
+            ].filter(s => Array.isArray(s.rows) && s.rows.length)
+        };
+    }
+
+    function rpValue(row, tipo){
+        if(tipo === "number") return Number(row.cantidad ?? row.valor ?? 0);
+        if(tipo === "days") return Number(row.valor ?? row.cantidad ?? 0);
+        if(tipo === "kwh") return Number(row.valor ?? row.kwh ?? row.cantidad ?? 0);
+        return Number(row.valor ?? 0);
+    }
+
+    function rpValueText(value, tipo){
+        if(tipo === "number") return rpNumber(value);
+        if(tipo === "days") return `${rpNumber(value)} dias`;
+        if(tipo === "kwh") return `${rpNumber(value)} kWh`;
+        return rpMoney(value);
+    }
+
+    function rpLabelReporte(row, value, total, tipo, detalleValor){
+        const meta = Number(row.meta || 0);
+        if(meta > 0){
+            const pct = (Number(value || 0) / meta) * 100;
+            return `${rpValueText(value, tipo)} | ${rpPct(pct)} | ${rpEstadoMeta(pct)}`;
+        }
+        const pct = total > 0 ? (Number(value || 0) / total) * 100 : 0;
+        let texto = `${rpValueText(value, tipo)} | ${rpPct(pct)} partic.`;
+        if(detalleValor && row.valor){
+            texto += ` | Venta ${rpMoney(row.valor)}`;
+        }
+        if(row.extra) texto += ` | ${rpText(row.extra)}`;
+        if(row.note) texto += ` | ${rpText(row.note)}`;
+        return texto;
+    }
+
+    async function rpJsPDF(){
+        if(window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+        if(window.jsPDF) return window.jsPDF;
+        await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+            script.onload = resolve;
+            script.onerror = () => reject(new Error("No se pudo cargar jsPDF."));
+            document.head.appendChild(script);
+        });
+        if(window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+        if(window.jsPDF) return window.jsPDF;
+        throw new Error("jsPDF no esta disponible.");
+    }
+
+    async function exportarPDFCompleto20260727(){
+        console.log("CLICK PDF - REPORTE COMPLETO 20260727");
+        if(typeof showLoading === "function") showLoading(true);
+        try{
+            const jsPDF = await rpJsPDF();
+            const {base, secciones, operativo} = rpSecciones();
+            const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4", compress:true});
+            const pageW = doc.internal.pageSize.getWidth();
+            const pageH = doc.internal.pageSize.getHeight();
+            const margin = 11;
+            let y = 0;
+
+            function header(titulo="Reporte Gerencial de Homenajes"){
+                doc.setFillColor(0,79,42);
+                doc.rect(0,0,pageW,21,"F");
+                doc.setTextColor(255,255,255);
+                doc.setFont("helvetica","bold");
+                doc.setFontSize(14);
+                doc.text(rpText(titulo), margin, 12);
+                doc.setFontSize(7);
+                doc.setFont("helvetica","normal");
+                doc.text(rpText(new Date().toLocaleString("es-CO")), pageW - margin, 12, {align:"right"});
+                doc.setTextColor(15,23,42);
+                y = 30;
+            }
+
+            function footer(){
+                const total = doc.internal.getNumberOfPages();
+                for(let p=1; p<=total; p++){
+                    doc.setPage(p);
+                    doc.setFont("helvetica","normal");
+                    doc.setFontSize(7);
+                    doc.setTextColor(100,116,139);
+                    doc.text(`Pagina ${p} de ${total}`, pageW - margin, pageH - 6, {align:"right"});
+                    doc.text("General Report Jkfh - Dashboard Gerencial", margin, pageH - 6);
+                }
+            }
+
+            function nuevaPagina(titulo="Reporte Gerencial de Homenajes"){
+                doc.addPage();
+                header(titulo);
+            }
+
+            function asegurar(altura, titulo){
+                if(y + altura > pageH - 12) nuevaPagina(titulo || "Reporte Gerencial de Homenajes");
+            }
+
+            function card(x, title, value, detail){
+                doc.setDrawColor(211,225,218);
+                doc.setFillColor(248,250,252);
+                doc.roundedRect(x,y,63,24,3,3,"FD");
+                doc.setFont("helvetica","bold");
+                doc.setFontSize(7.2);
+                doc.setTextColor(100,116,139);
+                doc.text(rpText(title), x+4, y+6.5);
+                doc.setFontSize(12);
+                doc.setTextColor(15,23,42);
+                doc.text(rpText(value), x+4, y+15.5, {maxWidth:55});
+                doc.setFontSize(6.3);
+                doc.setTextColor(100,116,139);
+                doc.text(rpText(detail || ""), x+4, y+21, {maxWidth:55});
+            }
+
+            function textoSeccion(titulo){
+                asegurar(12, titulo);
+                doc.setFont("helvetica","bold");
+                doc.setFontSize(10.5);
+                doc.setTextColor(0,79,42);
+                doc.text(rpText(titulo), margin, y);
+                y += 6;
+                doc.setTextColor(15,23,42);
+            }
+
+            function drawBarSection(titulo, rows, tipo="money", detalleValor){
+                const datos = (rows || []).slice(0, 12);
+                if(!datos.length) return;
+                const rowH = 7.3;
+                const alto = 13 + (datos.length * rowH) + 9;
+                asegurar(alto, titulo);
+                textoSeccion(titulo);
+                const cardX = margin;
+                const cardY = y;
+                const cardW = pageW - margin*2;
+                const cardH = 7 + datos.length * rowH + 7;
+                doc.setFillColor(255,255,255);
+                doc.setDrawColor(215,226,220);
+                doc.roundedRect(cardX,cardY,cardW,cardH,3,3,"FD");
+                const labelW = 59;
+                const barX = cardX + labelW + 4;
+                const barW = cardW - labelW - 69;
+                const valueX = cardX + cardW - 62;
+                const total = datos.reduce((acc,row) => acc + rpValue(row,tipo), 0) || 1;
+                const max = Math.max(...datos.map(row => rpValue(row,tipo)),1);
+                let yy = y + 6;
+                datos.forEach((row, i) => {
+                    const val = rpValue(row,tipo);
+                    const barLen = Math.max((val / max) * barW, val > 0 ? 2 : 0);
+                    doc.setFillColor(i % 2 ? 252 : 247, i % 2 ? 254 : 251, i % 2 ? 253 : 248);
+                    doc.rect(cardX+2, yy-4.7, cardW-4, rowH, "F");
+                    doc.setFont("helvetica","bold");
+                    doc.setFontSize(6.5);
+                    doc.setTextColor(15,23,42);
+                    doc.text(rpText(row.label || row.nombre || "SIN REGISTRO"), cardX+4, yy, {maxWidth:labelW-7});
+                    doc.setFillColor(0,154,81);
+                    doc.roundedRect(barX, yy-4.4, barLen, 4.1, 1.7, 1.7, "F");
+                    doc.setFont("helvetica","bold");
+                    doc.setFontSize(6.2);
+                    doc.setTextColor(15,23,42);
+                    const label = rpLabelReporte(row, val, total, tipo, detalleValor);
+                    doc.text(rpText(label), Math.min(barX + barLen + 3, valueX), yy, {maxWidth:62});
+                    yy += rowH;
+                });
+                y += cardH + 8;
+            }
+
+            function drawTable(titulo, columns, rows, maxRows=12){
+                const data = (rows || []).slice(0, maxRows);
+                if(!data.length) return;
+                const rowH = 7.1;
+                asegurar(14 + (data.length+1)*rowH, titulo);
+                textoSeccion(titulo);
+                const usable = pageW - margin*2;
+                const widths = columns.map(c => c.w || usable / columns.length);
+                let x = margin;
+                doc.setFillColor(0,111,63);
+                doc.rect(margin,y,usable,rowH,"F");
+                doc.setTextColor(255,255,255);
+                doc.setFont("helvetica","bold");
+                doc.setFontSize(6.6);
+                columns.forEach((c,i) => { doc.text(rpText(c.h), x+2, y+4.7, {maxWidth:widths[i]-3}); x += widths[i]; });
+                y += rowH;
+                data.forEach((r,idx) => {
+                    if(y + rowH > pageH - 12) nuevaPagina(titulo);
+                    x = margin;
+                    doc.setFillColor(idx % 2 ? 255 : 248, idx % 2 ? 255 : 250, idx % 2 ? 255 : 252);
+                    doc.rect(margin,y,usable,rowH,"F");
+                    doc.setFont("helvetica","normal");
+                    doc.setFontSize(6.2);
+                    doc.setTextColor(15,23,42);
+                    columns.forEach((c,i) => {
+                        let v = typeof c.v === "function" ? c.v(r) : r[c.k];
+                        v = rpText(v || "-");
+                        doc.text(v, x+2, y+4.7, {maxWidth:widths[i]-3});
+                        x += widths[i];
+                    });
+                    y += rowH;
+                });
+                y += 8;
+            }
+
+            header("Reporte Gerencial de Homenajes");
+            card(margin,"Meta del periodo",rpMoney(base.meta),"Rango seleccionado");
+            card(margin+68,"Venta real",rpMoney(base.resumen.total),`${base.cumplimiento.toFixed(1)}% cumplimiento`);
+            card(margin+136,"Faltante",rpMoney(base.faltante),"Brecha por cerrar");
+            card(margin+204,"Registros",rpNumber(base.rows.length),"Base filtrada");
+            y += 33;
+
+            textoSeccion("Resumen ejecutivo");
+            doc.setFont("helvetica","normal");
+            doc.setFontSize(8.2);
+            doc.setTextColor(15,23,42);
+            const resumenTexto = `Venta real ${rpMoney(base.resumen.total)} frente a una meta de ${rpMoney(base.meta)}. Cumplimiento ${base.cumplimiento.toFixed(1)}%. Faltante ${rpMoney(base.faltante)}. PLAN registra ${rpNumber(base.resumen.planCantidad || 0)} atenciones y no suma ventas.`;
+            const lineas = doc.splitTextToSize(rpText(resumenTexto), pageW - margin*2);
+            doc.text(lineas, margin, y);
+            y += lineas.length * 4.2 + 7;
+
+            textoSeccion("Alertas gerenciales");
+            doc.setFont("helvetica","normal");
+            doc.setFontSize(7.8);
+            rpAlertas(base).slice(0,7).forEach(a => {
+                asegurar(5,"Alertas gerenciales");
+                doc.text(`- ${rpText(a)}`, margin+2, y, {maxWidth:pageW-margin*2-4});
+                y += 4.6;
+            });
+            y += 4;
+
+            secciones.forEach(sec => drawBarSection(sec.titulo, sec.rows, sec.tipoPrincipal, sec.detalleValor));
+
+            const tiempo = rpTiempoAfiliadoRows();
+            if(tiempo.length){
+                drawTable("Detalle tiempo afiliado", [
+                    {h:"Orden / plan", v:r=>r.label, w:92},
+                    {h:"Tiempo", v:r=>r.extra || rpValueText(r.valor,"days"), w:70},
+                    {h:"Dias", v:r=>rpNumber(r.valor), w:25},
+                    {h:"Clasificacion", v:r=>String(r.extra || "").split("|")[1] || "-", w:45}
+                ], tiempo, 12);
+            }
+
+            if(operativo?.vacaciones?.length){
+                drawTable("Control de vacaciones", [
+                    {h:"Colaborador", v:r=>r.nombre || r.colaborador || "-", w:75},
+                    {h:"Inicio", v:r=>r.inicio || "-", w:28},
+                    {h:"Fin", v:r=>r.fin || "-", w:28},
+                    {h:"Dias", v:r=>rpNumber(r.dias || 0), w:20},
+                    {h:"Estado", v:r=>typeof estadoVacacion === "function" ? estadoVacacion(r) : (r.estado || "-"), w:35}
+                ], operativo.vacaciones, 15);
+            }
+
+            if(operativo?.agenda?.length){
+                drawTable("Agenda anual", [
+                    {h:"Actividad", v:r=>r.titulo || r.actividad || "-", w:95},
+                    {h:"Fecha", v:r=>r.fecha || "-", w:30},
+                    {h:"Hora", v:r=>r.hora || "-", w:24},
+                    {h:"Estado", v:r=>r.estado || "-", w:40}
+                ], operativo.agenda, 15);
+            }
+
+            // Hoja tecnica final con conteo de secciones incluidas
+            nuevaPagina("Indice del reporte exportado");
+            textoSeccion("Contenido incluido");
+            doc.setFont("helvetica","normal");
+            doc.setFontSize(8);
+            const contenido = [
+                "KPIs principales y resumen ejecutivo",
+                "Alertas gerenciales",
+                ...secciones.map(s => s.titulo),
+                "Detalle de tiempo afiliado",
+                "Control de vacaciones",
+                "Agenda anual"
+            ];
+            contenido.forEach((item, idx) => {
+                if(y > pageH - 15) nuevaPagina("Indice del reporte exportado");
+                doc.text(`${idx+1}. ${rpText(item)}`, margin+2, y);
+                y += 5;
+            });
+
+            footer();
+            rpDescargar(`reporte_gerencial_completo_${rpFechaArchivo()}.pdf`, doc.output("blob"));
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion("PDF completo generado: KPIs, alertas, graficas, tablas, operacion y tiempo afiliado.", "ok");
+            if(typeof toast === "function") toast("PDF completo generado correctamente.");
+        }catch(error){
+            console.error("Error PDF completo 20260727:", error);
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion(`Error PDF: ${error.message}`, "error");
+            alert("No se pudo generar el PDF completo. Error: " + error.message);
+        }finally{
+            if(typeof showLoading === "function") showLoading(false);
+        }
+    }
+
+    function roundRect(ctx, x, y, w, h, r){
+        r = Math.min(r, w/2, h/2);
+        ctx.beginPath();
+        ctx.moveTo(x+r,y);
+        ctx.arcTo(x+w,y,x+w,y+h,r);
+        ctx.arcTo(x+w,y+h,x,y+h,r);
+        ctx.arcTo(x,y+h,x,y,r);
+        ctx.arcTo(x,y,x+w,y,r);
+        ctx.closePath();
+    }
+
+    function drawCanvasText(ctx, text, x, y, maxWidth, lineHeight){
+        const words = rpText(text).split(" ");
+        let line = "";
+        let yy = y;
+        words.forEach(word => {
+            const test = line ? `${line} ${word}` : word;
+            if(ctx.measureText(test).width > maxWidth && line){
+                ctx.fillText(line, x, yy);
+                line = word;
+                yy += lineHeight;
+            }else{
+                line = test;
+            }
+        });
+        if(line) ctx.fillText(line, x, yy);
+        return yy + lineHeight;
+    }
+
+    function exportarImagenCompleta20260727(){
+        console.log("CLICK IMAGEN - REPORTE COMPLETO 20260727");
+        try{
+            const {base, secciones, operativo} = rpSecciones();
+            const sectionHeights = secciones.map(s => 90 + Math.min(s.rows.length, 10) * 44);
+            let height = 330 + sectionHeights.reduce((a,b)=>a+b,0) + 520;
+            if(operativo?.vacaciones?.length) height += 360;
+            if(operativo?.agenda?.length) height += 360;
+            height = Math.min(Math.max(height, 1800), 12000);
+
+            const canvas = document.createElement("canvas");
+            canvas.width = 1600;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if(!ctx) throw new Error("Canvas no disponible.");
+
+            const W = canvas.width;
+            let y = 0;
+            ctx.fillStyle = "#f4f8f6";
+            ctx.fillRect(0,0,W,height);
+            ctx.fillStyle = "#004f2a";
+            ctx.fillRect(0,0,W,120);
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 44px Arial";
+            ctx.fillText("Reporte Gerencial de Homenajes", 55, 55);
+            ctx.font = "22px Arial";
+            ctx.fillText(new Date().toLocaleString("es-CO"), 55, 91);
+            y = 150;
+
+            const card = (x,t,v,d) => {
+                ctx.fillStyle = "#ffffff";
+                ctx.strokeStyle = "#d6e3dc";
+                ctx.lineWidth = 2;
+                roundRect(ctx,x,y,350,110,18); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#64748b"; ctx.font = "bold 20px Arial"; ctx.fillText(rpText(t),x+24,y+34);
+                ctx.fillStyle = "#0f172a"; ctx.font = "bold 34px Arial"; ctx.fillText(rpText(v),x+24,y+73);
+                ctx.fillStyle = "#64748b"; ctx.font = "18px Arial"; ctx.fillText(rpText(d),x+24,y+99);
+            };
+            card(55,"Meta",rpMoney(base.meta),"Rango seleccionado");
+            card(430,"Venta real",rpMoney(base.resumen.total),`${base.cumplimiento.toFixed(1)}% cumplimiento`);
+            card(805,"Faltante",rpMoney(base.faltante),"Brecha por cerrar");
+            card(1180,"Registros",rpNumber(base.rows.length),"Base filtrada");
+            y += 150;
+
+            ctx.fillStyle = "#004f2a";
+            ctx.font = "bold 28px Arial";
+            ctx.fillText("Resumen ejecutivo",55,y);
+            y += 35;
+            ctx.fillStyle = "#0f172a";
+            ctx.font = "22px Arial";
+            y = drawCanvasText(ctx, `Venta real ${rpMoney(base.resumen.total)} frente a meta ${rpMoney(base.meta)}. Cumplimiento ${base.cumplimiento.toFixed(1)}%. Faltante ${rpMoney(base.faltante)}. PLAN registra ${rpNumber(base.resumen.planCantidad || 0)} atenciones y no suma ventas.`, 55, y, 1490, 28) + 20;
+
+            function drawSection(sec){
+                const rows = sec.rows.slice(0,10);
+                if(!rows.length) return;
+                const cardH = 70 + rows.length * 44;
+                ctx.fillStyle = "#ffffff";
+                ctx.strokeStyle = "#d6e3dc";
+                ctx.lineWidth = 2;
+                roundRect(ctx, 55, y, 1490, cardH, 22); ctx.fill(); ctx.stroke();
+                ctx.fillStyle = "#004f2a";
+                ctx.font = "bold 26px Arial";
+                ctx.fillText(rpText(sec.titulo), 85, y + 38);
+                const chartY = y + 70;
+                const labelX = 85;
+                const barX = 445;
+                const barMax = 700;
+                const valueX = 1170;
+                const tipo = sec.tipoPrincipal || "money";
+                const total = rows.reduce((acc,row) => acc + rpValue(row,tipo), 0) || 1;
+                const max = Math.max(...rows.map(row => rpValue(row,tipo)), 1);
+                rows.forEach((row, i) => {
+                    const yy = chartY + i*44;
+                    const val = rpValue(row,tipo);
+                    const barLen = Math.max((val/max)*barMax, val > 0 ? 10 : 0);
+                    ctx.fillStyle = i % 2 ? "#ffffff" : "#f8fbf9";
+                    ctx.fillRect(75, yy-22, 1450, 36);
+                    ctx.fillStyle = "#0f172a";
+                    ctx.font = "bold 18px Arial";
+                    drawCanvasText(ctx, row.label || row.nombre || "SIN REGISTRO", labelX, yy, 330, 18);
+                    ctx.fillStyle = "#00a651";
+                    roundRect(ctx, barX, yy-16, barLen, 22, 11); ctx.fill();
+                    ctx.fillStyle = "#0f172a";
+                    ctx.font = "bold 17px Arial";
+                    drawCanvasText(ctx, rpLabelReporte(row, val, total, tipo, sec.detalleValor), valueX, yy, 340, 18);
+                });
+                y += cardH + 28;
+            }
+
+            secciones.forEach(drawSection);
+
+            const alertas = rpAlertas(base);
+            ctx.fillStyle = "#ffffff";
+            ctx.strokeStyle = "#d6e3dc";
+            roundRect(ctx,55,y,1490,110 + alertas.length*24,22); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#004f2a"; ctx.font = "bold 26px Arial"; ctx.fillText("Alertas y cierre gerencial",85,y+38);
+            ctx.fillStyle = "#0f172a"; ctx.font = "20px Arial";
+            let yy = y + 72;
+            alertas.forEach(a => { ctx.fillText(`- ${rpText(a)}`, 85, yy); yy += 26; });
+            y = yy + 35;
+
+            ctx.fillStyle = "#64748b";
+            ctx.font = "18px Arial";
+            ctx.fillText("Imagen completa generada desde el motor ejecutivo 20260727. Incluye indicadores, graficas y controles principales.",55, Math.min(y, height-45));
+
+            canvas.toBlob(blob => {
+                if(!blob){ alert("No se pudo crear la imagen completa."); return; }
+                rpDescargar(`reporte_gerencial_completo_${rpFechaArchivo()}.png`, blob);
+                if(typeof setEstadoExportacion === "function") setEstadoExportacion("Imagen completa generada. Incluye todas las secciones principales del reporte.", "ok");
+                if(typeof toast === "function") toast("Imagen completa generada correctamente.");
+            }, "image/png", 0.95);
+        }catch(error){
+            console.error("Error imagen completa 20260727:", error);
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion(`Error Imagen: ${error.message}`, "error");
+            alert("No se pudo generar la imagen completa. Error: " + error.message);
+        }
+    }
+
+    function sectionToRows(section){
+        const tipo = section.tipoPrincipal || "money";
+        const total = section.rows.reduce((acc,row) => acc + rpValue(row,tipo), 0) || 1;
+        return section.rows.map(row => {
+            const value = rpValue(row,tipo);
+            const meta = Number(row.meta || 0);
+            const pct = meta > 0 ? (value/meta)*100 : (value/total)*100;
+            return {
+                Nombre: row.label || row.nombre || "SIN REGISTRO",
+                Valor: tipo === "money" ? Math.round(Number(row.valor || 0)) : value,
+                Cantidad: Number(row.cantidad || 0),
+                Meta: meta || "",
+                Porcentaje: `${pct.toFixed(1)}%`,
+                Estado: meta > 0 ? rpEstadoMeta(pct) : "Participacion",
+                Detalle: row.extra || row.note || ""
+            };
+        });
+    }
+
+    function exportarExcelCompleto20260727(){
+        console.log("CLICK EXCEL - REPORTE COMPLETO 20260727");
+        try{
+            const {base, secciones, operativo} = rpSecciones();
+            if(!window.XLSX) throw new Error("XLSX no disponible");
+            const wb = XLSX.utils.book_new();
+            const resumen = [
+                {Indicador:"Meta", Valor:Math.round(base.meta)},
+                {Indicador:"Venta real", Valor:Math.round(base.resumen.total || 0)},
+                {Indicador:"Cumplimiento", Valor:`${base.cumplimiento.toFixed(1)}%`},
+                {Indicador:"Faltante", Valor:Math.round(base.faltante)},
+                {Indicador:"Registros", Valor:base.rows.length},
+                {Indicador:"Plan atenciones", Valor:base.resumen.planCantidad || 0}
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), "Resumen");
+            secciones.forEach(sec => {
+                let name = rpText(sec.titulo).replace(/[\\/?*\[\]:]/g, "").slice(0,31) || "Seccion";
+                XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sectionToRows(sec)), name);
+            });
+            if(operativo?.vacaciones?.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(operativo.vacaciones), "Vacaciones");
+            if(operativo?.agenda?.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(operativo.agenda), "Agenda");
+            const datos = (base.rows || []).map(row => ({
+                Fecha: row.fecha ? (typeof formatFechaProfesional === "function" ? formatFechaProfesional(row.fecha) : row.fechaTexto) : row.fechaTexto,
+                Orden: row.ordenServicio || "",
+                Gestor: row.gestor || "",
+                Sede: row.sede || "",
+                Categoria: row.categoriaGerencial || row.categoria || "",
+                Servicio: row.servicio || "",
+                Clinica: row.clinica || "",
+                Municipio: row.municipio || "",
+                Tipo_Muerte: row.tipoMuerte || "",
+                Cementerio: row.cementerio || "",
+                Destino_Final: row.destinoFinal || "",
+                Cantidad: row.cantidadAtendida || 1,
+                Valor: Math.round(Number(row.valorVenta || 0))
+            }));
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(datos), "Datos Filtrados");
+            XLSX.writeFile(wb, `reporte_gerencial_completo_${rpFechaArchivo()}.xlsx`);
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion("Excel completo generado con todas las secciones principales.", "ok");
+            if(typeof toast === "function") toast("Excel completo generado correctamente.");
+        }catch(error){
+            console.error("Error Excel completo 20260727:", error);
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion(`Error Excel: ${error.message}`, "error");
+            alert("No se pudo generar el Excel completo. Error: " + error.message);
+        }
+    }
+
+    function vincularReporteCompleto(id, fn){
+        const boton = document.getElementById(id);
+        if(!boton) return;
+        const nuevo = boton.cloneNode(true);
+        boton.parentNode.replaceChild(nuevo, boton);
+        nuevo.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            fn();
+        });
+    }
+
+    function instalarReporteCompleto20260727(){
+        vincularReporteCompleto("btnPdf", exportarPDFCompleto20260727);
+        vincularReporteCompleto("reportePdfGeneral", exportarPDFCompleto20260727);
+        vincularReporteCompleto("btnImagen", exportarImagenCompleta20260727);
+        vincularReporteCompleto("reporteImagen", exportarImagenCompleta20260727);
+        vincularReporteCompleto("btnExcel", exportarExcelCompleto20260727);
+        vincularReporteCompleto("reporteExcelResumen", exportarExcelCompleto20260727);
+        if(typeof setEstadoExportacion === "function") setEstadoExportacion("Exportaciones completas activas: PDF multi-pagina, imagen completa y Excel multihoja.", "ok");
+    }
+
+    window.exportarPDFCompleto20260727 = exportarPDFCompleto20260727;
+    window.exportarImagenCompleta20260727 = exportarImagenCompleta20260727;
+    window.exportarExcelCompleto20260727 = exportarExcelCompleto20260727;
+
+    instalarReporteCompleto20260727();
+    setTimeout(instalarReporteCompleto20260727, 800);
+    setTimeout(instalarReporteCompleto20260727, 2500);
+
+    console.log("EXPORTACIONES COMPLETAS ACTIVAS - VERSION " + VERSION_REPORTE_COMPLETO);
 })();
