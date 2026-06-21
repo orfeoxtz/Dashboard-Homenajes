@@ -1994,3 +1994,52 @@ body .chartjs-tooltip,
 body .chartjs-render-monitor{
     font-family:Inter,'Segoe UI',Arial,sans-serif !important;
 }
+
+
+/* Ajustes finales 20260725: tablas ordenables y cumplimiento */
+.sortable-table thead th{
+    position:relative;
+    cursor:pointer;
+    user-select:none;
+    padding-right:22px !important;
+    transition:background .18s ease, color .18s ease;
+}
+
+.sortable-table thead th:hover{
+    filter:brightness(1.04);
+    text-decoration:underline;
+    text-underline-offset:3px;
+}
+
+.sortable-table thead th::after{
+    content:"↕";
+    position:absolute;
+    right:7px;
+    top:50%;
+    transform:translateY(-50%);
+    font-size:10px;
+    opacity:.58;
+    font-weight:900;
+}
+
+.sortable-table thead th.sort-asc::after{content:"▲"; opacity:1;}
+.sortable-table thead th.sort-desc::after{content:"▼"; opacity:1;}
+
+#tablaTiempoAfiliado th:nth-child(7){
+    min-width:210px;
+}
+
+#tablaTiempoAfiliado td,
+#tablaTiempoAfiliado th{
+    vertical-align:middle;
+}
+
+.kpis-cumplimiento-vista .card h2{
+    font-size:clamp(16px, 1.35vw, 24px);
+    line-height:1.05;
+}
+
+body.theme-dark .sortable-table thead th::after,
+body.theme-slate .sortable-table thead th::after{
+    color:#f8fafc;
+}
