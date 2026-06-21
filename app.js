@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260723");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260724");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -6223,7 +6223,7 @@ setTimeout(instalarExportacionesEstables20260722, 800);
 setTimeout(instalarExportacionesEstables20260722, 2500);
 
 
-console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260723");
+console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260724");
 
 
 /* =========================================================
@@ -6231,7 +6231,7 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260723");
    Barras legibles, área clara y nombres ejecutivos.
    ========================================================= */
 (function(){
-    const VERSION_GRAFICAS_PRO = "20260723";
+    const VERSION_GRAFICAS_PRO = "20260724";
 
     window.primerNombreGestor = function(nombre){
         const texto = String(nombre || "").trim().toUpperCase();
@@ -6542,4 +6542,385 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260723");
     setTimeout(refrescarGraficasProfesionales, 1800);
 
     console.log("GRAFICAS PROFESIONALES POWERBI ACTIVAS - VERSION " + VERSION_GRAFICAS_PRO);
+})();
+
+
+/* =========================================================
+   GRAFICAS EJECUTIVAS POWER BI PRO - VERSION 20260724
+   Corrección definitiva de lectura, contraste y proporción
+   ========================================================= */
+(function(){
+    const VERSION_GRAFICAS_POWERBI_PRO = "20260724";
+
+    window.chartTextColor = function(){ return "#111827"; };
+    window.chartGridColor = function(){ return "rgba(17,24,39,.105)"; };
+    window.chartValueLabelStyle = function(){
+        return {
+            color:"#0b1f16",
+            backgroundColor:"rgba(255,255,255,.98)",
+            borderColor:"rgba(0,79,42,.18)"
+        };
+    };
+
+    function getChartCanvas(idCanvas){
+        const canvas = $(idCanvas);
+        if(!canvas || typeof Chart === "undefined") return null;
+        return canvas;
+    }
+
+    function prepararTarjetaGrafica(canvas, alto){
+        const contenedor = canvas.parentElement;
+        canvas.setAttribute("height", String(alto));
+        canvas.style.setProperty("height", `${alto}px`, "important");
+        canvas.style.setProperty("min-height", `${alto}px`, "important");
+        canvas.style.setProperty("width", "100%", "important");
+
+        if(contenedor){
+            contenedor.classList.remove("chart-card-readable");
+            contenedor.classList.add("chart-card-enhanced", "powerbi-pro-card");
+            contenedor.style.setProperty("min-height", `${alto + 86}px`, "important");
+            contenedor.style.setProperty("height", `${alto + 86}px`, "important");
+            contenedor.style.setProperty("overflow", "visible", "important");
+        }
+    }
+
+    function pluginAreaLectura(){
+        return {
+            id:"powerbiAreaLectura20260724",
+            beforeDraw(chart){
+                const {ctx, chartArea} = chart;
+                if(!chartArea) return;
+                ctx.save();
+                const x = chartArea.left - 10;
+                const y = chartArea.top - 8;
+                const w = chartArea.right - chartArea.left + 20;
+                const h = chartArea.bottom - chartArea.top + 16;
+                const r = 14;
+                ctx.fillStyle = "#ffffff";
+                ctx.strokeStyle = "rgba(0,79,42,.12)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.lineTo(x + w - r, y);
+                ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                ctx.lineTo(x + w, y + h - r);
+                ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                ctx.lineTo(x + r, y + h);
+                ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                ctx.lineTo(x, y + r);
+                ctx.quadraticCurveTo(x, y, x + r, y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+        };
+    }
+
+    function gradienteBarra(context, horizontal){
+        const chart = context.chart;
+        const {ctx, chartArea} = chart;
+        if(!chartArea) return "#00994d";
+        const grad = horizontal
+            ? ctx.createLinearGradient(chartArea.left, 0, chartArea.right, 0)
+            : ctx.createLinearGradient(0, chartArea.bottom, 0, chartArea.top);
+        grad.addColorStop(0, "#006b3f");
+        grad.addColorStop(.50, "#00994d");
+        grad.addColorStop(1, "#23c970");
+        return grad;
+    }
+
+    function estadoCortoGrafica(pct){
+        if(pct >= 100) return "Cumplida";
+        if(pct >= 80) return "En riesgo";
+        return "No cumple";
+    }
+
+    function etiquetaValorPowerBI(value, ctx, metas, totalReferencia, tipoValor, opciones, horizontal){
+        const i = ctx.dataIndex;
+        const valor = toNumber(value);
+        const meta = toNumber(metas[i]);
+        const valorTexto = formatChartValue(valor, tipoValor);
+
+        if(meta > 0){
+            const pct = meta > 0 ? (valor / meta) * 100 : 0;
+            const estado = estadoCortoGrafica(pct);
+            return horizontal
+                ? `${valorTexto} | ${pct.toFixed(1)}% | ${estado}`
+                : [valorTexto, `${pct.toFixed(1)}%`, estado];
+        }
+
+        if(totalReferencia > 0 && opciones.mostrarParticipacion !== false){
+            const pct = (Math.abs(valor) / totalReferencia) * 100;
+            return horizontal
+                ? `${valorTexto} | ${pct.toFixed(1)}%`
+                : [valorTexto, `${pct.toFixed(1)}%`];
+        }
+
+        return horizontal ? `${valorTexto}` : [valorTexto];
+    }
+
+    window.crearChartBar = function(idCanvas, labels, data, label, titulo, horizontal=false, tipoValor="money", opciones={}){
+        const canvas = getChartCanvas(idCanvas);
+        if(!canvas) return;
+
+        registrarPluginGraficas();
+        destruirChart(idCanvas);
+
+        opciones = opciones || {};
+        const etiquetasOriginales = Array.isArray(labels) ? labels : [];
+        const etiquetas = etiquetasOriginales.map(etiqueta => window.etiquetaGraficaVisible(etiqueta, titulo, label));
+        const valores = Array.isArray(data) ? data.map(v => toNumber(v)) : [];
+        const metas = Array.isArray(opciones.metas) ? opciones.metas.map(v => toNumber(v)) : [];
+        const totalReferencia = toNumber(opciones.total) || valores.reduce((acc,v) => acc + Math.abs(toNumber(v)), 0);
+        const cantidad = Math.max(etiquetas.length, 1);
+        const maxDato = Math.max(...valores.map(v => Math.abs(toNumber(v))), 0);
+
+        const alto = horizontal
+            ? Math.min(Math.max(300, cantidad * 39 + 118), 740)
+            : 360;
+        const barraGruesa = horizontal
+            ? Math.min(32, Math.max(24, Math.floor((alto - 118) / cantidad * .78)))
+            : 44;
+
+        prepararTarjetaGrafica(canvas, alto);
+
+        const labelStyle = window.chartValueLabelStyle();
+        const maxEscala = maxDato > 0 ? maxDato * (horizontal ? 1.26 : 1.18) : undefined;
+
+        charts[idCanvas] = new Chart(canvas, {
+            type:"bar",
+            plugins:[pluginAreaLectura()],
+            data:{
+                labels:etiquetas,
+                datasets:[{
+                    label:opciones.legendLabel || label,
+                    data:valores,
+                    backgroundColor:ctx => gradienteBarra(ctx, horizontal),
+                    borderColor:"rgba(0,79,42,.58)",
+                    borderWidth:1,
+                    borderRadius:horizontal ? 9 : 12,
+                    barThickness:barraGruesa,
+                    maxBarThickness:horizontal ? 34 : 52,
+                    minBarLength:horizontal ? 18 : 8,
+                    barPercentage:.96,
+                    categoryPercentage:.82
+                }]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                resizeDelay:0,
+                indexAxis:horizontal ? "y" : "x",
+                interaction:{mode:"nearest", axis:horizontal ? "y" : "x", intersect:false},
+                hover:{mode:"nearest", intersect:false},
+                layout:{
+                    padding:horizontal
+                        ? {left:12,right:285,top:10,bottom:12}
+                        : {left:12,right:44,top:18,bottom:10}
+                },
+                plugins:{
+                    title:{display:false},
+                    legend:{
+                        display:true,
+                        position:"top",
+                        align:"center",
+                        labels:{
+                            color:"#111827",
+                            boxWidth:13,
+                            boxHeight:8,
+                            padding:12,
+                            font:{family:"Inter, Segoe UI, Arial", weight:"900", size:12}
+                        }
+                    },
+                    tooltip:{
+                        backgroundColor:"rgba(15,23,42,.96)",
+                        titleColor:"#ffffff",
+                        bodyColor:"#ffffff",
+                        borderColor:"rgba(34,197,94,.45)",
+                        borderWidth:1,
+                        padding:11,
+                        callbacks:{
+                            title:items => etiquetasOriginales[items?.[0]?.dataIndex] || items?.[0]?.label || "-",
+                            label:ctx => {
+                                const valor = toNumber(ctx.parsed[horizontal ? "x" : "y"]);
+                                const meta = toNumber(metas[ctx.dataIndex]);
+                                const lineas = [`${ctx.dataset.label}: ${formatChartValue(valor, tipoValor)}`];
+                                if(meta > 0){
+                                    const pct = (valor / meta) * 100;
+                                    lineas.push(`Meta: ${formatChartValue(meta, tipoValor)}`);
+                                    lineas.push(`Cumplimiento: ${pct.toFixed(1)}%`);
+                                    lineas.push(`Estado: ${estadoCortoGrafica(pct)}`);
+                                }else if(totalReferencia > 0){
+                                    lineas.push(`Participación: ${((Math.abs(valor)/totalReferencia)*100).toFixed(1)}%`);
+                                }
+                                return lineas;
+                            }
+                        }
+                    },
+                    datalabels:{
+                        display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                        anchor:"end",
+                        align:horizontal ? "right" : "top",
+                        offset:horizontal ? 10 : 7,
+                        clamp:false,
+                        clip:false,
+                        color:labelStyle.color,
+                        backgroundColor:labelStyle.backgroundColor,
+                        borderColor:labelStyle.borderColor,
+                        borderWidth:1,
+                        borderRadius:999,
+                        padding:{top:4,right:9,bottom:4,left:9},
+                        font:{family:"Inter, Segoe UI, Arial", size:horizontal ? 12 : 11, weight:"900"},
+                        formatter:(value, ctx) => etiquetaValorPowerBI(value, ctx, metas, totalReferencia, tipoValor, opciones, horizontal)
+                    }
+                },
+                scales:horizontal ? {
+                    y:{
+                        ticks:{
+                            color:"#111827",
+                            font:{family:"Inter, Segoe UI, Arial", size:12.5, weight:"900"},
+                            autoSkip:false,
+                            padding:10
+                        },
+                        grid:{display:false},
+                        border:{display:false}
+                    },
+                    x:{
+                        beginAtZero:true,
+                        suggestedMax:maxEscala,
+                        grid:{display:true,color:"rgba(17,24,39,.085)",drawBorder:false},
+                        border:{color:"rgba(17,24,39,.14)"},
+                        ticks:{
+                            color:"#334155",
+                            font:{family:"Inter, Segoe UI, Arial", size:10.5, weight:"800"},
+                            maxTicksLimit:6,
+                            callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)
+                        }
+                    }
+                } : {
+                    y:{
+                        beginAtZero:true,
+                        suggestedMax:maxEscala,
+                        ticks:{
+                            color:"#334155",
+                            font:{family:"Inter, Segoe UI, Arial", size:10.5, weight:"800"},
+                            maxTicksLimit:6,
+                            callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)
+                        },
+                        grid:{color:"rgba(17,24,39,.085)",drawBorder:false},
+                        border:{color:"rgba(17,24,39,.14)"}
+                    },
+                    x:{
+                        ticks:{
+                            color:"#111827",
+                            font:{family:"Inter, Segoe UI, Arial", size:10.5, weight:"850"},
+                            autoSkip:false,
+                            maxRotation:0,
+                            minRotation:0
+                        },
+                        grid:{display:false},
+                        border:{display:false}
+                    }
+                }
+            }
+        });
+
+        requestAnimationFrame(() => {
+            charts[idCanvas]?.resize();
+            charts[idCanvas]?.update("none");
+        });
+    };
+
+    window.crearChartLine = function(idCanvas, labels, datasets, titulo, tipoValor="money"){
+        const canvas = getChartCanvas(idCanvas);
+        if(!canvas) return;
+        registrarPluginGraficas();
+        destruirChart(idCanvas);
+        prepararTarjetaGrafica(canvas, 350);
+        const datasetFinal = (datasets || []).map((ds, i) => ({
+            ...ds,
+            borderColor:i === 0 ? "#008f46" : "#f59e0b",
+            backgroundColor:i === 0 ? "rgba(0,143,70,.13)" : "rgba(245,158,11,.10)",
+            pointBackgroundColor:i === 0 ? "#008f46" : "#f59e0b",
+            pointBorderColor:"#ffffff",
+            pointRadius:3,
+            borderWidth:3,
+            tension:ds.tension ?? .32,
+            fill:ds.fill ?? true
+        }));
+        charts[idCanvas] = new Chart(canvas, {
+            type:"line",
+            plugins:[pluginAreaLectura()],
+            data:{labels,datasets:datasetFinal},
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{
+                    title:{display:false},
+                    legend:{display:true,position:"top",labels:{color:"#111827",boxWidth:12,font:{weight:"900",size:12}}},
+                    tooltip:{backgroundColor:"rgba(15,23,42,.96)",titleColor:"#fff",bodyColor:"#fff",callbacks:{label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed.y, tipoValor)}`}},
+                    datalabels:{display:false}
+                },
+                scales:{
+                    y:{beginAtZero:true,ticks:{color:"#334155",font:{size:10.5,weight:"800"},maxTicksLimit:6},grid:{color:"rgba(17,24,39,.085)"},border:{color:"rgba(17,24,39,.14)"}},
+                    x:{grid:{display:false},ticks:{color:"#111827",font:{size:10.5,weight:"850"},maxRotation:0},border:{display:false}}
+                }
+            }
+        });
+    };
+
+    window.crearChartDoughnut = function(idCanvas, labels, data, titulo, tipoValor="money"){
+        const canvas = getChartCanvas(idCanvas);
+        if(!canvas) return;
+        registrarPluginGraficas();
+        destruirChart(idCanvas);
+        prepararTarjetaGrafica(canvas, 350);
+        const total = (data || []).reduce((a,b)=>a+toNumber(b),0);
+        charts[idCanvas] = new Chart(canvas, {
+            type:"doughnut",
+            plugins:[pluginAreaLectura()],
+            data:{
+                labels,
+                datasets:[{
+                    data,
+                    backgroundColor:["#006b3f","#00994d","#23c970","#f59e0b","#2563eb","#7c3aed"],
+                    borderColor:"#ffffff",
+                    borderWidth:3,
+                    hoverOffset:8
+                }]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                cutout:"58%",
+                plugins:{
+                    title:{display:false},
+                    legend:{display:true,position:"top",labels:{color:"#111827",boxWidth:12,font:{weight:"900",size:12}}},
+                    tooltip:{backgroundColor:"rgba(15,23,42,.96)",titleColor:"#fff",bodyColor:"#fff",callbacks:{label:ctx => `${ctx.label}: ${formatChartValue(ctx.parsed, tipoValor)} (${total>0?((toNumber(ctx.parsed)/total)*100).toFixed(1):"0.0"}%)`}},
+                    datalabels:{
+                        display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                        color:"#ffffff",
+                        textStrokeColor:"rgba(0,0,0,.42)",
+                        textStrokeWidth:2,
+                        font:{size:10,weight:"900"},
+                        formatter:value => total>0 ? `${formatChartValue(value,tipoValor)}\n${((toNumber(value)/total)*100).toFixed(1)}%` : formatChartValue(value,tipoValor)
+                    }
+                }
+            }
+        });
+    };
+
+    function refrescarPowerBIPro(){
+        try{
+            if(typeof aplicarFiltrosYRender === "function") aplicarFiltrosYRender();
+            if(typeof redimensionarGraficos === "function") redimensionarGraficos();
+        }catch(error){
+            console.warn("No se pudieron refrescar las gráficas Power BI Pro:", error);
+        }
+    }
+
+    setTimeout(refrescarPowerBIPro, 500);
+    setTimeout(refrescarPowerBIPro, 1600);
+    console.log("GRAFICAS POWER BI PRO DEFINITIVAS ACTIVAS - VERSION " + VERSION_GRAFICAS_POWERBI_PRO);
 })();
