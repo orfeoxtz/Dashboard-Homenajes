@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260722");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260723");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -6223,4 +6223,323 @@ setTimeout(instalarExportacionesEstables20260722, 800);
 setTimeout(instalarExportacionesEstables20260722, 2500);
 
 
-console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260722");
+console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260723");
+
+
+/* =========================================================
+   MOTOR PROFESIONAL DE GRÁFICAS 20260723
+   Barras legibles, área clara y nombres ejecutivos.
+   ========================================================= */
+(function(){
+    const VERSION_GRAFICAS_PRO = "20260723";
+
+    window.primerNombreGestor = function(nombre){
+        const texto = String(nombre || "").trim().toUpperCase();
+        if(!texto) return "-";
+        const partes = texto.split(/\s+/).filter(Boolean);
+        const nombres = [
+            "FERNANDO","CARLOS","OSVALDO","ALEXIS","WENDY","SAMIR","MARIO","JESSICA",
+            "JULIA","EDER","OSCAR","OCTAVIO","PAOLA","DAVID","ANDRES","JOSE","LUIS",
+            "RAUL","JAVIER","MANUEL","SALOMON","HAZAEL","WILLIAM"
+        ];
+        const encontrado = nombres.find(n => partes.includes(n));
+        if(encontrado) return encontrado;
+        if(partes.length >= 4) return partes[2] || partes[0];
+        return partes[0] || "-";
+    };
+
+    window.chartTextColor = function(){ return "#0f172a"; };
+    window.chartGridColor = function(){ return "rgba(15,23,42,.105)"; };
+    window.chartValueLabelStyle = function(){
+        return {
+            color:"#052e1a",
+            backgroundColor:"rgba(255,255,255,.98)",
+            borderColor:"rgba(0,79,42,.18)"
+        };
+    };
+
+    window.etiquetaGraficaVisible = function(valor, titulo="", label=""){
+        const texto = String(valor || "").trim();
+        if(!texto) return "-";
+        const contexto = normalizarTexto(`${titulo} ${label}`);
+        if(contexto.includes("GESTOR") || contexto.includes("GESTORES") || contexto.includes("PARETO")){
+            return window.primerNombreGestor(texto);
+        }
+        if(texto.length > 32) return texto.slice(0,29).trim() + "...";
+        return texto;
+    };
+
+    window.estadoMetaGrafica = function(porcentaje){
+        if(porcentaje >= 100) return "Cumplida";
+        if(porcentaje >= 80) return "En riesgo";
+        return "No cumple";
+    };
+
+    window.crearChartBar = function(idCanvas, labels, data, label, titulo, horizontal=false, tipoValor="money", opciones={}){
+        const canvas = $(idCanvas);
+        if(!canvas || typeof Chart === "undefined") return;
+
+        registrarPluginGraficas();
+        destruirChart(idCanvas);
+
+        opciones = opciones || {};
+        const etiquetasOriginales = Array.isArray(labels) ? labels : [];
+        const etiquetas = etiquetasOriginales.map(etiqueta => window.etiquetaGraficaVisible(etiqueta, titulo, label));
+        const valores = Array.isArray(data) ? data.map(v => toNumber(v)) : [];
+        const metas = Array.isArray(opciones.metas) ? opciones.metas.map(v => toNumber(v)) : [];
+        const totalReferencia = toNumber(opciones.total) || valores.reduce((acc,v) => acc + Math.abs(toNumber(v)), 0);
+        const maxDato = Math.max(...valores.map(v => Math.abs(toNumber(v))), 0);
+        const maxMeta = Math.max(...metas.map(v => Math.abs(toNumber(v))), 0);
+        const maxValue = Math.max(maxDato, maxMeta, 0);
+        const cantidad = Math.max(etiquetas.length, 1);
+
+        const alto = horizontal
+            ? Math.min(Math.max(335, cantidad * 43 + 132), 860)
+            : 390;
+        const barraGruesa = horizontal
+            ? Math.min(34, Math.max(25, Math.floor((alto - 130) / cantidad * .72)))
+            : 46;
+
+        const labelStyle = window.chartValueLabelStyle();
+        const contenedor = canvas.parentElement;
+        canvas.setAttribute("height", String(alto));
+        canvas.style.setProperty("height", `${alto}px`, "important");
+        contenedor?.style.setProperty("min-height", `${alto + 74}px`, "important");
+        contenedor?.style.setProperty("height", "auto", "important");
+        contenedor?.classList.add("chart-card-enhanced", "chart-card-readable");
+
+        const formatoEtiqueta = (value, ctx) => {
+            const i = ctx.dataIndex;
+            const valor = toNumber(value);
+            const meta = toNumber(metas[i]);
+            const valorTexto = formatChartValue(valor, tipoValor);
+
+            if(meta > 0){
+                const pct = (valor / meta) * 100;
+                const estado = window.estadoMetaGrafica(pct);
+                return horizontal
+                    ? `${valorTexto} · ${pct.toFixed(1)}% · ${estado}`
+                    : [valorTexto, `${pct.toFixed(1)}%`, estado];
+            }
+
+            if(totalReferencia > 0 && opciones.mostrarParticipacion !== false){
+                const pct = (Math.abs(valor) / totalReferencia) * 100;
+                return horizontal
+                    ? `${valorTexto} · ${pct.toFixed(1)}% · Part.`
+                    : [valorTexto, `${pct.toFixed(1)}%`, "Part."];
+            }
+
+            return horizontal ? `${valorTexto} · Sin meta` : [valorTexto, "Sin meta"];
+        };
+
+        const barColor = context => {
+            const chart = context.chart;
+            const {ctx, chartArea} = chart;
+            if(!chartArea) return "#008f46";
+            const grad = horizontal
+                ? ctx.createLinearGradient(chartArea.left,0,chartArea.right,0)
+                : ctx.createLinearGradient(0,chartArea.bottom,0,chartArea.top);
+            grad.addColorStop(0,"#006b3f");
+            grad.addColorStop(.55,"#008f46");
+            grad.addColorStop(1,"#22c55e");
+            return grad;
+        };
+
+        charts[idCanvas] = new Chart(canvas, {
+            type:"bar",
+            data:{
+                labels:etiquetas,
+                datasets:[{
+                    label:opciones.legendLabel || label,
+                    data:valores,
+                    backgroundColor:barColor,
+                    borderColor:"rgba(0,79,42,.62)",
+                    borderWidth:1.4,
+                    borderRadius:horizontal ? 10 : 12,
+                    barThickness:barraGruesa,
+                    maxBarThickness:horizontal ? 36 : 54,
+                    minBarLength:horizontal ? 18 : 8,
+                    barPercentage:.98,
+                    categoryPercentage:.90
+                }]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                resizeDelay:0,
+                indexAxis:horizontal ? "y" : "x",
+                interaction:{mode:"nearest", axis:horizontal ? "y" : "x", intersect:false},
+                hover:{mode:"nearest", intersect:false},
+                layout:{padding:horizontal ? {left:12,right:335,top:14,bottom:14} : {left:10,right:56,top:30,bottom:12}},
+                plugins:{
+                    title:{display:true,text:titulo,color:"#052e1a",font:{weight:"900",size:15},padding:{bottom:16}},
+                    legend:{display:true,position:"top",labels:{color:"#0f172a",boxWidth:13,font:{weight:"900",size:11}}},
+                    tooltip:{
+                        backgroundColor:"rgba(15,23,42,.96)",
+                        titleColor:"#ffffff",
+                        bodyColor:"#ffffff",
+                        borderColor:"rgba(34,197,94,.45)",
+                        borderWidth:1,
+                        callbacks:{
+                            title:items => etiquetasOriginales[items?.[0]?.dataIndex] || items?.[0]?.label || "-",
+                            label:ctx => {
+                                const valor = toNumber(ctx.parsed[horizontal ? "x" : "y"]);
+                                const meta = toNumber(metas[ctx.dataIndex]);
+                                const lineas = [`${ctx.dataset.label}: ${formatChartValue(valor, tipoValor)}`];
+                                if(meta > 0){
+                                    const pct = (valor / meta) * 100;
+                                    lineas.push(`Meta: ${formatChartValue(meta, tipoValor)}`);
+                                    lineas.push(`Cumplimiento: ${pct.toFixed(1)}%`);
+                                    lineas.push(`Estado: ${window.estadoMetaGrafica(pct)}`);
+                                }else if(totalReferencia > 0){
+                                    lineas.push(`Participación: ${((Math.abs(valor)/totalReferencia)*100).toFixed(1)}%`);
+                                }
+                                return lineas;
+                            }
+                        }
+                    },
+                    datalabels:{
+                        display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                        anchor:"end",
+                        align:horizontal ? "right" : "top",
+                        offset:horizontal ? 11 : 8,
+                        clamp:false,
+                        clip:false,
+                        color:labelStyle.color,
+                        backgroundColor:labelStyle.backgroundColor,
+                        borderColor:labelStyle.borderColor,
+                        borderWidth:1,
+                        borderRadius:999,
+                        padding:{top:4,right:9,bottom:4,left:9},
+                        font:{size:horizontal ? 11.5 : 10.5,weight:"900"},
+                        formatter:formatoEtiqueta
+                    }
+                },
+                scales:horizontal ? {
+                    y:{
+                        ticks:{color:"#0f172a",font:{size:12,weight:"900"},autoSkip:false,padding:10},
+                        grid:{color:"rgba(15,23,42,.08)"},
+                        border:{color:"rgba(15,23,42,.16)"}
+                    },
+                    x:{
+                        beginAtZero:true,
+                        suggestedMax:maxValue>0?maxValue*1.35:undefined,
+                        grid:{display:true,color:"rgba(15,23,42,.095)"},
+                        border:{color:"rgba(15,23,42,.16)"},
+                        ticks:{color:"#0f172a",font:{size:10.5,weight:"850"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)}
+                    }
+                } : {
+                    y:{
+                        beginAtZero:true,
+                        suggestedMax:maxValue>0?maxValue*1.25:undefined,
+                        ticks:{color:"#0f172a",font:{size:10.5,weight:"850"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)},
+                        grid:{color:"rgba(15,23,42,.095)"},
+                        border:{color:"rgba(15,23,42,.16)"}
+                    },
+                    x:{
+                        ticks:{color:"#0f172a",font:{size:10.5,weight:"850"},autoSkip:false,maxRotation:18,minRotation:0},
+                        grid:{display:false},
+                        border:{color:"rgba(15,23,42,.16)"}
+                    }
+                }
+            }
+        });
+
+        requestAnimationFrame(() => {
+            charts[idCanvas]?.resize();
+            charts[idCanvas]?.update("none");
+        });
+    };
+
+    window.crearChartLine = function(idCanvas, labels, datasets, titulo, tipoValor="money"){
+        const canvas = $(idCanvas);
+        if(!canvas || typeof Chart === "undefined") return;
+        registrarPluginGraficas();
+        destruirChart(idCanvas);
+        canvas.parentElement?.classList.add("chart-card-enhanced", "chart-card-readable");
+        canvas.style.setProperty("height","360px","important");
+        const datasetFinal = (datasets || []).map((ds, i) => ({
+            ...ds,
+            borderColor:i === 0 ? "#008f46" : "#f59e0b",
+            backgroundColor:i === 0 ? "rgba(0,143,70,.12)" : "rgba(245,158,11,.08)",
+            pointBackgroundColor:i === 0 ? "#008f46" : "#f59e0b",
+            pointBorderColor:"#ffffff",
+            pointRadius:ds.pointRadius ?? 3,
+            borderWidth:3,
+            tension:ds.tension ?? .32
+        }));
+        charts[idCanvas] = new Chart(canvas, {
+            type:"line",
+            data:{labels,datasets:datasetFinal},
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                plugins:{
+                    title:{display:true,text:titulo,color:"#052e1a",font:{weight:"900",size:15}},
+                    legend:{display:true,position:"top",labels:{color:"#0f172a",boxWidth:12,font:{weight:"900",size:11}}},
+                    tooltip:{backgroundColor:"rgba(15,23,42,.96)",titleColor:"#fff",bodyColor:"#fff",callbacks:{label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed.y, tipoValor)}`}},
+                    datalabels:{display:false}
+                },
+                scales:{
+                    y:{beginAtZero:true,ticks:{color:"#0f172a",font:{size:10.5,weight:"850"}},grid:{color:"rgba(15,23,42,.095)"}},
+                    x:{grid:{display:false},ticks:{color:"#0f172a",font:{size:10.5,weight:"850"},maxRotation:0}}
+                }
+            }
+        });
+    };
+
+    window.crearChartDoughnut = function(idCanvas, labels, data, titulo, tipoValor="money"){
+        const canvas = $(idCanvas);
+        if(!canvas || typeof Chart === "undefined") return;
+        registrarPluginGraficas();
+        destruirChart(idCanvas);
+        canvas.parentElement?.classList.add("chart-card-enhanced", "chart-card-readable");
+        canvas.style.setProperty("height","360px","important");
+        const total = (data || []).reduce((a,b)=>a+toNumber(b),0);
+        charts[idCanvas] = new Chart(canvas, {
+            type:"doughnut",
+            data:{
+                labels,
+                datasets:[{
+                    data,
+                    backgroundColor:["#006b3f","#008f46","#22c55e","#f59e0b","#2563eb","#7c3aed"],
+                    borderColor:"#ffffff",
+                    borderWidth:3,
+                    hoverOffset:8
+                }]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                cutout:"58%",
+                plugins:{
+                    title:{display:true,text:titulo,color:"#052e1a",font:{weight:"900",size:15}},
+                    legend:{display:true,position:"top",labels:{color:"#0f172a",boxWidth:12,font:{weight:"900",size:11}}},
+                    tooltip:{backgroundColor:"rgba(15,23,42,.96)",titleColor:"#fff",bodyColor:"#fff",callbacks:{label:ctx => `${ctx.label}: ${formatChartValue(ctx.parsed, tipoValor)} (${total>0?((toNumber(ctx.parsed)/total)*100).toFixed(1):"0.0"}%)`}},
+                    datalabels:{
+                        display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                        color:"#ffffff",
+                        textStrokeColor:"rgba(0,0,0,.42)",
+                        textStrokeWidth:2,
+                        font:{size:10,weight:"900"},
+                        formatter:value => total>0 ? `${formatChartValue(value,tipoValor)}\n${((toNumber(value)/total)*100).toFixed(1)}%` : formatChartValue(value,tipoValor)
+                    }
+                }
+            }
+        });
+    };
+
+    function refrescarGraficasProfesionales(){
+        try{
+            if(typeof aplicarFiltrosYRender === "function") aplicarFiltrosYRender();
+            if(typeof redimensionarGraficos === "function") redimensionarGraficos();
+        }catch(error){
+            console.warn("No se pudieron refrescar las gráficas profesionales:", error);
+        }
+    }
+
+    setTimeout(refrescarGraficasProfesionales, 700);
+    setTimeout(refrescarGraficasProfesionales, 1800);
+
+    console.log("GRAFICAS PROFESIONALES POWERBI ACTIVAS - VERSION " + VERSION_GRAFICAS_PRO);
+})();
