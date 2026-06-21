@@ -2074,3 +2074,13 @@ body.theme-slate .sortable-table thead th::after{
     font-size:12px;
     color:#0f172a;
 }
+
+
+/* Recuperación visual segura 20260729 */
+.grafico-card canvas{background:transparent !important;}
+.grafico-card{overflow:visible !important;}
+.grafico-card .chart-wrapper,
+.grafico-card .chart-area{overflow:visible !important;}
+body.theme-dark .grafico-card,
+body.theme-slate .grafico-card,
+body.dark-mode .grafico-card{color:#f8fafc;}
