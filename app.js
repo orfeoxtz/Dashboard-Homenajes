@@ -8071,3 +8071,562 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
     console.log("EXPORTACIONES COMPLETAS ACTIVAS - VERSION " + VERSION_REPORTE_COMPLETO);
 })();
+
+
+/* =========================================================
+   MEJORAS FINALES 20260728
+   Graficas ejecutivas legibles, dona con colores diferenciados,
+   excedentes robustos e imagen ejecutiva extendida.
+   ========================================================= */
+(function(){
+    const VERSION_MEJORAS_FINALES_20260728 = "20260728";
+
+    function esTemaOscuroActivo(){
+        return document.body.classList.contains('theme-dark') ||
+               document.body.classList.contains('theme-slate') ||
+               document.body.classList.contains('dark-mode');
+    }
+
+    function temaGrafico(){
+        const oscuro = esTemaOscuroActivo();
+        return {
+            oscuro,
+            texto: oscuro ? '#f8fafc' : '#0f172a',
+            textoSuave: oscuro ? '#cbd5e1' : '#475569',
+            grid: oscuro ? 'rgba(255,255,255,.10)' : 'rgba(15,23,42,.09)',
+            borde: oscuro ? 'rgba(255,255,255,.18)' : 'rgba(15,23,42,.16)',
+            fondoArea: oscuro ? 'rgba(1,68,38,.50)' : 'rgba(0,115,63,.08)',
+            fondoCanvas: oscuro ? 'rgba(3,19,35,.92)' : '#ffffff',
+            etiquetaTexto: '#0f172a',
+            etiquetaFondo: 'rgba(255,255,255,.96)',
+            etiquetaBorde: oscuro ? 'rgba(255,255,255,.18)' : 'rgba(2,132,70,.20)'
+        };
+    }
+
+    function obtenerCanvasGrafica(id){
+        return document.getElementById(id);
+    }
+
+    function destruirGraficaLocal(id){
+        if(window.charts && window.charts[id]){
+            try{ window.charts[id].destroy(); }catch(e){}
+            window.charts[id] = null;
+        }
+    }
+
+    function prepararCanvasGrafica(canvas, alto){
+        if(!canvas) return;
+        canvas.style.height = `${alto}px`;
+        canvas.height = alto;
+        if(canvas.parentElement){
+            canvas.parentElement.style.height = `${alto + 20}px`;
+            canvas.parentElement.style.minHeight = `${alto + 20}px`;
+        }
+    }
+
+    function pluginFondoArea(color){
+        return {
+            id:'chartAreaBackground_' + String(color).replace(/[^a-z0-9]/gi,''),
+            beforeDraw(chart){
+                const {ctx, chartArea} = chart;
+                if(!chartArea) return;
+                ctx.save();
+                ctx.fillStyle = color;
+                ctx.fillRect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+                ctx.restore();
+            }
+        };
+    }
+
+    function formatNumberPlain(valor){
+        return Number(toNumber(valor)).toLocaleString('es-CO');
+    }
+
+    function estadoCumplimientoCorto(pct){
+        if(pct >= 100) return 'Cumplida';
+        if(pct >= 80) return 'En riesgo';
+        return 'No cumple';
+    }
+
+    function valorLegibleGrafica(value, tipoValor='money'){
+        const n = toNumber(value);
+        if(tipoValor === 'money') return formatMoney(n);
+        if(tipoValor === 'percent') return `${n.toFixed(1)}%`;
+        return formatNumberPlain(n);
+    }
+
+    function etiquetaBarra(value, ctx, horizontal, tipoValor, opciones){
+        const valor = toNumber(value);
+        const metas = Array.isArray(opciones.metas) ? opciones.metas : [];
+        const meta = toNumber(metas[ctx.dataIndex]);
+        const total = toNumber(opciones.total);
+        const textoValor = valorLegibleGrafica(valor, tipoValor);
+
+        if(typeof opciones.customLabelFormatter === 'function'){
+            return opciones.customLabelFormatter({value:valor, index:ctx.dataIndex, meta, total, horizontal, tipoValor});
+        }
+
+        if(meta > 0){
+            const pct = meta > 0 ? (valor / meta) * 100 : 0;
+            const estado = estadoCumplimientoCorto(pct);
+            return horizontal ? `${textoValor} | ${pct.toFixed(1)}% | ${estado}` : [textoValor, `${pct.toFixed(1)}%`, estado];
+        }
+
+        if(total > 0 && opciones.mostrarParticipacion !== false){
+            const pct = (Math.abs(valor) / total) * 100;
+            return horizontal ? `${textoValor} | ${pct.toFixed(1)}%` : [textoValor, `${pct.toFixed(1)}%`];
+        }
+
+        return horizontal ? textoValor : [textoValor];
+    }
+
+    window.crearChartBar = function(idCanvas, labels, data, label, titulo, horizontal=false, tipoValor='money', opciones={}){
+        const canvas = obtenerCanvasGrafica(idCanvas);
+        if(!canvas || typeof Chart === 'undefined') return;
+
+        const tema = temaGrafico();
+        const valores = (Array.isArray(data) ? data : []).map(v => toNumber(v));
+        const etiquetasOriginales = Array.isArray(labels) ? labels : [];
+        const etiquetas = etiquetasOriginales.map(et => {
+            const txt = String(et || '');
+            return horizontal && txt.length > 28 ? txt.slice(0, 28) + '…' : txt;
+        });
+        const total = toNumber(opciones.total) || valores.reduce((a,b)=>a + Math.abs(toNumber(b)), 0);
+        const maxDato = Math.max(...valores.map(v => Math.abs(toNumber(v))), 0);
+        const cantidad = Math.max(valores.length, 1);
+        const alto = horizontal ? Math.min(Math.max(340, 120 + cantidad * 42), 840) : 380;
+        const barThickness = horizontal ? Math.max(22, Math.min(34, Math.floor((alto - 150) / cantidad * 0.72))) : 52;
+
+        prepararCanvasGrafica(canvas, alto);
+        destruirGraficaLocal(idCanvas);
+
+        const bgPlugin = pluginFondoArea(tema.fondoArea);
+
+        window.charts[idCanvas] = new Chart(canvas, {
+            type:'bar',
+            plugins:[bgPlugin],
+            data:{
+                labels:etiquetas,
+                datasets:[{
+                    label: opciones.legendLabel || label,
+                    data: valores,
+                    backgroundColor: opciones.backgroundColor || (horizontal ? '#16a34a' : '#16a34a'),
+                    borderColor: opciones.borderColor || '#0b7a3c',
+                    borderWidth: 1.4,
+                    borderRadius: horizontal ? 9 : 12,
+                    borderSkipped: false,
+                    barThickness,
+                    maxBarThickness: horizontal ? 38 : 56,
+                    minBarLength: horizontal ? 18 : 8,
+                    categoryPercentage: 0.86,
+                    barPercentage: 0.92
+                }]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                animation:false,
+                indexAxis: horizontal ? 'y' : 'x',
+                layout:{
+                    padding: horizontal ? {left:10,right:300,top:18,bottom:12} : {left:12,right:30,top:22,bottom:12}
+                },
+                interaction:{mode:'nearest', axis: horizontal ? 'y' : 'x', intersect:false},
+                plugins:{
+                    legend:{
+                        display:true,
+                        position:'top',
+                        labels:{
+                            color: tema.texto,
+                            boxWidth:14,
+                            boxHeight:8,
+                            padding:12,
+                            font:{family:'Inter, Segoe UI, Arial', size:12, weight:'800'}
+                        }
+                    },
+                    tooltip:{
+                        backgroundColor: tema.oscuro ? 'rgba(2,6,23,.95)' : 'rgba(15,23,42,.96)',
+                        titleColor:'#fff',
+                        bodyColor:'#fff',
+                        borderColor: tema.oscuro ? 'rgba(255,255,255,.12)' : 'rgba(34,197,94,.35)',
+                        borderWidth:1,
+                        callbacks:{
+                            title:items => etiquetasOriginales[items?.[0]?.dataIndex] || items?.[0]?.label || '-',
+                            label:ctx => {
+                                const valor = toNumber(ctx.parsed[horizontal ? 'x' : 'y']);
+                                const meta = toNumber((opciones.metas || [])[ctx.dataIndex]);
+                                const lines = [`${ctx.dataset.label}: ${valorLegibleGrafica(valor, tipoValor)}`];
+                                if(typeof opciones.customTooltipFormatter === 'function') return opciones.customTooltipFormatter({ctx, valor, meta, total, tipoValor});
+                                if(meta > 0){
+                                    const pct = (valor / meta) * 100;
+                                    lines.push(`Meta: ${valorLegibleGrafica(meta, tipoValor)}`);
+                                    lines.push(`Cumplimiento: ${pct.toFixed(1)}%`);
+                                    lines.push(`Estado: ${estadoCumplimientoCorto(pct)}`);
+                                }else if(total > 0 && opciones.mostrarParticipacion !== false){
+                                    lines.push(`Participación: ${((Math.abs(valor) / total) * 100).toFixed(1)}%`);
+                                }
+                                return lines;
+                            }
+                        }
+                    },
+                    datalabels:{
+                        display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                        anchor:'end',
+                        align: horizontal ? 'right' : 'top',
+                        offset: horizontal ? 8 : 4,
+                        clamp:false,
+                        clip:false,
+                        color: tema.etiquetaTexto,
+                        backgroundColor: tema.etiquetaFondo,
+                        borderColor: tema.etiquetaBorde,
+                        borderWidth:1,
+                        borderRadius:999,
+                        padding:{top:4,right:9,bottom:4,left:9},
+                        font:{family:'Inter, Segoe UI, Arial', size: horizontal ? 11.2 : 10.8, weight:'800'},
+                        formatter:(value, ctx) => etiquetaBarra(value, ctx, horizontal, tipoValor, {...opciones, total})
+                    }
+                },
+                scales: horizontal ? {
+                    y:{
+                        ticks:{color:tema.texto,font:{family:'Inter, Segoe UI, Arial', size:12, weight:'800'}, autoSkip:false, padding:8},
+                        grid:{display:false}, border:{display:false}
+                    },
+                    x:{
+                        beginAtZero:true,
+                        suggestedMax:maxDato > 0 ? maxDato * 1.24 : 1,
+                        ticks:{
+                            color:tema.textoSuave,
+                            font:{family:'Inter, Segoe UI, Arial', size:10.5, weight:'700'},
+                            maxTicksLimit:6,
+                            callback:value => tipoValor === 'money' ? formatNumberPlain(value) : valorLegibleGrafica(value, tipoValor)
+                        },
+                        grid:{color:tema.grid},
+                        border:{color:tema.borde}
+                    }
+                } : {
+                    y:{
+                        beginAtZero:true,
+                        suggestedMax:maxDato > 0 ? maxDato * 1.18 : 1,
+                        ticks:{color:tema.textoSuave,font:{family:'Inter, Segoe UI, Arial', size:10.5, weight:'700'}, maxTicksLimit:6, callback:value => tipoValor === 'money' ? formatNumberPlain(value) : valorLegibleGrafica(value, tipoValor)},
+                        grid:{color:tema.grid}, border:{color:tema.borde}
+                    },
+                    x:{
+                        ticks:{color:tema.texto,font:{family:'Inter, Segoe UI, Arial', size:11, weight:'800'}, autoSkip:false, maxRotation:0, minRotation:0},
+                        grid:{display:false}, border:{display:false}
+                    }
+                }
+            }
+        });
+    };
+
+    window.crearChartDoughnut = function(idCanvas, labels, data, titulo, tipoValor='money'){
+        const canvas = obtenerCanvasGrafica(idCanvas);
+        if(!canvas || typeof Chart === 'undefined') return;
+        const tema = temaGrafico();
+        const valores = (Array.isArray(data) ? data : []).map(v => toNumber(v));
+        const total = valores.reduce((a,b)=>a+b,0);
+
+        prepararCanvasGrafica(canvas, 360);
+        destruirGraficaLocal(idCanvas);
+
+        const bgPlugin = pluginFondoArea(tema.fondoArea);
+
+        window.charts[idCanvas] = new Chart(canvas, {
+            type:'doughnut',
+            plugins:[bgPlugin],
+            data:{
+                labels: labels || [],
+                datasets:[{
+                    data: valores,
+                    backgroundColor:['#16a34a','#2563eb','#f59e0b','#a855f7','#ef4444','#06b6d4'],
+                    borderColor: tema.oscuro ? '#0f172a' : '#ffffff',
+                    borderWidth:3,
+                    hoverOffset:6
+                }]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                cutout:'56%',
+                animation:false,
+                plugins:{
+                    legend:{display:true, position:'top', labels:{color:tema.texto, boxWidth:13, font:{family:'Inter, Segoe UI, Arial', size:12, weight:'800'}}},
+                    tooltip:{backgroundColor:tema.oscuro ? 'rgba(2,6,23,.95)' : 'rgba(15,23,42,.96)', titleColor:'#fff', bodyColor:'#fff', callbacks:{label:ctx => `${ctx.label}: ${valorLegibleGrafica(ctx.parsed, tipoValor)} (${total > 0 ? ((toNumber(ctx.parsed)/total)*100).toFixed(1) : '0.0'}%)`}},
+                    datalabels:{
+                        display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
+                        color:'#ffffff',
+                        textStrokeColor:'rgba(0,0,0,.35)',
+                        textStrokeWidth:2,
+                        font:{family:'Inter, Segoe UI, Arial', size:11, weight:'900'},
+                        formatter:value => total > 0 ? `${valorLegibleGrafica(value,tipoValor)}\n${((toNumber(value)/total)*100).toFixed(1)}%` : valorLegibleGrafica(value,tipoValor)
+                    }
+                }
+            }
+        });
+    };
+
+    renderGraficosDashboard = window.renderGraficosDashboard = function(resumen){
+        resumen = resumen || calcularResumen(DATASET_FILTRADO || []);
+
+        crearChartBar(
+            'graficoMetaReal',
+            ['Meta', 'Venta Real'],
+            [META_RANGO_ACTUAL, resumen.total],
+            'Valor',
+            'Meta del Rango vs Venta Real',
+            false,
+            'money',
+            {
+                metas:[0, META_RANGO_ACTUAL],
+                legendLabel:'Valor',
+                mostrarParticipacion:false,
+                customLabelFormatter:({value,index,meta}) => {
+                    if(index === 0) return [formatMoney(value), 'Valor objetivo'];
+                    const pct = meta > 0 ? (toNumber(value)/meta) * 100 : 0;
+                    return [formatMoney(value), `${pct.toFixed(1)}%`, estadoCumplimientoCorto(pct)];
+                },
+                customTooltipFormatter:({valor,meta}) => {
+                    const pct = meta > 0 ? (valor/meta) * 100 : 0;
+                    return ['Venta Real: ' + formatMoney(valor), 'Meta: ' + formatMoney(meta), 'Cumplimiento: ' + pct.toFixed(1) + '%', 'Estado: ' + estadoCumplimientoCorto(pct)];
+                }
+            }
+        );
+
+        crearChartDoughnut(
+            'graficoCategoriasDashboard',
+            ['PARTICULAR', 'RED', 'EXCEDENTES'],
+            [resumen.particular, resumen.red, resumen.excedentes],
+            'Participación por categoría',
+            'money'
+        );
+    };
+
+    renderExcedentes = window.renderExcedentes = function(){
+        const excedentes = Object.values(agruparExcedentes(DATASET_FILTRADO || []))
+            .map(x => ({...x, valor: toNumber(x.valor), cantidad: toNumber(x.cantidad)}))
+            .filter(x => x.valor > 0 || x.cantidad > 0)
+            .sort((a,b) => b.valor - a.valor);
+
+        const totalExcedentes = excedentes.reduce((acc,x) => acc + toNumber(x.valor), 0);
+        const cantidad = excedentes.reduce((acc,x) => acc + toNumber(x.cantidad), 0);
+        const metaExcedentes = metaCategoriaMensual('EXCEDENTES') * MESES_EQUIVALENTES_ACTUAL;
+        const cumplimiento = metaExcedentes > 0 ? (totalExcedentes / metaExcedentes) * 100 : 0;
+
+        setHtml('vistaExcedentesValor', formatMoney(totalExcedentes));
+        setHtml('vistaExcedentesCantidad', cantidad);
+        setHtml('vistaExcedentesMeta', formatMoney(metaExcedentes));
+        setHtml('vistaExcedentesCumplimiento', cumplimiento.toFixed(1) + '%');
+
+        const tbody = document.querySelector('#tablaExcedentesVista tbody');
+        if(tbody){
+            if(excedentes.length === 0){
+                tbody.innerHTML = `<tr><td colspan="6">Sin excedentes registrados</td></tr>`;
+            }else{
+                tbody.innerHTML = excedentes.map(item => {
+                    const meta = metaExcedenteMensual(item.nombre) * MESES_EQUIVALENTES_ACTUAL;
+                    const pct = meta > 0 ? (toNumber(item.valor) / meta) * 100 : 0;
+                    return `
+                        <tr>
+                            <td>${item.nombre}</td>
+                            <td>${formatMoney(meta)}</td>
+                            <td>${item.cantidad}</td>
+                            <td>${formatMoney(item.valor)}</td>
+                            <td>${pct.toFixed(1)}%</td>
+                            <td>${badgeEstado(pct)}</td>
+                        </tr>`;
+                }).join('');
+            }
+        }
+
+        const excedentesTop = excedentes.slice(0, 15);
+        crearChartBar(
+            'graficoExcedentes',
+            excedentesTop.map(x => x.nombre),
+            excedentesTop.map(x => toNumber(x.valor)),
+            'Venta',
+            'Excedentes por valor vendido',
+            true,
+            'money',
+            {
+                metas: excedentesTop.map(x => metaExcedenteMensual(x.nombre) * MESES_EQUIVALENTES_ACTUAL),
+                total: totalExcedentes,
+                legendLabel:'Venta | % cumplimiento | Estado',
+                backgroundColor:'#0e9f6e',
+                borderColor:'#047857'
+            }
+        );
+    };
+
+    function resumenBaseImagen(){
+        const rows = Array.isArray(DATASET_FILTRADO) ? DATASET_FILTRADO : [];
+        const resumen = calcularResumen(rows);
+        const total = toNumber(resumen.total);
+        const meta = toNumber(META_RANGO_ACTUAL);
+        const faltante = Math.max(meta - total, 0);
+        const cumplimiento = meta > 0 ? (total / meta) * 100 : 0;
+        return {rows, resumen, total, meta, faltante, cumplimiento};
+    }
+
+    function topRowsDimension(rows, title, items, type='money', limit=10){
+        return { title, type, rows:(items || []).slice(0, limit) };
+    }
+
+    function buildSectionsImagen(){
+        const {rows} = resumenBaseImagen();
+        const gestores = Object.values(agruparGestores(rows)).sort((a,b)=>b.valor-a.valor).map(x=>({nombre:primerNombreGestor(x.nombre), valor:x.valor}));
+        const clinicas = Object.values(agruparClinicas(rows)).sort((a,b)=>b.valor-a.valor).map(x=>({nombre:x.nombre, valor:x.valor}));
+        const municipios = Object.values(agruparDimension(rows,'municipio')).sort((a,b)=>b.cantidad-a.cantidad).map(x=>({nombre:x.nombre, valor:x.cantidad}));
+        const cementerios = Object.values(agruparDimension(rows,'cementerio')).sort((a,b)=>b.cantidad-a.cantidad).map(x=>({nombre:x.nombre, valor:x.cantidad}));
+        const excedentes = Object.values(agruparExcedentes(rows)).sort((a,b)=>b.valor-a.valor).map(x=>({nombre:x.nombre, valor:x.valor}));
+        const destino = Object.values(agruparDimension(rows,'destinoFinal')).sort((a,b)=>b.cantidad-a.cantidad).map(x=>({nombre:x.nombre, valor:x.cantidad}));
+        const categorias = [
+            {nombre:'PARTICULAR', valor:calcularResumen(rows).particular},
+            {nombre:'RED', valor:calcularResumen(rows).red},
+            {nombre:'EXCEDENTES', valor:calcularResumen(rows).excedentes}
+        ];
+        return [
+            topRowsDimension(rows, 'Categorías', categorias, 'money', 3),
+            topRowsDimension(rows, 'Gestores', gestores, 'money', 12),
+            topRowsDimension(rows, 'Clínicas', clinicas, 'money', 10),
+            topRowsDimension(rows, 'Municipios', municipios, 'number', 10),
+            topRowsDimension(rows, 'Cementerios', cementerios, 'number', 10),
+            topRowsDimension(rows, 'Destino final', destino, 'number', 10),
+            topRowsDimension(rows, 'Excedentes', excedentes, 'money', 10)
+        ];
+    }
+
+    function roundRectCanvas(ctx, x, y, w, h, r){
+        ctx.beginPath();
+        ctx.moveTo(x+r,y);
+        ctx.arcTo(x+w,y,x+w,y+h,r);
+        ctx.arcTo(x+w,y+h,x,y+h,r);
+        ctx.arcTo(x,y+h,x,y,r);
+        ctx.arcTo(x,y,x+w,y,r);
+        ctx.closePath();
+    }
+
+    function wrapTextCanvas(ctx, text, x, y, maxWidth, lineHeight){
+        const words = String(text || '').split(/\s+/);
+        let line = '';
+        let yy = y;
+        words.forEach(word => {
+            const test = line ? `${line} ${word}` : word;
+            if(ctx.measureText(test).width > maxWidth && line){
+                ctx.fillText(line, x, yy);
+                yy += lineHeight;
+                line = word;
+            }else{
+                line = test;
+            }
+        });
+        if(line) ctx.fillText(line, x, yy);
+        return yy;
+    }
+
+    function exportarImagenCompleta20260728(){
+        try{
+            const base = resumenBaseImagen();
+            const sections = buildSectionsImagen();
+            let height = 380 + sections.reduce((acc, sec) => acc + 92 + sec.rows.length * 42, 0) + 220;
+            height = Math.min(Math.max(height, 2600), 18000);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 1700;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if(!ctx) throw new Error('No fue posible crear el lienzo de exportación.');
+
+            ctx.fillStyle = '#f4f8f6';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#005c31';
+            ctx.fillRect(0, 0, canvas.width, 118);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 46px Arial';
+            ctx.fillText('Reporte Gerencial de Homenajes', 55, 58);
+            ctx.font = '22px Arial';
+            ctx.fillText(new Date().toLocaleString('es-CO'), 55, 94);
+
+            let y = 150;
+            const cards = [
+                ['Meta', formatMoney(base.meta), 'Rango seleccionado'],
+                ['Venta real', formatMoney(base.total), `${base.cumplimiento.toFixed(1)}% cumplimiento`],
+                ['Faltante', formatMoney(base.faltante), 'Valor pendiente'],
+                ['Registros', formatNumberPlain(base.rows.length), 'Base filtrada']
+            ];
+            [55,455,855,1255].forEach((x, i) => {
+                roundRectCanvas(ctx, x, y, 330, 112, 18); ctx.fillStyle='#ffffff'; ctx.fill(); ctx.strokeStyle='#d6e3dc'; ctx.lineWidth=2; ctx.stroke();
+                ctx.fillStyle='#64748b'; ctx.font='bold 21px Arial'; ctx.fillText(cards[i][0], x+20, y+34);
+                ctx.fillStyle='#0f172a'; ctx.font='bold 36px Arial'; ctx.fillText(cards[i][1], x+20, y+73);
+                ctx.fillStyle='#64748b'; ctx.font='18px Arial'; ctx.fillText(cards[i][2], x+20, y+98);
+            });
+            y += 150;
+
+            ctx.fillStyle = '#0f5132';
+            ctx.font = 'bold 30px Arial';
+            ctx.fillText('Resumen ejecutivo', 55, y);
+            y += 36;
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '22px Arial';
+            const resumenTxt = `Venta real ${formatMoney(base.total)} | Cumplimiento ${base.cumplimiento.toFixed(1)}% | Faltante ${formatMoney(base.faltante)} | PLAN ${formatNumberPlain(base.resumen.planCantidad || 0)} atenciones.`;
+            wrapTextCanvas(ctx, resumenTxt, 55, y, 1550, 28);
+            y += 55;
+
+            sections.forEach(sec => {
+                const boxH = 70 + sec.rows.length * 42;
+                roundRectCanvas(ctx, 55, y, 1590, boxH, 20); ctx.fillStyle='#ffffff'; ctx.fill(); ctx.strokeStyle='#d6e3dc'; ctx.lineWidth=2; ctx.stroke();
+                ctx.fillStyle='#0f5132'; ctx.font='bold 26px Arial'; ctx.fillText(sec.title, 80, y+36);
+                const max = Math.max(...sec.rows.map(r => toNumber(r.valor)), 1);
+                const total = sec.rows.reduce((a,b)=>a+toNumber(b.valor),0) || 1;
+                sec.rows.forEach((row, idx) => {
+                    const yy = y + 70 + idx*42;
+                    ctx.fillStyle = idx % 2 ? '#ffffff' : '#f8fbf9';
+                    ctx.fillRect(70, yy-18, 1560, 34);
+                    ctx.fillStyle='#0f172a'; ctx.font='bold 17px Arial';
+                    wrapTextCanvas(ctx, row.nombre || '-', 85, yy, 290, 17);
+                    const barW = Math.max((toNumber(row.valor)/max)*760, toNumber(row.valor) > 0 ? 10 : 0);
+                    ctx.fillStyle='#0ea85f';
+                    roundRectCanvas(ctx, 385, yy-14, barW, 20, 10); ctx.fill();
+                    const pct = (Math.abs(toNumber(row.valor)) / total) * 100;
+                    const detalle = `${sec.type === 'money' ? formatMoney(row.valor) : formatNumberPlain(row.valor)} | ${pct.toFixed(1)}%`;
+                    ctx.fillStyle='#0f172a'; ctx.font='bold 16px Arial';
+                    wrapTextCanvas(ctx, detalle, 1170, yy, 380, 16);
+                });
+                y += boxH + 22;
+            });
+
+            ctx.fillStyle='#64748b';
+            ctx.font='18px Arial';
+            ctx.fillText('Imagen ejecutiva completa generada automáticamente. Incluye indicadores, secciones analíticas y consolidado gerencial.', 55, Math.min(y+16, canvas.height - 24));
+
+            canvas.toBlob(blob => {
+                if(!blob) return alert('No se pudo generar la imagen completa.');
+                rpDescargar(`reporte_gerencial_completo_${rpFechaArchivo()}.png`, blob);
+                if(typeof setEstadoExportacion === 'function') setEstadoExportacion('Imagen ejecutiva completa generada correctamente.', 'ok');
+                if(typeof toast === 'function') toast('Imagen ejecutiva completa generada correctamente.');
+            }, 'image/png', 0.95);
+        }catch(error){
+            console.error('Error exportarImagenCompleta20260728:', error);
+            if(typeof setEstadoExportacion === 'function') setEstadoExportacion(`Error Imagen: ${error.message}`, 'error');
+            alert('No se pudo generar la imagen ejecutiva completa. Error: ' + error.message);
+        }
+    }
+
+    function vincularBotonFinal(id, fn){
+        const btn = document.getElementById(id);
+        if(!btn) return;
+        const clone = btn.cloneNode(true);
+        btn.parentNode.replaceChild(clone, btn);
+        clone.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); fn(); });
+    }
+
+    function instalarMejorasFinales20260728(){
+        vincularBotonFinal('btnImagen', exportarImagenCompleta20260728);
+        vincularBotonFinal('reporteImagen', exportarImagenCompleta20260728);
+        if(typeof aplicarFiltrosYRender === 'function') aplicarFiltrosYRender();
+    }
+
+    window.exportarImagenCompleta20260728 = exportarImagenCompleta20260728;
+    instalarMejorasFinales20260728();
+    setTimeout(instalarMejorasFinales20260728, 900);
+    setTimeout(instalarMejorasFinales20260728, 2200);
+    console.log('MEJORAS FINALES ACTIVAS - VERSION ' + VERSION_MEJORAS_FINALES_20260728);
+})();
