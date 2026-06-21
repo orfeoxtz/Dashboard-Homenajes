@@ -2084,3 +2084,96 @@ body.theme-slate .sortable-table thead th::after{
 body.theme-dark .grafico-card,
 body.theme-slate .grafico-card,
 body.dark-mode .grafico-card{color:#f8fafc;}
+
+
+/* =========================================================
+   CIERRE GERENCIAL 20260731
+   Presentación, diagnóstico y refinamiento final.
+   ========================================================= */
+.version-final-badge{
+    position:fixed;
+    right:14px;
+    bottom:14px;
+    z-index:60;
+    background:rgba(0,79,42,.92);
+    color:#fff;
+    border:1px solid rgba(255,255,255,.25);
+    box-shadow:0 12px 28px rgba(15,23,42,.18);
+    border-radius:999px;
+    padding:7px 11px;
+    font-size:10px;
+    font-weight:900;
+    letter-spacing:.2px;
+}
+
+body.modo-presentacion .sidebar,
+body.modo-presentacion .filtros,
+body.modo-presentacion .theme-dock,
+body.modo-presentacion .quick-theme-dock,
+body.modo-presentacion .toast-container{
+    display:none !important;
+}
+
+body.modo-presentacion .main{
+    margin-left:0 !important;
+    width:100% !important;
+    padding:14px 22px !important;
+}
+
+body.modo-presentacion .topbar{
+    position:relative !important;
+    top:0 !important;
+    border-radius:18px !important;
+    padding:12px 16px !important;
+}
+
+body.modo-presentacion .header-actions button:not(#btnPresentacion):not(#btnPdf):not(#btnExcel):not(#btnImagen){
+    display:none !important;
+}
+
+body.modo-presentacion .vista-titulo{
+    font-size:21px !important;
+    margin-top:10px !important;
+}
+
+body.modo-presentacion .card,
+body.modo-presentacion .grafico-card,
+body.modo-presentacion .resumen-ejecutivo,
+body.modo-presentacion .tabla-cumplimiento{
+    box-shadow:0 10px 26px rgba(15,23,42,.10) !important;
+}
+
+body.modo-presentacion #btnPresentacion{
+    background:linear-gradient(135deg,#004f2a,#00a651) !important;
+    color:#fff !important;
+}
+
+.cierre-panel-diagnostico{
+    margin-top:10px;
+    background:linear-gradient(135deg,#f8fffb,#eefaf4);
+    border:1px solid rgba(0,143,70,.14);
+    border-left:5px solid #008f46;
+    border-radius:16px;
+    padding:10px 12px;
+    font-size:11px;
+    font-weight:800;
+    color:#0f172a;
+}
+
+.cierre-panel-diagnostico strong{color:#004f2a;}
+
+body.theme-dark .cierre-panel-diagnostico,
+body.theme-slate .cierre-panel-diagnostico,
+body.dark-mode .cierre-panel-diagnostico{
+    background:linear-gradient(135deg,rgba(15,23,42,.96),rgba(5,46,22,.82));
+    color:#f8fafc;
+    border-color:rgba(34,197,94,.24);
+}
+
+body.theme-dark .cierre-panel-diagnostico strong,
+body.theme-slate .cierre-panel-diagnostico strong,
+body.dark-mode .cierre-panel-diagnostico strong{color:#bbf7d0;}
+
+#tablaCumplimientoMensual tbody tr:nth-child(even){background:rgba(0,143,70,.035);}
+#tablaCumplimientoMensual td,#tablaCumplimientoMensual th{white-space:nowrap;}
+#tablaCumplimientoMensual td:nth-child(1){font-weight:900;color:#0f5132;}
