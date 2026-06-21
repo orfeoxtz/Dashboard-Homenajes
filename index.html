@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260724">
+<link rel="stylesheet" href="./style.css?v=20260725">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -475,6 +475,20 @@
 <section id="cumplimiento" class="vista">
     <h1 class="vista-titulo">Cumplimiento</h1>
 
+    <section class="resumen-ejecutivo">
+        <h2>Lectura de cumplimiento</h2>
+        <p id="textoCumplimientoVista">Cargando cumplimiento desde Google Sheet...</p>
+    </section>
+
+    <section class="kpis-secundarios kpis-cumplimiento-vista">
+        <div class="card kpi-mini"><h3>🎯 Meta del periodo</h3><h2 id="cumplimientoMetaVista">$0</h2></div>
+        <div class="card kpi-mini"><h3>💰 Venta real</h3><h2 id="cumplimientoVentaVista">$0</h2></div>
+        <div class="card kpi-mini"><h3>📈 Cumplimiento</h3><h2 id="cumplimientoPctVista">0%</h2></div>
+        <div class="card kpi-mini"><h3>⚠️ Faltante</h3><h2 id="cumplimientoFaltanteVista">$0</h2></div>
+        <div class="card kpi-mini"><h3>🏆 Mejor mes</h3><h2 id="cumplimientoMejorMesVista">-</h2></div>
+        <div class="card kpi-mini"><h3>📅 Meses con venta</h3><h2 id="cumplimientoMesesVentaVista">0</h2></div>
+    </section>
+
     <div class="grafico-card grafico-full">
         <h3>Cumplimiento mensual</h3>
         <canvas id="graficoCumplimientoMensual"></canvas>
@@ -844,15 +858,13 @@
         <table id="tablaTiempoAfiliado">
             <thead>
                 <tr>
-                    <th>Ser querido / referencia</th>
                     <th>Orden</th>
                     <th>Contrato</th>
                     <th>Plan</th>
                     <th>Tipo afiliación</th>
                     <th>Edad</th>
                     <th>Fecha orden</th>
-                    <th>Tiempo afiliación</th>
-                    <th>Días</th>
+                    <th>Tiempo transcurrido entre la afiliación y fallecimiento</th>
                     <th>Clasificación</th>
                     <th>Fuente / acción</th>
                 </tr>
@@ -1020,6 +1032,6 @@
 
 </main>
 
-<script src="./app.js?v=20260724"></script>
+<script src="./app.js?v=20260725"></script>
 </body>
 </html>
