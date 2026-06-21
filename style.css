@@ -1702,3 +1702,8 @@ body.theme-slate #estadoReporte{color:#f8fafc;}
 
 
 /* VERSION VISUAL 20260719 - Archivo actualizado para evitar cache */
+
+
+/* Estado de exportacion estable 20260720 */
+.estado-exportacion-ok{color:#047857;font-weight:900;}
+.estado-exportacion-error{color:#dc2626;font-weight:900;}
