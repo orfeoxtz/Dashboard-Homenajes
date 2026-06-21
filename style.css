@@ -1795,7 +1795,7 @@ body:not(.theme-dark):not(.theme-slate):not(.dark-mode) .grafico-card.chart-card
 
 
 /* =========================================================
-   AJUSTE PROFESIONAL FINAL DE GRÁFICAS 20260723
+   AJUSTE PROFESIONAL FINAL DE GRÁFICAS 20260724
    Estética tipo Power BI: tarjeta institucional + área de lectura clara
    ========================================================= */
 .grafico-card,
@@ -1910,4 +1910,87 @@ body.dark-mode .grafico-card .mini-text{
 .tabla-cumplimiento table td,
 .tabla-cumplimiento table th{
     font-size:11px;
+}
+
+
+/* =========================================================
+   GRAFICAS POWER BI PRO DEFINITIVAS - VERSION 20260724
+   ========================================================= */
+body .grafico-card.powerbi-pro-card,
+body .grafico-card.chart-card-enhanced.powerbi-pro-card,
+body.theme-dark .grafico-card.powerbi-pro-card,
+body.theme-slate .grafico-card.powerbi-pro-card,
+body.dark-mode .grafico-card.powerbi-pro-card{
+    background:linear-gradient(180deg,#ffffff 0%,#f8fcfa 100%) !important;
+    border:1px solid rgba(0,79,42,.16) !important;
+    border-top:5px solid #008f46 !important;
+    border-left:1px solid rgba(0,79,42,.16) !important;
+    border-radius:18px !important;
+    box-shadow:0 14px 32px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.95) !important;
+    color:#111827 !important;
+    padding:14px 16px 18px !important;
+    overflow:visible !important;
+}
+
+body .grafico-card.powerbi-pro-card::after,
+body.theme-dark .grafico-card.powerbi-pro-card::after,
+body.theme-slate .grafico-card.powerbi-pro-card::after,
+body.dark-mode .grafico-card.powerbi-pro-card::after{
+    content:none !important;
+    display:none !important;
+}
+
+body .grafico-card.powerbi-pro-card::before,
+body .grafico-card.chart-card-enhanced.powerbi-pro-card::before,
+body.theme-dark .grafico-card.powerbi-pro-card::before,
+body.theme-slate .grafico-card.powerbi-pro-card::before,
+body.dark-mode .grafico-card.powerbi-pro-card::before{
+    content:none !important;
+    display:none !important;
+}
+
+body .grafico-card.powerbi-pro-card h3,
+body.theme-dark .grafico-card.powerbi-pro-card h3,
+body.theme-slate .grafico-card.powerbi-pro-card h3,
+body.dark-mode .grafico-card.powerbi-pro-card h3{
+    color:#052e1a !important;
+    font-size:15px !important;
+    font-weight:950 !important;
+    line-height:1.15 !important;
+    margin:0 0 10px !important;
+    letter-spacing:.05px !important;
+    text-shadow:none !important;
+}
+
+body .grafico-card.powerbi-pro-card canvas,
+body.theme-dark .grafico-card.powerbi-pro-card canvas,
+body.theme-slate .grafico-card.powerbi-pro-card canvas,
+body.dark-mode .grafico-card.powerbi-pro-card canvas{
+    display:block !important;
+    position:relative !important;
+    z-index:2 !important;
+    background:#ffffff !important;
+    border-radius:14px !important;
+    filter:none !important;
+    max-width:100% !important;
+}
+
+body .grafico-card.powerbi-pro-card .mini-text,
+body .grafico-card.powerbi-pro-card p,
+body .grafico-card.powerbi-pro-card span{
+    color:#334155 !important;
+    text-shadow:none !important;
+}
+
+body .graficos{
+    gap:14px !important;
+}
+
+body .vista .grafico-card.powerbi-pro-card{
+    margin-top:8px !important;
+}
+
+body .chartjs-tooltip,
+body .chartjs-render-monitor{
+    font-family:Inter,'Segoe UI',Arial,sans-serif !important;
 }
