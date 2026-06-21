@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260721");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260722");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -161,19 +161,37 @@ function isDarkChartTheme(){
 }
 
 function chartTextColor(){
-    return isDarkChartTheme() ? "#f8fafc" : "#0f172a";
+    return "#f8fafc";
 }
 
 function chartGridColor(){
-    return isDarkChartTheme() ? "rgba(203,213,225,.24)" : "rgba(15,23,42,.12)";
+    return "rgba(226,232,240,.22)";
 }
 
 function chartValueLabelStyle(){
     return {
-        color:"#0f172a",
-        backgroundColor:"rgba(255,255,255,.96)",
-        borderColor:isDarkChartTheme() ? "rgba(255,255,255,.36)" : "rgba(0,79,42,.18)"
+        color:"#052e1a",
+        backgroundColor:"rgba(255,255,255,.98)",
+        borderColor:"rgba(255,255,255,.42)"
     };
+}
+
+function esGraficaGestores(titulo="", label=""){
+    const texto = normalizarTexto(`${titulo} ${label}`);
+    return texto.includes("GESTOR") || texto.includes("GESTORES") || texto.includes("PARETO");
+}
+
+function etiquetaGraficaVisible(valor, titulo="", label=""){
+    const texto = String(valor || "").trim();
+    if(!texto) return "-";
+
+    if(esGraficaGestores(titulo, label)) return primerNombreGestor(texto);
+
+    if(texto.length > 34){
+        return texto.slice(0, 31).trim() + "...";
+    }
+
+    return texto;
 }
 
 function registrarPluginGraficas(){
@@ -1369,6 +1387,7 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
 
     opciones = opciones || {};
     const etiquetas = Array.isArray(labels) ? labels : [];
+    const etiquetasVisibles = etiquetas.map(etiqueta => etiquetaGraficaVisible(etiqueta, titulo, label));
     const valores = Array.isArray(data) ? data.map(v => toNumber(v)) : [];
     const metas = Array.isArray(opciones.metas) ? opciones.metas.map(v => toNumber(v)) : [];
     const totalReferencia = toNumber(opciones.total) || valores.reduce((acc,v) => acc + Math.abs(toNumber(v)), 0);
@@ -1377,8 +1396,8 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
     const maxMeta = Math.max(...metas.map(v => Math.abs(toNumber(v))), 0);
     const maxValue = Math.max(maxDato, maxMeta, 0);
     const cantidad = etiquetas.length;
-    const alto = horizontal ? Math.min(Math.max(390, cantidad * 48 + 145), 1040) : 395;
-    const barraGruesa = horizontal ? Math.min(36, Math.max(28, Math.floor((alto - 150) / Math.max(cantidad,1) * .68))) : 46;
+    const alto = horizontal ? Math.min(Math.max(430, cantidad * 56 + 165), 1180) : 420;
+    const barraGruesa = horizontal ? Math.min(46, Math.max(34, Math.floor((alto - 160) / Math.max(cantidad,1) * .82))) : 54;
     const labelStyle = chartValueLabelStyle();
     const contenedor = canvas.parentElement;
 
@@ -1404,28 +1423,29 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
 
         if(totalReferencia > 0 && opciones.mostrarParticipacion !== false){
             const pct = (Math.abs(valor) / totalReferencia) * 100;
+            const estado = opciones.estadoSinMeta || "Sin meta";
             return horizontal
-                ? `${valorTexto} | ${pct.toFixed(1)}% part.`
-                : [valorTexto, `${pct.toFixed(1)}% part.`];
+                ? `${valorTexto} | ${pct.toFixed(1)}% part. | ${estado}`
+                : [valorTexto, `${pct.toFixed(1)}% part.`, estado];
         }
 
-        return valorTexto;
+        return horizontal ? `${valorTexto} | Sin meta` : [valorTexto, "Sin meta"];
     };
 
     charts[idCanvas] = new Chart(canvas, {
         type:"bar",
         data:{
-            labels:etiquetas,
+            labels:etiquetasVisibles,
             datasets:[{
                 label:opciones.legendLabel || label,
                 data:valores,
-                backgroundColor:isDarkChartTheme() ? "rgba(0,200,83,.92)" : "rgba(0,143,70,.94)",
-                borderColor:isDarkChartTheme() ? "rgba(74,222,128,.98)" : "rgba(0,79,42,.98)",
+                backgroundColor:"rgba(20, 184, 105, .96)",
+                borderColor:"rgba(187,247,208,.95)",
                 borderWidth:1.2,
                 borderRadius:horizontal ? 11 : 13,
                 barThickness:barraGruesa,
-                maxBarThickness:horizontal ? 38 : 54,
-                minBarLength:horizontal ? 16 : 7,
+                maxBarThickness:horizontal ? 50 : 62,
+                minBarLength:horizontal ? 22 : 9,
                 barPercentage:.96,
                 categoryPercentage:.90
             }]
@@ -1455,6 +1475,7 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                                 lineas.push(`Estado: ${estadoMetaGrafica(pct)}`);
                             }else if(totalReferencia > 0){
                                 lineas.push(`Participación: ${((Math.abs(valor)/totalReferencia)*100).toFixed(1)}%`);
+                                lineas.push(`Estado: ${opciones.estadoSinMeta || "Sin meta configurada"}`);
                             }
                             return lineas;
                         }
@@ -1570,14 +1591,14 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
                 }},
                 datalabels:{
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
-                    color:isDarkChartTheme()?labelStyle.color:"#ffffff",
-                    backgroundColor:isDarkChartTheme()?labelStyle.backgroundColor:"transparent",
-                    borderColor:isDarkChartTheme()?labelStyle.borderColor:"transparent",
-                    borderWidth:isDarkChartTheme()?1:0,
-                    borderRadius:isDarkChartTheme()?6:0,
-                    padding:isDarkChartTheme()?{top:2,right:5,bottom:2,left:5}:0,
-                    textStrokeColor:isDarkChartTheme()?"transparent":"rgba(15,23,42,.45)",
-                    textStrokeWidth:isDarkChartTheme()?0:2,
+                    color:labelStyle.color,
+                    backgroundColor:labelStyle.backgroundColor,
+                    borderColor:labelStyle.borderColor,
+                    borderWidth:1,
+                    borderRadius:7,
+                    padding:{top:2,right:5,bottom:2,left:5},
+                    textStrokeColor:"transparent",
+                    textStrokeWidth:0,
                     font:{size:9,weight:"900"},
                     formatter:(value, ctx) => {
                         const total = (ctx.dataset.data || []).reduce((acc,v) => acc + toNumber(v), 0);
@@ -1615,8 +1636,8 @@ function renderGraficosDashboard(resumen){
     const metas = labels.map(() => metaMensualTotal());
 
     crearChartLine("graficoMensual", labels, [
-        {label:"Venta mensual", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
-        {label:"Meta mensual", data:metas, borderColor:"#ef4444", borderDash:[8,6], fill:false, pointRadius:0}
+        {label:"Venta mensual", data:ventas, borderColor:"#bbf7d0", backgroundColor:"rgba(187,247,208,.16)", fill:true, tension:.3},
+        {label:"Meta mensual", data:metas, borderColor:"#fbbf24", borderDash:[8,6], fill:false, pointRadius:0}
     ], "Ventas mensuales vs meta mensual");
 
     const tbody = document.querySelector("#tablaConsolidada tbody");
@@ -1768,7 +1789,7 @@ function renderGestores(){
 
                 return `
                     <tr>
-                        <td>${g.nombre}</td>
+                        <td title="${escapeHtml(g.nombre)}"><strong>${primerNombreGestor(g.nombre)}</strong></td>
                         <td>${formatMoney(meta)}</td>
                         <td>${g.cantidad}</td>
                         <td>${formatMoney(g.valor)}</td>
@@ -1896,7 +1917,7 @@ function renderMetas(){
 
     crearChartLine("graficoMetas", labels, [
         {label:"Producción acumulada", data:ventasAcumuladas, borderColor:"#006b3f", backgroundColor:"rgba(0,107,63,.14)", fill:true, tension:.25},
-        {label:"Meta acumulada", data:metas, borderColor:"#ef4444", borderDash:[8,6], fill:false, pointRadius:3, tension:.25}
+        {label:"Meta acumulada", data:metas, borderColor:"#fbbf24", borderDash:[8,6], fill:false, pointRadius:3, tension:.25}
     ], `Producción vs meta acumulada ${anio}`);
 }
 
@@ -1914,8 +1935,8 @@ function renderCumplimientoMensual(){
     const metas = labels.map(() => metaMensualTotal());
 
     crearChartLine("graficoCumplimientoMensual", labels, [
-        {label:"Venta", data:ventas, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
-        {label:"Meta", data:metas, borderColor:"#ef4444", borderDash:[8,6], fill:false, pointRadius:0}
+        {label:"Venta", data:ventas, borderColor:"#bbf7d0", backgroundColor:"rgba(187,247,208,.16)", fill:true, tension:.3},
+        {label:"Meta", data:metas, borderColor:"#fbbf24", borderDash:[8,6], fill:false, pointRadius:0}
     ], `Cumplimiento mensual ${anio}`);
 
     const tbody = document.querySelector("#tablaCumplimientoMensual tbody");
@@ -1953,7 +1974,7 @@ function renderComparativoAnual(){
     const ventasAnterior = meses.map(m => sumar(DATASET_NORMAL.filter(r => r.fecha && r.fecha.getFullYear() === anioAnterior && r.fecha.getMonth() + 1 === m && coincideFiltrosNoFecha(r, f))));
 
     crearChartLine("graficoComparativoAnual", labels, [
-        {label:String(anioActual), data:ventasActual, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
+        {label:String(anioActual), data:ventasActual, borderColor:"#bbf7d0", backgroundColor:"rgba(187,247,208,.16)", fill:true, tension:.3},
         {label:String(anioAnterior), data:ventasAnterior, borderColor:"#2563eb", backgroundColor:"rgba(37,99,235,.10)", fill:true, tension:.3}
     ], "Año actual vs año anterior");
 
@@ -2214,7 +2235,7 @@ function renderEnergia(){
     if(variacionEl) variacionEl.style.color = variacion <= 0 ? "#16a34a" : "#dc2626";
 
     crearChartLine("graficoEnergiaComparativo", labels, [
-        {label:String(anioActual), data:kwhActual, borderColor:"#00a651", backgroundColor:"rgba(0,166,81,.12)", fill:true, tension:.3},
+        {label:String(anioActual), data:kwhActual, borderColor:"#bbf7d0", backgroundColor:"rgba(187,247,208,.16)", fill:true, tension:.3},
         {label:String(anioAnterior), data:kwhAnterior, borderColor:"#2563eb", backgroundColor:"rgba(37,99,235,.10)", fill:true, tension:.3}
     ], "Consumo kWh año actual vs anterior", "kwh");
 
@@ -5764,12 +5785,12 @@ instalarExportacionForzada20260719();
 
 
 /* =========================================================
-   EXPORTACION FINAL ESTABLE 20260721
+   EXPORTACION FINAL ESTABLE 20260722
    PDF e Imagen descargan como Blob directo. Reemplaza eventos anteriores.
    ========================================================= */
-console.log("EXPORTACION FINAL ESTABLE ACTIVA - VERSION 20260721");
+console.log("EXPORTACION FINAL ESTABLE ACTIVA - VERSION 20260722");
 
-function descargarArchivo20260721(nombre, blob){
+function descargarArchivo20260722(nombre, blob){
     if(!blob || !(blob instanceof Blob)){
         throw new Error("No se pudo construir el archivo de descarga.");
     }
@@ -5794,19 +5815,19 @@ function descargarArchivo20260721(nombre, blob){
     }, 6000);
 }
 
-function fechaArchivo20260721(){
+function fechaArchivo20260722(){
     return new Date().toISOString().slice(0,10);
 }
 
-function money20260721(valor){
+function money20260722(valor){
     return "$" + Math.round(Number(valor || 0)).toLocaleString("es-CO");
 }
 
-function number20260721(valor){
+function number20260722(valor){
     return Math.round(Number(valor || 0)).toLocaleString("es-CO");
 }
 
-function limpiar20260721(valor){
+function limpiar20260722(valor){
     return String(valor ?? "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
@@ -5817,7 +5838,7 @@ function limpiar20260721(valor){
         .trim();
 }
 
-function obtenerReporteBase20260721(){
+function obtenerReporteBase20260722(){
     try{
         if(typeof aplicarFiltrosYRender === "function") aplicarFiltrosYRender();
     }catch(error){
@@ -5841,10 +5862,10 @@ function obtenerReporteBase20260721(){
     return {rows, resumen, meta, cumplimiento, faltante};
 }
 
-function agruparReporte20260721(rows, campo, limite=12){
+function agruparReporte20260722(rows, campo, limite=12){
     const mapa = new Map();
     (rows || []).forEach(row => {
-        const nombre = limpiar20260721(row?.[campo] || "SIN REGISTRO") || "SIN REGISTRO";
+        const nombre = limpiar20260722(row?.[campo] || "SIN REGISTRO") || "SIN REGISTRO";
         const actual = mapa.get(nombre) || {nombre, cantidad:0, valor:0};
         actual.cantidad += Number(row?.cantidadAtendida || 1);
         actual.valor += Number(row?.valorVenta || 0);
@@ -5855,8 +5876,8 @@ function agruparReporte20260721(rows, campo, limite=12){
         .slice(0, limite);
 }
 
-function crearHtmlReporte20260721(){
-    const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260721();
+function crearHtmlReporte20260722(){
+    const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260722();
     const categoria = [
         {nombre:"PARTICULAR", cantidad:rows.filter(r => r.categoriaGerencial === "PARTICULAR").length, valor:resumen.particular || 0},
         {nombre:"RED", cantidad:rows.filter(r => r.categoriaGerencial === "RED").length, valor:resumen.red || 0},
@@ -5868,7 +5889,7 @@ function crearHtmlReporte20260721(){
         <h2>${titulo}</h2>
         <table>
             <thead><tr><th>Concepto</th><th>Cantidad</th><th>Valor</th></tr></thead>
-            <tbody>${(data || []).map(x => `<tr><td>${limpiar20260721(x.nombre)}</td><td>${number20260721(x.cantidad)}</td><td>${money20260721(x.valor)}</td></tr>`).join("")}</tbody>
+            <tbody>${(data || []).map(x => `<tr><td>${limpiar20260722(x.nombre)}</td><td>${number20260722(x.cantidad)}</td><td>${money20260722(x.valor)}</td></tr>`).join("")}</tbody>
         </table>`;
 
     return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte Gerencial</title>
@@ -5884,27 +5905,27 @@ function crearHtmlReporte20260721(){
         @media print{body{margin:12mm}.header{border-radius:0}.kpis{grid-template-columns:repeat(2,1fr)}}
     </style></head><body>
         <div class="header"><h1>Reporte Gerencial de Homenajes</h1><p>Generado: ${new Date().toLocaleString("es-CO")}</p></div>
-        <div class="nota">Venta real: <strong>${money20260721(resumen.total)}</strong>. Cumplimiento: <strong>${cumplimiento.toFixed(1)}%</strong>. Faltante: <strong>${money20260721(faltante)}</strong>.</div>
+        <div class="nota">Venta real: <strong>${money20260722(resumen.total)}</strong>. Cumplimiento: <strong>${cumplimiento.toFixed(1)}%</strong>. Faltante: <strong>${money20260722(faltante)}</strong>.</div>
         <div class="kpis">
-            <div class="kpi"><small>Meta</small><strong>${money20260721(meta)}</strong></div>
-            <div class="kpi"><small>Venta real</small><strong>${money20260721(resumen.total)}</strong></div>
+            <div class="kpi"><small>Meta</small><strong>${money20260722(meta)}</strong></div>
+            <div class="kpi"><small>Venta real</small><strong>${money20260722(resumen.total)}</strong></div>
             <div class="kpi"><small>Cumplimiento</small><strong>${cumplimiento.toFixed(1)}%</strong></div>
-            <div class="kpi"><small>Registros</small><strong>${number20260721(rows.length)}</strong></div>
+            <div class="kpi"><small>Registros</small><strong>${number20260722(rows.length)}</strong></div>
         </div>
         ${tabla("Ventas por categoria", categoria)}
-        ${tabla("Ranking de gestores", agruparReporte20260721(rows,"gestor",15))}
-        ${tabla("Clinicas principales", agruparReporte20260721(rows,"clinica",15))}
-        ${tabla("Municipios", agruparReporte20260721(rows,"municipio",15))}
-        ${tabla("Cementerios", agruparReporte20260721(rows,"cementerio",15))}
-        ${tabla("Destino final", agruparReporte20260721(rows,"destinoFinal",12))}
-        ${tabla("Tipo de muerte", agruparReporte20260721(rows,"tipoMuerte",10))}
+        ${tabla("Ranking de gestores", agruparReporte20260722(rows,"gestor",15))}
+        ${tabla("Clinicas principales", agruparReporte20260722(rows,"clinica",15))}
+        ${tabla("Municipios", agruparReporte20260722(rows,"municipio",15))}
+        ${tabla("Cementerios", agruparReporte20260722(rows,"cementerio",15))}
+        ${tabla("Destino final", agruparReporte20260722(rows,"destinoFinal",12))}
+        ${tabla("Tipo de muerte", agruparReporte20260722(rows,"tipoMuerte",10))}
     </body></html>`;
 }
 
-function abrirReporteImprimible20260721(){
-    const html = crearHtmlReporte20260721();
+function abrirReporteImprimible20260722(){
+    const html = crearHtmlReporte20260722();
     const blob = new Blob([html], {type:"text/html;charset=utf-8"});
-    descargarArchivo20260721(`reporte_gerencial_imprimible_${fechaArchivo20260721()}.html`, blob);
+    descargarArchivo20260722(`reporte_gerencial_imprimible_${fechaArchivo20260722()}.html`, blob);
     const url = URL.createObjectURL(blob);
     const win = window.open(url, "_blank", "noopener,noreferrer");
     if(win){
@@ -5913,12 +5934,12 @@ function abrirReporteImprimible20260721(){
     }
 }
 
-async function obtenerJsPDF20260721(){
+async function obtenerJsPDF20260722(){
     if(window.jspdf?.jsPDF) return window.jspdf.jsPDF;
     if(window.jsPDF) return window.jsPDF;
 
     await new Promise((resolve, reject) => {
-        const id = "jspdf-estable-20260721";
+        const id = "jspdf-estable-20260722";
         const existente = document.getElementById(id);
         if(existente){
             existente.addEventListener("load", resolve, {once:true});
@@ -5938,12 +5959,12 @@ async function obtenerJsPDF20260721(){
     throw new Error("jsPDF no quedó disponible.");
 }
 
-async function exportarPDFEstable20260721(){
-    console.log("CLICK PDF - EXPORTACION ESTABLE 20260721");
+async function exportarPDFEstable20260722(){
+    console.log("CLICK PDF - EXPORTACION ESTABLE 20260722");
     if(typeof showLoading === "function") showLoading(true);
     try{
-        const jsPDF = await obtenerJsPDF20260721();
-        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260721();
+        const jsPDF = await obtenerJsPDF20260722();
+        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260722();
         const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4", compress:true});
         const pageW = doc.internal.pageSize.getWidth();
         const pageH = doc.internal.pageSize.getHeight();
@@ -5956,10 +5977,10 @@ async function exportarPDFEstable20260721(){
             doc.setTextColor(255,255,255);
             doc.setFont("helvetica","bold");
             doc.setFontSize(16);
-            doc.text(limpiar20260721(titulo), margin, 13);
+            doc.text(limpiar20260722(titulo), margin, 13);
             doc.setFontSize(8);
             doc.setFont("helvetica","normal");
-            doc.text(limpiar20260721(new Date().toLocaleString("es-CO")), pageW-margin, 13, {align:"right"});
+            doc.text(limpiar20260722(new Date().toLocaleString("es-CO")), pageW-margin, 13, {align:"right"});
             doc.setTextColor(15,23,42);
             y = 32;
         }
@@ -5972,7 +5993,7 @@ async function exportarPDFEstable20260721(){
             doc.setFont("helvetica","bold");
             doc.setFontSize(12);
             doc.setTextColor(0,79,42);
-            doc.text(limpiar20260721(titulo), margin, y);
+            doc.text(limpiar20260722(titulo), margin, y);
             y += 7;
             doc.setTextColor(15,23,42);
         }
@@ -5983,13 +6004,13 @@ async function exportarPDFEstable20260721(){
             doc.setFont("helvetica","bold");
             doc.setFontSize(7.5);
             doc.setTextColor(100,116,139);
-            doc.text(limpiar20260721(titulo),x+4,y+7);
+            doc.text(limpiar20260722(titulo),x+4,y+7);
             doc.setTextColor(15,23,42);
             doc.setFontSize(12.5);
-            doc.text(limpiar20260721(valor),x+4,y+16);
+            doc.text(limpiar20260722(valor),x+4,y+16);
             doc.setFontSize(6.5);
             doc.setTextColor(100,116,139);
-            doc.text(limpiar20260721(detalle || ""),x+4,y+22);
+            doc.text(limpiar20260722(detalle || ""),x+4,y+22);
         }
         function tabla(titulo, columnas, data, maxRows=15){
             seccion(titulo);
@@ -6004,7 +6025,7 @@ async function exportarPDFEstable20260721(){
             doc.setTextColor(255,255,255);
             doc.setFont("helvetica","bold");
             doc.setFontSize(7);
-            columnas.forEach((c,i)=>{ doc.text(limpiar20260721(c.h),x+2,y+4.8,{maxWidth:widths[i]-4}); x += widths[i]; });
+            columnas.forEach((c,i)=>{ doc.text(limpiar20260722(c.h),x+2,y+4.8,{maxWidth:widths[i]-4}); x += widths[i]; });
             y += rowH;
             body.forEach((r,idx)=>{
                 if(y + rowH > pageH-10) nuevaPagina(titulo);
@@ -6016,7 +6037,7 @@ async function exportarPDFEstable20260721(){
                 doc.setFontSize(6.6);
                 columnas.forEach((c,i)=>{
                     let v = typeof c.v === "function" ? c.v(r) : r[c.k];
-                    v = limpiar20260721(v);
+                    v = limpiar20260722(v);
                     if(c.max && v.length > c.max) v = v.slice(0,c.max-1) + ".";
                     doc.text(v || "-",x+2,y+4.8,{maxWidth:widths[i]-4});
                     x += widths[i];
@@ -6027,15 +6048,15 @@ async function exportarPDFEstable20260721(){
         }
 
         header("Reporte Gerencial de Homenajes");
-        tarjeta(margin,"Meta",money20260721(meta),"Rango seleccionado");
-        tarjeta(margin+67,"Venta real",money20260721(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
-        tarjeta(margin+134,"Faltante",money20260721(faltante),"Valor pendiente");
-        tarjeta(margin+201,"Registros",number20260721(rows.length),"Base filtrada");
+        tarjeta(margin,"Meta",money20260722(meta),"Rango seleccionado");
+        tarjeta(margin+67,"Venta real",money20260722(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
+        tarjeta(margin+134,"Faltante",money20260722(faltante),"Valor pendiente");
+        tarjeta(margin+201,"Registros",number20260722(rows.length),"Base filtrada");
         y += 35;
         doc.setFont("helvetica","normal");
         doc.setFontSize(9);
         doc.setTextColor(15,23,42);
-        const intro = doc.splitTextToSize(limpiar20260721(`Este reporte consolida la informacion filtrada del dashboard. Venta real: ${money20260721(resumen.total)}. Cumplimiento: ${cumplimiento.toFixed(1)}%. Faltante: ${money20260721(faltante)}.`), pageW - margin*2);
+        const intro = doc.splitTextToSize(limpiar20260722(`Este reporte consolida la informacion filtrada del dashboard. Venta real: ${money20260722(resumen.total)}. Cumplimiento: ${cumplimiento.toFixed(1)}%. Faltante: ${money20260722(faltante)}.`), pageW - margin*2);
         doc.text(intro, margin, y);
         y += intro.length * 5 + 7;
 
@@ -6047,27 +6068,27 @@ async function exportarPDFEstable20260721(){
         ];
 
         tabla("Ventas por categoria",[
-            {h:"Categoria",k:"nombre",w:80},{h:"Cantidad",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55},{h:"%",v:r=>resumen.total?`${((Number(r.valor||0)/Number(resumen.total||1))*100).toFixed(1)}%`:"0%",w:30}
+            {h:"Categoria",k:"nombre",w:80},{h:"Cantidad",v:r=>number20260722(r.cantidad),w:35},{h:"Venta",v:r=>money20260722(r.valor),w:55},{h:"%",v:r=>resumen.total?`${((Number(r.valor||0)/Number(resumen.total||1))*100).toFixed(1)}%`:"0%",w:30}
         ],categorias,8);
         tabla("Ranking de gestores",[
-            {h:"Gestor",k:"nombre",w:100,max:42},{h:"Servicios",v:r=>number20260721(r.cantidad),w:30},{h:"Venta",v:r=>money20260721(r.valor),w:55}
-        ],agruparReporte20260721(rows,"gestor",15),15);
+            {h:"Gestor",k:"nombre",w:100,max:42},{h:"Servicios",v:r=>number20260722(r.cantidad),w:30},{h:"Venta",v:r=>money20260722(r.valor),w:55}
+        ],agruparReporte20260722(rows,"gestor",15),15);
         tabla("Clinicas principales",[
-            {h:"Clinica",k:"nombre",w:115,max:48},{h:"Reportes",v:r=>number20260721(r.cantidad),w:30},{h:"Venta",v:r=>money20260721(r.valor),w:55}
-        ],agruparReporte20260721(rows,"clinica",15),15);
+            {h:"Clinica",k:"nombre",w:115,max:48},{h:"Reportes",v:r=>number20260722(r.cantidad),w:30},{h:"Venta",v:r=>money20260722(r.valor),w:55}
+        ],agruparReporte20260722(rows,"clinica",15),15);
         tabla("Municipios",[
-            {h:"Municipio",k:"nombre",w:90,max:38},{h:"Atenciones",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55}
-        ],agruparReporte20260721(rows,"municipio",15),15);
+            {h:"Municipio",k:"nombre",w:90,max:38},{h:"Atenciones",v:r=>number20260722(r.cantidad),w:35},{h:"Venta",v:r=>money20260722(r.valor),w:55}
+        ],agruparReporte20260722(rows,"municipio",15),15);
         nuevaPagina("Destino final y control");
         tabla("Cementerios",[
-            {h:"Cementerio",k:"nombre",w:115,max:48},{h:"Servicios",v:r=>number20260721(r.cantidad),w:30},{h:"Venta",v:r=>money20260721(r.valor),w:55}
-        ],agruparReporte20260721(rows,"cementerio",15),15);
+            {h:"Cementerio",k:"nombre",w:115,max:48},{h:"Servicios",v:r=>number20260722(r.cantidad),w:30},{h:"Venta",v:r=>money20260722(r.valor),w:55}
+        ],agruparReporte20260722(rows,"cementerio",15),15);
         tabla("Destino final",[
-            {h:"Destino",k:"nombre",w:85},{h:"Servicios",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55}
-        ],agruparReporte20260721(rows,"destinoFinal",12),12);
+            {h:"Destino",k:"nombre",w:85},{h:"Servicios",v:r=>number20260722(r.cantidad),w:35},{h:"Venta",v:r=>money20260722(r.valor),w:55}
+        ],agruparReporte20260722(rows,"destinoFinal",12),12);
         tabla("Tipo de muerte",[
-            {h:"Tipo",k:"nombre",w:85},{h:"Cantidad",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55}
-        ],agruparReporte20260721(rows,"tipoMuerte",10),10);
+            {h:"Tipo",k:"nombre",w:85},{h:"Cantidad",v:r=>number20260722(r.cantidad),w:35},{h:"Venta",v:r=>money20260722(r.valor),w:55}
+        ],agruparReporte20260722(rows,"tipoMuerte",10),10);
 
         const totalPages = doc.internal.getNumberOfPages();
         for(let p=1; p<=totalPages; p++){
@@ -6078,13 +6099,13 @@ async function exportarPDFEstable20260721(){
         }
 
         const blob = doc.output("blob");
-        descargarArchivo20260721(`reporte_gerencial_homenajes_${fechaArchivo20260721()}.pdf`, blob);
-        if(typeof setEstadoExportacion === "function") setEstadoExportacion("PDF descargado correctamente con motor estable 20260721.", "ok");
+        descargarArchivo20260722(`reporte_gerencial_homenajes_${fechaArchivo20260722()}.pdf`, blob);
+        if(typeof setEstadoExportacion === "function") setEstadoExportacion("PDF descargado correctamente con motor estable 20260722.", "ok");
         if(typeof toast === "function") toast("PDF descargado correctamente.");
     }catch(error){
-        console.error("Error PDF estable 20260721:", error);
+        console.error("Error PDF estable 20260722:", error);
         try{
-            abrirReporteImprimible20260721();
+            abrirReporteImprimible20260722();
             if(typeof setEstadoExportacion === "function") setEstadoExportacion("No se pudo descargar PDF directo. Se descargó y abrió reporte HTML imprimible.", "error");
         }catch(fallbackError){
             alert("No se pudo generar PDF ni respaldo. Error: " + fallbackError.message);
@@ -6094,10 +6115,10 @@ async function exportarPDFEstable20260721(){
     }
 }
 
-function exportarImagenEstable20260721(){
-    console.log("CLICK IMAGEN - EXPORTACION ESTABLE 20260721");
+function exportarImagenEstable20260722(){
+    console.log("CLICK IMAGEN - EXPORTACION ESTABLE 20260722");
     try{
-        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260721();
+        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260722();
         const canvas = document.createElement("canvas");
         canvas.width = 1600;
         canvas.height = 1100;
@@ -6123,17 +6144,17 @@ function exportarImagenEstable20260721(){
             ctx.fillStyle = "#0f172a"; ctx.font = "bold 34px Arial"; ctx.fillText(v,x+24,y+75);
             ctx.fillStyle = "#64748b"; ctx.font = "18px Arial"; ctx.fillText(d,x+24,y+102);
         };
-        card(50,155,"Meta",money20260721(meta),"Rango seleccionado");
-        card(425,155,"Venta real",money20260721(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
-        card(800,155,"Faltante",money20260721(faltante),"Valor pendiente");
-        card(1175,155,"Registros",number20260721(rows.length),"Base filtrada");
+        card(50,155,"Meta",money20260722(meta),"Rango seleccionado");
+        card(425,155,"Venta real",money20260722(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
+        card(800,155,"Faltante",money20260722(faltante),"Valor pendiente");
+        card(1175,155,"Registros",number20260722(rows.length),"Base filtrada");
 
         ctx.fillStyle = "#004f2a";
         ctx.font = "bold 28px Arial";
         ctx.fillText("Resumen ejecutivo",50,330);
         ctx.fillStyle = "#0f172a";
         ctx.font = "21px Arial";
-        ctx.fillText(`Venta real: ${money20260721(resumen.total)} | Cumplimiento: ${cumplimiento.toFixed(1)}% | Faltante: ${money20260721(faltante)}`,50,365);
+        ctx.fillText(`Venta real: ${money20260722(resumen.total)} | Cumplimiento: ${cumplimiento.toFixed(1)}% | Faltante: ${money20260722(faltante)}`,50,365);
 
         const dibujarRanking = (titulo, data, x, y) => {
             ctx.fillStyle = "#004f2a"; ctx.font = "bold 25px Arial"; ctx.fillText(titulo,x,y);
@@ -6145,39 +6166,39 @@ function exportarImagenEstable20260721(){
                 const yy = y + i*46;
                 ctx.fillStyle = "#0f172a"; ctx.font = "17px Arial"; ctx.fillText((d.nombre || "-").slice(0,42),x,yy+18);
                 ctx.fillStyle = "#00984f"; ctx.fillRect(x+360,yy,ancho,24);
-                ctx.fillStyle = "#0f172a"; ctx.font = "bold 16px Arial"; ctx.fillText(d.valor ? money20260721(d.valor) : number20260721(d.cantidad),x+370+ancho,yy+18);
+                ctx.fillStyle = "#0f172a"; ctx.font = "bold 16px Arial"; ctx.fillText(d.valor ? money20260722(d.valor) : number20260722(d.cantidad),x+370+ancho,yy+18);
             });
         };
-        dibujarRanking("Gestores",agruparReporte20260721(rows,"gestor",8),50,430);
-        dibujarRanking("Clinicas",agruparReporte20260721(rows,"clinica",8),50,830);
+        dibujarRanking("Gestores",agruparReporte20260722(rows,"gestor",8),50,430);
+        dibujarRanking("Clinicas",agruparReporte20260722(rows,"clinica",8),50,830);
 
         canvas.toBlob(blob => {
             if(!blob){ alert("No se pudo crear la imagen PNG."); return; }
-            descargarArchivo20260721(`dashboard_gerencial_${fechaArchivo20260721()}.png`, blob);
-            if(typeof setEstadoExportacion === "function") setEstadoExportacion("Imagen PNG descargada correctamente con motor estable 20260721.", "ok");
+            descargarArchivo20260722(`dashboard_gerencial_${fechaArchivo20260722()}.png`, blob);
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion("Imagen PNG descargada correctamente con motor estable 20260722.", "ok");
             if(typeof toast === "function") toast("Imagen PNG descargada correctamente.");
         }, "image/png", 0.95);
     }catch(error){
-        console.error("Error imagen estable 20260721:", error);
+        console.error("Error imagen estable 20260722:", error);
         alert("No se pudo generar la imagen. Error: " + error.message);
     }
 }
 
-function generarExcelEstable20260721(){
-    console.log("CLICK EXCEL - EXPORTACION ESTABLE 20260721");
+function generarExcelEstable20260722(){
+    console.log("CLICK EXCEL - EXPORTACION ESTABLE 20260722");
     if(typeof generarExcelBasico20260719 === "function") return generarExcelBasico20260719();
-    const html = crearHtmlReporte20260721();
-    descargarArchivo20260721(`dashboard_gerencial_homenajes_${fechaArchivo20260721()}.html`, new Blob([html], {type:"text/html;charset=utf-8"}));
+    const html = crearHtmlReporte20260722();
+    descargarArchivo20260722(`dashboard_gerencial_homenajes_${fechaArchivo20260722()}.html`, new Blob([html], {type:"text/html;charset=utf-8"}));
 }
 
-function instalarExportacionesEstables20260721(){
+function instalarExportacionesEstables20260722(){
     const pares = [
-        ["btnPdf", exportarPDFEstable20260721],
-        ["reportePdfGeneral", exportarPDFEstable20260721],
-        ["btnExcel", generarExcelEstable20260721],
-        ["reporteExcelResumen", generarExcelEstable20260721],
-        ["btnImagen", exportarImagenEstable20260721],
-        ["reporteImagen", exportarImagenEstable20260721]
+        ["btnPdf", exportarPDFEstable20260722],
+        ["reportePdfGeneral", exportarPDFEstable20260722],
+        ["btnExcel", generarExcelEstable20260722],
+        ["reporteExcelResumen", generarExcelEstable20260722],
+        ["btnImagen", exportarImagenEstable20260722],
+        ["reporteImagen", exportarImagenEstable20260722]
     ];
 
     pares.forEach(([id, fn]) => {
@@ -6193,10 +6214,13 @@ function instalarExportacionesEstables20260721(){
     });
 
     if(typeof setEstadoExportacion === "function"){
-        setEstadoExportacion("Motor estable 20260721 activo: PDF por Blob, Excel e Imagen PNG.", "ok");
+        setEstadoExportacion("Motor estable 20260722 activo: PDF por Blob, Excel e Imagen PNG.", "ok");
     }
 }
 
-instalarExportacionesEstables20260721();
-setTimeout(instalarExportacionesEstables20260721, 800);
-setTimeout(instalarExportacionesEstables20260721, 2500);
+instalarExportacionesEstables20260722();
+setTimeout(instalarExportacionesEstables20260722, 800);
+setTimeout(instalarExportacionesEstables20260722, 2500);
+
+
+console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260722");
