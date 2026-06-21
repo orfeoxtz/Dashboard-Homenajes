@@ -1792,3 +1792,122 @@ body:not(.theme-dark):not(.theme-slate):not(.dark-mode) .grafico-card.chart-card
 .sidebar li.menu-item.active{
     box-shadow:0 12px 26px rgba(0,0,0,.18), inset 4px 0 0 rgba(0,143,70,.9);
 }
+
+
+/* =========================================================
+   AJUSTE PROFESIONAL FINAL DE GRÁFICAS 20260723
+   Estética tipo Power BI: tarjeta institucional + área de lectura clara
+   ========================================================= */
+.grafico-card,
+.grafico-card.chart-card-enhanced,
+body.theme-dark .grafico-card,
+body.theme-slate .grafico-card,
+body.dark-mode .grafico-card{
+    position:relative !important;
+    background:
+        linear-gradient(180deg,rgba(255,255,255,.98) 0%,rgba(247,253,250,.98) 100%) !important;
+    border:1px solid rgba(0,79,42,.18) !important;
+    border-left:6px solid #006b3f !important;
+    border-radius:20px !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.88),
+        0 18px 38px rgba(15,23,42,.10) !important;
+    color:#0f172a !important;
+    overflow:visible !important;
+}
+
+.grafico-card::after,
+body.theme-dark .grafico-card::after,
+body.theme-slate .grafico-card::after,
+body.dark-mode .grafico-card::after{
+    content:"";
+    position:absolute;
+    left:18px;
+    right:18px;
+    top:0;
+    height:5px;
+    border-radius:0 0 999px 999px;
+    background:linear-gradient(90deg,#004f2a 0%,#008f46 45%,#22c55e 100%);
+    opacity:.95;
+    pointer-events:none;
+}
+
+.grafico-card.chart-card-enhanced::before,
+body.theme-dark .grafico-card.chart-card-enhanced::before,
+body.theme-slate .grafico-card.chart-card-enhanced::before,
+body.dark-mode .grafico-card.chart-card-enhanced::before{
+    content:"";
+    position:absolute;
+    left:18px;
+    right:18px;
+    top:56px;
+    bottom:18px;
+    border-radius:17px;
+    background:
+        linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,253,250,.94)),
+        repeating-linear-gradient(0deg,rgba(15,23,42,.045) 0 1px,transparent 1px 36px),
+        repeating-linear-gradient(90deg,rgba(15,23,42,.035) 0 1px,transparent 1px 82px) !important;
+    border:1px solid rgba(0,79,42,.10) !important;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.80) !important;
+    pointer-events:none;
+    z-index:0;
+}
+
+.grafico-card h3,
+.grafico-card .card-subtitle,
+.grafico-card p,
+.grafico-card span,
+body.theme-dark .grafico-card h3,
+body.theme-slate .grafico-card h3,
+body.dark-mode .grafico-card h3{
+    position:relative;
+    z-index:3;
+    color:#052e1a !important;
+    text-shadow:none !important;
+}
+
+.grafico-card h3,
+.chart-card-readable h3{
+    font-size:15px !important;
+    font-weight:950 !important;
+    letter-spacing:.05px !important;
+    margin-bottom:8px !important;
+}
+
+.grafico-card canvas,
+body.theme-dark .grafico-card canvas,
+body.theme-slate .grafico-card canvas,
+body.dark-mode .grafico-card canvas{
+    position:relative !important;
+    z-index:2 !important;
+    filter:none !important;
+    background:transparent !important;
+}
+
+.grafico-card.chart-card-readable{
+    padding:16px 18px 20px !important;
+}
+
+.grafico-card.chart-card-readable canvas{
+    min-height:330px !important;
+}
+
+.graficos{
+    gap:14px !important;
+}
+
+body.theme-dark .grafico-card .mini-text,
+body.theme-slate .grafico-card .mini-text,
+body.dark-mode .grafico-card .mini-text{
+    color:#334155 !important;
+}
+
+/* Tarjetas de análisis un poco más limpias para lectura ejecutiva */
+.vista-titulo{
+    letter-spacing:-.25px;
+}
+
+.tabla-cumplimiento table td,
+.tabla-cumplimiento table th{
+    font-size:11px;
+}
