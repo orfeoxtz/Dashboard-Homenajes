@@ -2043,3 +2043,23 @@ body.theme-dark .sortable-table thead th::after,
 body.theme-slate .sortable-table thead th::after{
     color:#f8fafc;
 }
+
+
+/* Tabla tiempo afiliado depurada 20260726 */
+#tablaTiempoAfiliado th,
+#tablaTiempoAfiliado td{
+    vertical-align:middle;
+}
+#tablaTiempoAfiliado th:nth-child(7),
+#tablaTiempoAfiliado td:nth-child(7){
+    min-width:190px;
+    max-width:260px;
+    white-space:normal;
+    line-height:1.22;
+}
+#tablaTiempoAfiliado th:nth-child(1),
+#tablaTiempoAfiliado td:nth-child(1),
+#tablaTiempoAfiliado th:nth-child(2),
+#tablaTiempoAfiliado td:nth-child(2){
+    min-width:92px;
+}
