@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260719");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260720");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -5635,3 +5635,442 @@ function instalarExportacionForzada20260719(){
 }
 
 instalarExportacionForzada20260719();
+
+
+/* =========================================================
+   EXPORTACION FINAL ESTABLE 20260720
+   PDF e Imagen descargan como Blob directo. Reemplaza eventos anteriores.
+   ========================================================= */
+console.log("EXPORTACION FINAL ESTABLE ACTIVA - VERSION 20260720");
+
+function descargarArchivo20260720(nombre, blob){
+    if(!blob || !(blob instanceof Blob)){
+        throw new Error("No se pudo construir el archivo de descarga.");
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = nombre;
+    a.rel = "noopener noreferrer";
+    a.style.position = "fixed";
+    a.style.left = "-10000px";
+    a.style.top = "-10000px";
+    a.style.width = "1px";
+    a.style.height = "1px";
+    document.body.appendChild(a);
+
+    a.click();
+
+    setTimeout(() => {
+        try{ a.remove(); }catch(_e){}
+        try{ URL.revokeObjectURL(url); }catch(_e){}
+    }, 6000);
+}
+
+function fechaArchivo20260720(){
+    return new Date().toISOString().slice(0,10);
+}
+
+function money20260720(valor){
+    return "$" + Math.round(Number(valor || 0)).toLocaleString("es-CO");
+}
+
+function number20260720(valor){
+    return Math.round(Number(valor || 0)).toLocaleString("es-CO");
+}
+
+function limpiar20260720(valor){
+    return String(valor ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[\u2013\u2014]/g, "-")
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+        .trim();
+}
+
+function obtenerReporteBase20260720(){
+    try{
+        if(typeof aplicarFiltrosYRender === "function") aplicarFiltrosYRender();
+    }catch(error){
+        console.warn("No se pudo refrescar el dashboard antes de exportar.", error);
+    }
+
+    const rows = Array.isArray(DATASET_FILTRADO) && DATASET_FILTRADO.length
+        ? DATASET_FILTRADO
+        : (Array.isArray(DATASET_NORMAL) ? DATASET_NORMAL : []);
+
+    let resumen = ULTIMO_RESUMEN;
+    if(!resumen && typeof calcularResumen === "function"){
+        try{ resumen = calcularResumen(rows); }catch(_e){}
+    }
+    resumen = resumen || {total:0, particular:0, red:0, excedentes:0, planCantidad:0};
+
+    const meta = Number(META_RANGO_ACTUAL || 0);
+    const cumplimiento = meta > 0 ? (Number(resumen.total || 0) / meta) * 100 : 0;
+    const faltante = Math.max(meta - Number(resumen.total || 0), 0);
+
+    return {rows, resumen, meta, cumplimiento, faltante};
+}
+
+function agruparReporte20260720(rows, campo, limite=12){
+    const mapa = new Map();
+    (rows || []).forEach(row => {
+        const nombre = limpiar20260720(row?.[campo] || "SIN REGISTRO") || "SIN REGISTRO";
+        const actual = mapa.get(nombre) || {nombre, cantidad:0, valor:0};
+        actual.cantidad += Number(row?.cantidadAtendida || 1);
+        actual.valor += Number(row?.valorVenta || 0);
+        mapa.set(nombre, actual);
+    });
+    return Array.from(mapa.values())
+        .sort((a,b) => b.valor - a.valor || b.cantidad - a.cantidad)
+        .slice(0, limite);
+}
+
+function crearHtmlReporte20260720(){
+    const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260720();
+    const categoria = [
+        {nombre:"PARTICULAR", cantidad:rows.filter(r => r.categoriaGerencial === "PARTICULAR").length, valor:resumen.particular || 0},
+        {nombre:"RED", cantidad:rows.filter(r => r.categoriaGerencial === "RED").length, valor:resumen.red || 0},
+        {nombre:"EXCEDENTES", cantidad:rows.filter(r => r.categoriaGerencial === "EXCEDENTES").length, valor:resumen.excedentes || 0},
+        {nombre:"PLAN", cantidad:resumen.planCantidad || 0, valor:0}
+    ];
+
+    const tabla = (titulo, data) => `
+        <h2>${titulo}</h2>
+        <table>
+            <thead><tr><th>Concepto</th><th>Cantidad</th><th>Valor</th></tr></thead>
+            <tbody>${(data || []).map(x => `<tr><td>${limpiar20260720(x.nombre)}</td><td>${number20260720(x.cantidad)}</td><td>${money20260720(x.valor)}</td></tr>`).join("")}</tbody>
+        </table>`;
+
+    return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte Gerencial</title>
+    <style>
+        body{font-family:Arial,Helvetica,sans-serif;margin:24px;color:#0f172a;background:#fff;}
+        .header{background:#004f2a;color:#fff;padding:18px 22px;border-radius:14px;margin-bottom:16px;}
+        h1{margin:0;font-size:24px;} h2{color:#004f2a;margin:24px 0 8px;font-size:17px;}
+        .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:16px 0;}
+        .kpi{border:1px solid #d8e3dc;border-radius:12px;padding:12px;background:#f7fbf8;}
+        .kpi small{display:block;color:#64748b;font-weight:bold;} .kpi strong{font-size:21px;display:block;margin-top:6px;}
+        table{width:100%;border-collapse:collapse;margin-bottom:16px;font-size:11px;} th{background:#008f46;color:#fff;} th,td{border:1px solid #dbe5df;padding:7px;text-align:left;} tr:nth-child(even){background:#f8fafc;}
+        .nota{font-size:12px;line-height:1.5;margin:12px 0 18px;}
+        @media print{body{margin:12mm}.header{border-radius:0}.kpis{grid-template-columns:repeat(2,1fr)}}
+    </style></head><body>
+        <div class="header"><h1>Reporte Gerencial de Homenajes</h1><p>Generado: ${new Date().toLocaleString("es-CO")}</p></div>
+        <div class="nota">Venta real: <strong>${money20260720(resumen.total)}</strong>. Cumplimiento: <strong>${cumplimiento.toFixed(1)}%</strong>. Faltante: <strong>${money20260720(faltante)}</strong>.</div>
+        <div class="kpis">
+            <div class="kpi"><small>Meta</small><strong>${money20260720(meta)}</strong></div>
+            <div class="kpi"><small>Venta real</small><strong>${money20260720(resumen.total)}</strong></div>
+            <div class="kpi"><small>Cumplimiento</small><strong>${cumplimiento.toFixed(1)}%</strong></div>
+            <div class="kpi"><small>Registros</small><strong>${number20260720(rows.length)}</strong></div>
+        </div>
+        ${tabla("Ventas por categoria", categoria)}
+        ${tabla("Ranking de gestores", agruparReporte20260720(rows,"gestor",15))}
+        ${tabla("Clinicas principales", agruparReporte20260720(rows,"clinica",15))}
+        ${tabla("Municipios", agruparReporte20260720(rows,"municipio",15))}
+        ${tabla("Cementerios", agruparReporte20260720(rows,"cementerio",15))}
+        ${tabla("Destino final", agruparReporte20260720(rows,"destinoFinal",12))}
+        ${tabla("Tipo de muerte", agruparReporte20260720(rows,"tipoMuerte",10))}
+    </body></html>`;
+}
+
+function abrirReporteImprimible20260720(){
+    const html = crearHtmlReporte20260720();
+    const blob = new Blob([html], {type:"text/html;charset=utf-8"});
+    descargarArchivo20260720(`reporte_gerencial_imprimible_${fechaArchivo20260720()}.html`, blob);
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if(win){
+        setTimeout(() => { try{ win.focus(); }catch(_e){} }, 300);
+        setTimeout(() => { try{ URL.revokeObjectURL(url); }catch(_e){} }, 15000);
+    }
+}
+
+async function obtenerJsPDF20260720(){
+    if(window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    if(window.jsPDF) return window.jsPDF;
+
+    await new Promise((resolve, reject) => {
+        const id = "jspdf-estable-20260720";
+        const existente = document.getElementById(id);
+        if(existente){
+            existente.addEventListener("load", resolve, {once:true});
+            existente.addEventListener("error", reject, {once:true});
+            return;
+        }
+        const script = document.createElement("script");
+        script.id = id;
+        script.src = "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js";
+        script.onload = resolve;
+        script.onerror = () => reject(new Error("No se pudo cargar jsPDF desde CDN."));
+        document.head.appendChild(script);
+    });
+
+    if(window.jspdf?.jsPDF) return window.jspdf.jsPDF;
+    if(window.jsPDF) return window.jsPDF;
+    throw new Error("jsPDF no quedó disponible.");
+}
+
+async function exportarPDFEstable20260720(){
+    console.log("CLICK PDF - EXPORTACION ESTABLE 20260720");
+    if(typeof showLoading === "function") showLoading(true);
+    try{
+        const jsPDF = await obtenerJsPDF20260720();
+        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260720();
+        const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4", compress:true});
+        const pageW = doc.internal.pageSize.getWidth();
+        const pageH = doc.internal.pageSize.getHeight();
+        const margin = 12;
+        let y = 14;
+
+        function header(titulo){
+            doc.setFillColor(0,79,42);
+            doc.rect(0,0,pageW,22,"F");
+            doc.setTextColor(255,255,255);
+            doc.setFont("helvetica","bold");
+            doc.setFontSize(16);
+            doc.text(limpiar20260720(titulo), margin, 13);
+            doc.setFontSize(8);
+            doc.setFont("helvetica","normal");
+            doc.text(limpiar20260720(new Date().toLocaleString("es-CO")), pageW-margin, 13, {align:"right"});
+            doc.setTextColor(15,23,42);
+            y = 32;
+        }
+        function nuevaPagina(titulo="Reporte Gerencial de Homenajes"){
+            doc.addPage();
+            header(titulo);
+        }
+        function seccion(titulo){
+            if(y > pageH - 25) nuevaPagina();
+            doc.setFont("helvetica","bold");
+            doc.setFontSize(12);
+            doc.setTextColor(0,79,42);
+            doc.text(limpiar20260720(titulo), margin, y);
+            y += 7;
+            doc.setTextColor(15,23,42);
+        }
+        function tarjeta(x, titulo, valor, detalle){
+            doc.setDrawColor(210,220,230);
+            doc.setFillColor(248,250,252);
+            doc.roundedRect(x,y,62,25,3,3,"FD");
+            doc.setFont("helvetica","bold");
+            doc.setFontSize(7.5);
+            doc.setTextColor(100,116,139);
+            doc.text(limpiar20260720(titulo),x+4,y+7);
+            doc.setTextColor(15,23,42);
+            doc.setFontSize(12.5);
+            doc.text(limpiar20260720(valor),x+4,y+16);
+            doc.setFontSize(6.5);
+            doc.setTextColor(100,116,139);
+            doc.text(limpiar20260720(detalle || ""),x+4,y+22);
+        }
+        function tabla(titulo, columnas, data, maxRows=15){
+            seccion(titulo);
+            const body = (data && data.length ? data : [{nombre:"SIN INFORMACION", cantidad:0, valor:0}]).slice(0,maxRows);
+            const rowH = 7;
+            const usable = pageW - margin*2;
+            const widths = columnas.map(c => c.w || usable / columnas.length);
+            if(y + rowH*(body.length+1) > pageH-10) nuevaPagina(titulo);
+            let x = margin;
+            doc.setFillColor(0,143,70);
+            doc.rect(margin,y,usable,rowH,"F");
+            doc.setTextColor(255,255,255);
+            doc.setFont("helvetica","bold");
+            doc.setFontSize(7);
+            columnas.forEach((c,i)=>{ doc.text(limpiar20260720(c.h),x+2,y+4.8,{maxWidth:widths[i]-4}); x += widths[i]; });
+            y += rowH;
+            body.forEach((r,idx)=>{
+                if(y + rowH > pageH-10) nuevaPagina(titulo);
+                x = margin;
+                doc.setFillColor(idx % 2 ? 255 : 248, idx % 2 ? 255 : 250, idx % 2 ? 255 : 252);
+                doc.rect(margin,y,usable,rowH,"F");
+                doc.setTextColor(15,23,42);
+                doc.setFont("helvetica","normal");
+                doc.setFontSize(6.6);
+                columnas.forEach((c,i)=>{
+                    let v = typeof c.v === "function" ? c.v(r) : r[c.k];
+                    v = limpiar20260720(v);
+                    if(c.max && v.length > c.max) v = v.slice(0,c.max-1) + ".";
+                    doc.text(v || "-",x+2,y+4.8,{maxWidth:widths[i]-4});
+                    x += widths[i];
+                });
+                y += rowH;
+            });
+            y += 8;
+        }
+
+        header("Reporte Gerencial de Homenajes");
+        tarjeta(margin,"Meta",money20260720(meta),"Rango seleccionado");
+        tarjeta(margin+67,"Venta real",money20260720(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
+        tarjeta(margin+134,"Faltante",money20260720(faltante),"Valor pendiente");
+        tarjeta(margin+201,"Registros",number20260720(rows.length),"Base filtrada");
+        y += 35;
+        doc.setFont("helvetica","normal");
+        doc.setFontSize(9);
+        doc.setTextColor(15,23,42);
+        const intro = doc.splitTextToSize(limpiar20260720(`Este reporte consolida la informacion filtrada del dashboard. Venta real: ${money20260720(resumen.total)}. Cumplimiento: ${cumplimiento.toFixed(1)}%. Faltante: ${money20260720(faltante)}.`), pageW - margin*2);
+        doc.text(intro, margin, y);
+        y += intro.length * 5 + 7;
+
+        const categorias = [
+            {nombre:"PARTICULAR", cantidad:rows.filter(r => r.categoriaGerencial === "PARTICULAR").length, valor:resumen.particular || 0},
+            {nombre:"RED", cantidad:rows.filter(r => r.categoriaGerencial === "RED").length, valor:resumen.red || 0},
+            {nombre:"EXCEDENTES", cantidad:rows.filter(r => r.categoriaGerencial === "EXCEDENTES").length, valor:resumen.excedentes || 0},
+            {nombre:"PLAN", cantidad:resumen.planCantidad || 0, valor:0}
+        ];
+
+        tabla("Ventas por categoria",[
+            {h:"Categoria",k:"nombre",w:80},{h:"Cantidad",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55},{h:"%",v:r=>resumen.total?`${((Number(r.valor||0)/Number(resumen.total||1))*100).toFixed(1)}%`:"0%",w:30}
+        ],categorias,8);
+        tabla("Ranking de gestores",[
+            {h:"Gestor",k:"nombre",w:100,max:42},{h:"Servicios",v:r=>number20260720(r.cantidad),w:30},{h:"Venta",v:r=>money20260720(r.valor),w:55}
+        ],agruparReporte20260720(rows,"gestor",15),15);
+        tabla("Clinicas principales",[
+            {h:"Clinica",k:"nombre",w:115,max:48},{h:"Reportes",v:r=>number20260720(r.cantidad),w:30},{h:"Venta",v:r=>money20260720(r.valor),w:55}
+        ],agruparReporte20260720(rows,"clinica",15),15);
+        tabla("Municipios",[
+            {h:"Municipio",k:"nombre",w:90,max:38},{h:"Atenciones",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55}
+        ],agruparReporte20260720(rows,"municipio",15),15);
+        nuevaPagina("Destino final y control");
+        tabla("Cementerios",[
+            {h:"Cementerio",k:"nombre",w:115,max:48},{h:"Servicios",v:r=>number20260720(r.cantidad),w:30},{h:"Venta",v:r=>money20260720(r.valor),w:55}
+        ],agruparReporte20260720(rows,"cementerio",15),15);
+        tabla("Destino final",[
+            {h:"Destino",k:"nombre",w:85},{h:"Servicios",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55}
+        ],agruparReporte20260720(rows,"destinoFinal",12),12);
+        tabla("Tipo de muerte",[
+            {h:"Tipo",k:"nombre",w:85},{h:"Cantidad",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55}
+        ],agruparReporte20260720(rows,"tipoMuerte",10),10);
+
+        const totalPages = doc.internal.getNumberOfPages();
+        for(let p=1; p<=totalPages; p++){
+            doc.setPage(p);
+            doc.setFontSize(7);
+            doc.setTextColor(100,116,139);
+            doc.text(`Pagina ${p} de ${totalPages}`, pageW-margin, pageH-6, {align:"right"});
+        }
+
+        const blob = doc.output("blob");
+        descargarArchivo20260720(`reporte_gerencial_homenajes_${fechaArchivo20260720()}.pdf`, blob);
+        if(typeof setEstadoExportacion === "function") setEstadoExportacion("PDF descargado correctamente con motor estable 20260720.", "ok");
+        if(typeof toast === "function") toast("PDF descargado correctamente.");
+    }catch(error){
+        console.error("Error PDF estable 20260720:", error);
+        try{
+            abrirReporteImprimible20260720();
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion("No se pudo descargar PDF directo. Se descargó y abrió reporte HTML imprimible.", "error");
+        }catch(fallbackError){
+            alert("No se pudo generar PDF ni respaldo. Error: " + fallbackError.message);
+        }
+    }finally{
+        if(typeof showLoading === "function") showLoading(false);
+    }
+}
+
+function exportarImagenEstable20260720(){
+    console.log("CLICK IMAGEN - EXPORTACION ESTABLE 20260720");
+    try{
+        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260720();
+        const canvas = document.createElement("canvas");
+        canvas.width = 1600;
+        canvas.height = 1100;
+        const ctx = canvas.getContext("2d");
+        if(!ctx) throw new Error("Canvas no disponible.");
+
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "#004f2a";
+        ctx.fillRect(0,0,canvas.width,120);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 42px Arial";
+        ctx.fillText("Reporte Gerencial de Homenajes",50,58);
+        ctx.font = "22px Arial";
+        ctx.fillText(new Date().toLocaleString("es-CO"),50,94);
+
+        const card = (x,y,t,v,d) => {
+            ctx.fillStyle = "#ffffff";
+            ctx.strokeStyle = "#dbe5df";
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.roundRect(x,y,350,115,18); ctx.fill(); ctx.stroke();
+            ctx.fillStyle = "#64748b"; ctx.font = "bold 20px Arial"; ctx.fillText(t,x+24,y+34);
+            ctx.fillStyle = "#0f172a"; ctx.font = "bold 34px Arial"; ctx.fillText(v,x+24,y+75);
+            ctx.fillStyle = "#64748b"; ctx.font = "18px Arial"; ctx.fillText(d,x+24,y+102);
+        };
+        card(50,155,"Meta",money20260720(meta),"Rango seleccionado");
+        card(425,155,"Venta real",money20260720(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
+        card(800,155,"Faltante",money20260720(faltante),"Valor pendiente");
+        card(1175,155,"Registros",number20260720(rows.length),"Base filtrada");
+
+        ctx.fillStyle = "#004f2a";
+        ctx.font = "bold 28px Arial";
+        ctx.fillText("Resumen ejecutivo",50,330);
+        ctx.fillStyle = "#0f172a";
+        ctx.font = "21px Arial";
+        ctx.fillText(`Venta real: ${money20260720(resumen.total)} | Cumplimiento: ${cumplimiento.toFixed(1)}% | Faltante: ${money20260720(faltante)}`,50,365);
+
+        const dibujarRanking = (titulo, data, x, y) => {
+            ctx.fillStyle = "#004f2a"; ctx.font = "bold 25px Arial"; ctx.fillText(titulo,x,y);
+            y += 22;
+            const max = Math.max(...data.map(d => Number(d.valor || d.cantidad || 0)),1);
+            data.slice(0,8).forEach((d,i) => {
+                const valor = Number(d.valor || d.cantidad || 0);
+                const ancho = Math.max(8,(valor/max)*520);
+                const yy = y + i*46;
+                ctx.fillStyle = "#0f172a"; ctx.font = "17px Arial"; ctx.fillText((d.nombre || "-").slice(0,42),x,yy+18);
+                ctx.fillStyle = "#00984f"; ctx.fillRect(x+360,yy,ancho,24);
+                ctx.fillStyle = "#0f172a"; ctx.font = "bold 16px Arial"; ctx.fillText(d.valor ? money20260720(d.valor) : number20260720(d.cantidad),x+370+ancho,yy+18);
+            });
+        };
+        dibujarRanking("Gestores",agruparReporte20260720(rows,"gestor",8),50,430);
+        dibujarRanking("Clinicas",agruparReporte20260720(rows,"clinica",8),50,830);
+
+        canvas.toBlob(blob => {
+            if(!blob){ alert("No se pudo crear la imagen PNG."); return; }
+            descargarArchivo20260720(`dashboard_gerencial_${fechaArchivo20260720()}.png`, blob);
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion("Imagen PNG descargada correctamente con motor estable 20260720.", "ok");
+            if(typeof toast === "function") toast("Imagen PNG descargada correctamente.");
+        }, "image/png", 0.95);
+    }catch(error){
+        console.error("Error imagen estable 20260720:", error);
+        alert("No se pudo generar la imagen. Error: " + error.message);
+    }
+}
+
+function generarExcelEstable20260720(){
+    console.log("CLICK EXCEL - EXPORTACION ESTABLE 20260720");
+    if(typeof generarExcelBasico20260719 === "function") return generarExcelBasico20260719();
+    const html = crearHtmlReporte20260720();
+    descargarArchivo20260720(`dashboard_gerencial_homenajes_${fechaArchivo20260720()}.html`, new Blob([html], {type:"text/html;charset=utf-8"}));
+}
+
+function instalarExportacionesEstables20260720(){
+    const pares = [
+        ["btnPdf", exportarPDFEstable20260720],
+        ["reportePdfGeneral", exportarPDFEstable20260720],
+        ["btnExcel", generarExcelEstable20260720],
+        ["reporteExcelResumen", generarExcelEstable20260720],
+        ["btnImagen", exportarImagenEstable20260720],
+        ["reporteImagen", exportarImagenEstable20260720]
+    ];
+
+    pares.forEach(([id, fn]) => {
+        const old = document.getElementById(id);
+        if(!old) return;
+        const nuevo = old.cloneNode(true);
+        old.parentNode.replaceChild(nuevo, old);
+        nuevo.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            fn();
+        }, {capture:true});
+    });
+
+    if(typeof setEstadoExportacion === "function"){
+        setEstadoExportacion("Motor estable 20260720 activo: PDF por Blob, Excel e Imagen PNG.", "ok");
+    }
+}
+
+instalarExportacionesEstables20260720();
+setTimeout(instalarExportacionesEstables20260720, 800);
+setTimeout(instalarExportacionesEstables20260720, 2500);
