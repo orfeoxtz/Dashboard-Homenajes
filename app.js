@@ -1,7 +1,8 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260724");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260725");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
+const GOOGLE_SHEET_PARAMETROS_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=1505384889";
 const GOOGLE_SHEET_FALLECIDOS_PLANES_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/gviz/tq?tqx=out:csv&sheet=FALLECIDOS%20PLANES";
 
 let ACCESS_CODE = localStorage.getItem("dashboardAccessCode") || "JKFH2026";
@@ -507,6 +508,30 @@ function esFilaParametro(item){
     );
 }
 
+
+function parametrosBaseDashboard(){
+    return [
+        {Tipo:"SEDE", Nombre:"Monteria", Valor:219133881},
+        {Tipo:"GESTOR", Nombre:"Fernando Argel", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Osvaldo Ramos", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Carlos Lopez", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Alexis Ayazo", Valor:25000000},
+        {Tipo:"GESTOR", Nombre:"Wendy Cordero", Valor:7000000},
+        {Tipo:"META_CATEGORIA", Nombre:"PARTICULAR", Valor:69090369},
+        {Tipo:"META_CATEGORIA", Nombre:"RED", Valor:127371072},
+        {Tipo:"META_CATEGORIA", Nombre:"EXCEDENTES", Valor:22672440},
+        {Tipo:"META_EXCEDENTE", Nombre:"CARTELES", Valor:136560},
+        {Tipo:"META_EXCEDENTE", Nombre:"ARREGLOS FLORALES", Valor:4727400},
+        {Tipo:"META_EXCEDENTE", Nombre:"VELACION", Valor:4564800},
+        {Tipo:"META_EXCEDENTE", Nombre:"SERVICIO DE BUS", Valor:510000},
+        {Tipo:"META_EXCEDENTE", Nombre:"TRASLADOS", Valor:1835280},
+        {Tipo:"META_EXCEDENTE", Nombre:"HABITOS", Valor:214800},
+        {Tipo:"META_EXCEDENTE", Nombre:"EXCEDENTES POR COFRES", Valor:9558000},
+        {Tipo:"META_EXCEDENTE", Nombre:"PREPARACIONES", Valor:60000},
+        {Tipo:"META_EXCEDENTE", Nombre:"OTROS SERVICIOS ADICIONALES", Valor:1068600}
+    ];
+}
+
 function procesarParametros(datos){
     PARAMETROS = {
         gestor:{},
@@ -514,7 +539,9 @@ function procesarParametros(datos){
         excedente:{}
     };
 
-    datos.filter(esFilaParametro).forEach(item => {
+    const fuenteParametros = [...parametrosBaseDashboard(), ...(Array.isArray(datos) ? datos : [])];
+
+    fuenteParametros.filter(esFilaParametro).forEach(item => {
         const tipo = normalizarTexto(getCampo(item, ["Tipo","TIPO","tipo"]));
         const nombre = normalizarTexto(getCampo(item, ["Nombre","NOMBRE","nombre"]));
         const valor = toNumber(getCampo(item, ["Valor","VALOR","valor"]));
@@ -843,6 +870,20 @@ async function cargarFallecidosPlanesRemotos(){
     }
 }
 
+
+async function cargarParametrosRemotos(){
+    try{
+        const response = await fetch(GOOGLE_SHEET_PARAMETROS_CSV_URL, { cache:"no-store" });
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        const texto = await response.text();
+        const datos = parseTablaTexto(texto);
+        return Array.isArray(datos) ? datos : [];
+    }catch(error){
+        console.warn("No se pudieron cargar los parámetros remotos. Se usan parámetros base.", error);
+        return [];
+    }
+}
+
 async function cargarDatosRemotos(){
     const fuentes = [
         {nombre:"Apps Script", url:API_URL, tipo:"json"},
@@ -879,9 +920,10 @@ async function cargarDashboard(){
     try{
         const remoto = await cargarDatosRemotos();
         const datosCompletos = remoto.datos;
+        const parametrosRemotos = await cargarParametrosRemotos();
         DATASET_FALLECIDOS_PLANES = await cargarFallecidosPlanesRemotos();
 
-        procesarParametros(datosCompletos);
+        procesarParametros([...parametrosRemotos, ...datosCompletos]);
 
         const datosVentas = datosCompletos.filter(item => !esFilaParametro(item));
         DATASET_API = datosVentas;
@@ -1008,7 +1050,7 @@ function coincideFiltrosNoFecha(row, f){
     if(f.sede && row.sede !== f.sede) return false;
 
     if(f.busqueda){
-        const texto = normalizarTexto(`${row.gestor} ${row.categoriaGerencial} ${row.categoria} ${row.servicio} ${row.sede} ${row.observacion}`);
+        const texto = normalizarTexto(`${row.gestor} ${row.categoriaGerencial} ${row.categoria} ${row.servicio} ${row.sede} ${row.observacion} ${row.ordenServicio} ${row.clinica} ${row.municipio} ${row.tipoMuerte} ${row.cementerio} ${row.destinoFinal}`);
         if(!texto.includes(f.busqueda)) return false;
     }
 
@@ -2867,7 +2909,6 @@ function renderTiempoAfiliado(){
             .sort((a,b) => b.tiempo.dias - a.tiempo.dias)
             .map(item => `
                 <tr>
-                    <td>${escapeHtml(item.fallecido || item.ordenServicio || "-")}</td>
                     <td>${escapeHtml(item.ordenServicio || "-")}</td>
                     <td>${escapeHtml(item.contrato || item.numeroContrato || "-")}</td>
                     <td>${escapeHtml(item.plan || item.sede || "-")}</td>
@@ -2875,11 +2916,10 @@ function renderTiempoAfiliado(){
                     <td>${escapeHtml(item.edad || "-")}</td>
                     <td>${escapeHtml(item.fechaOrden || item.fechaFallecimiento || item.fechaAfiliacion || "-")}</td>
                     <td>${escapeHtml(item.tiempo.texto)}</td>
-                    <td>${formatNumber(item.tiempo.dias)}</td>
                     <td>${badgeTiempoAfiliado(item.tiempo.clasificacion)}</td>
                     <td>${item.origen === "FALLECIDOS PLANES" ? '<span class="badge badge-info">Google Sheet</span>' : `<button class="danger-btn" onclick="eliminarTiempoAfiliado('${escapeHtml(item.id)}')">Eliminar</button>`}</td>
                 </tr>
-            `).join("") : `<tr><td colspan="11">Sin casos registrados</td></tr>`;
+            `).join("") : `<tr><td colspan="9">Sin casos registrados</td></tr>`;
     }
 }
 
@@ -4227,7 +4267,17 @@ function cambiarVista(seccion){
     const vista = $(seccion);
     if(vista) vista.classList.add("active-view");
 
-    setTimeout(redimensionarGraficos, 150);
+    if(seccion === "cumplimiento" && typeof renderCumplimientoMensual === "function"){
+        setTimeout(renderCumplimientoMensual, 80);
+    }
+    if(seccion === "tiempoAfiliado" && typeof renderTiempoAfiliado === "function"){
+        setTimeout(renderTiempoAfiliado, 80);
+    }
+    if(typeof prepararTablasOrdenables === "function"){
+        setTimeout(prepararTablasOrdenables, 120);
+    }
+
+    setTimeout(redimensionarGraficos, 180);
 }
 
 function redimensionarGraficos(){
@@ -5788,7 +5838,7 @@ instalarExportacionForzada20260719();
    EXPORTACION FINAL ESTABLE 20260722
    PDF e Imagen descargan como Blob directo. Reemplaza eventos anteriores.
    ========================================================= */
-console.log("EXPORTACION FINAL ESTABLE ACTIVA - VERSION 20260722");
+console.log("EXPORTACION FINAL ESTABLE ACTIVA - VERSION 20260725");
 
 function descargarArchivo20260722(nombre, blob){
     if(!blob || !(blob instanceof Blob)){
@@ -6223,7 +6273,7 @@ setTimeout(instalarExportacionesEstables20260722, 800);
 setTimeout(instalarExportacionesEstables20260722, 2500);
 
 
-console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260724");
+console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
 
 /* =========================================================
@@ -6231,7 +6281,7 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260724");
    Barras legibles, área clara y nombres ejecutivos.
    ========================================================= */
 (function(){
-    const VERSION_GRAFICAS_PRO = "20260724";
+    const VERSION_GRAFICAS_PRO = "20260725";
 
     window.primerNombreGestor = function(nombre){
         const texto = String(nombre || "").trim().toUpperCase();
@@ -6546,11 +6596,11 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260724");
 
 
 /* =========================================================
-   GRAFICAS EJECUTIVAS POWER BI PRO - VERSION 20260724
+   GRAFICAS EJECUTIVAS POWER BI PRO - VERSION 20260725
    Corrección definitiva de lectura, contraste y proporción
    ========================================================= */
 (function(){
-    const VERSION_GRAFICAS_POWERBI_PRO = "20260724";
+    const VERSION_GRAFICAS_POWERBI_PRO = "20260725";
 
     window.chartTextColor = function(){ return "#111827"; };
     window.chartGridColor = function(){ return "rgba(17,24,39,.105)"; };
@@ -6923,4 +6973,207 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260724");
     setTimeout(refrescarPowerBIPro, 500);
     setTimeout(refrescarPowerBIPro, 1600);
     console.log("GRAFICAS POWER BI PRO DEFINITIVAS ACTIVAS - VERSION " + VERSION_GRAFICAS_POWERBI_PRO);
+})();
+
+
+/* =========================================================
+   AJUSTES FINALES 20260725
+   Tablas ordenables, cumplimiento robusto y tiempo afiliado depurado.
+   ========================================================= */
+(function(){
+    const VERSION_AJUSTES_FINALES = "20260725";
+
+    function normalizarNumeroOrdenable(texto){
+        const limpio = String(texto || "")
+            .replace(/\$/g, "")
+            .replace(/%/g, "")
+            .replace(/días?/gi, "")
+            .replace(/años?/gi, "")
+            .replace(/meses?/gi, "")
+            .replace(/\s/g, "")
+            .replace(/\./g, "")
+            .replace(/,/g, ".")
+            .replace(/[^0-9.\-]/g, "");
+        const numero = Number(limpio);
+        return Number.isFinite(numero) ? numero : null;
+    }
+
+    function normalizarFechaOrdenable(texto){
+        const valor = String(texto || "").trim();
+        const ymd = valor.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if(ymd){
+            const [,y,m,d] = ymd;
+            return new Date(Number(y), Number(m)-1, Number(d)).getTime();
+        }
+        const dmy = valor.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if(dmy){
+            const [,d,m,y] = dmy;
+            return new Date(Number(y), Number(m)-1, Number(d)).getTime();
+        }
+        return null;
+    }
+
+    function valorCeldaOrdenable(celda){
+        const texto = String(celda?.innerText || celda?.textContent || "").trim();
+        const fecha = normalizarFechaOrdenable(texto);
+        if(fecha !== null && Number.isFinite(fecha)) return {tipo:"numero", valor:fecha};
+        const numero = normalizarNumeroOrdenable(texto);
+        if(numero !== null) return {tipo:"numero", valor:numero};
+        return {tipo:"texto", valor:normalizarTexto(texto)};
+    }
+
+    window.ordenarTablaDashboard = function(tabla, indice){
+        if(!tabla || !tabla.tBodies || !tabla.tBodies[0]) return;
+        const tbody = tabla.tBodies[0];
+        const filas = Array.from(tbody.rows).filter(row => row.cells.length > 1 && !row.cells[0].hasAttribute("colspan"));
+        if(filas.length <= 1) return;
+
+        const muestra = filas.map(row => valorCeldaOrdenable(row.cells[indice]).tipo);
+        const esNumerica = muestra.filter(tipo => tipo === "numero").length >= Math.ceil(muestra.length / 2);
+        const columnaActual = tabla.dataset.sortColumn;
+        let direccion;
+        if(columnaActual !== String(indice)){
+            direccion = esNumerica ? "desc" : "asc";
+        }else{
+            direccion = tabla.dataset.sortDirection === "asc" ? "desc" : "asc";
+        }
+
+        filas.sort((a,b) => {
+            const va = valorCeldaOrdenable(a.cells[indice]);
+            const vb = valorCeldaOrdenable(b.cells[indice]);
+            let resultado;
+            if(esNumerica){
+                const na = va.tipo === "numero" ? va.valor : -Infinity;
+                const nb = vb.tipo === "numero" ? vb.valor : -Infinity;
+                resultado = na - nb;
+            }else{
+                resultado = String(va.valor).localeCompare(String(vb.valor), "es", {numeric:true, sensitivity:"base"});
+            }
+            return direccion === "asc" ? resultado : -resultado;
+        });
+
+        filas.forEach(row => tbody.appendChild(row));
+        tabla.dataset.sortColumn = String(indice);
+        tabla.dataset.sortDirection = direccion;
+
+        tabla.querySelectorAll("thead th").forEach((th,i) => {
+            th.classList.remove("sort-asc","sort-desc");
+            if(i === indice) th.classList.add(direccion === "asc" ? "sort-asc" : "sort-desc");
+        });
+    };
+
+    window.prepararTablasOrdenables = function(){
+        document.querySelectorAll("table").forEach(tabla => {
+            tabla.classList.add("sortable-table");
+            tabla.querySelectorAll("thead th").forEach(th => {
+                th.setAttribute("title", "Clic para ordenar ascendente / descendente");
+                th.setAttribute("tabindex", "0");
+            });
+        });
+    };
+
+    document.addEventListener("click", event => {
+        const th = event.target.closest("table.sortable-table thead th, table thead th");
+        if(!th) return;
+        const tabla = th.closest("table");
+        if(!tabla) return;
+        window.ordenarTablaDashboard(tabla, th.cellIndex);
+    });
+
+    document.addEventListener("keydown", event => {
+        if(event.key !== "Enter" && event.key !== " ") return;
+        const th = event.target.closest("table.sortable-table thead th");
+        if(!th) return;
+        event.preventDefault();
+        window.ordenarTablaDashboard(th.closest("table"), th.cellIndex);
+    });
+
+    const renderCumplimientoMensualBase = window.renderCumplimientoMensual || (typeof renderCumplimientoMensual === "function" ? renderCumplimientoMensual : null);
+
+    window.renderCumplimientoMensual = function(){
+        const f = obtenerFiltros();
+        const anio = anioReferenciaFiltros();
+        const meses = Array.from({length:12}, (_,i) => i + 1);
+        const labels = meses.map(m => `${nombreMes(m)} ${anio}`);
+        const ventas = meses.map(m => sumar(DATASET_NORMAL.filter(row =>
+            row.fecha &&
+            row.fecha.getFullYear() === anio &&
+            row.fecha.getMonth() + 1 === m &&
+            coincideFiltrosNoFecha(row, f)
+        )));
+        const metas = labels.map(() => metaMensualTotal());
+        const totalVentaAnio = ventas.reduce((a,b) => a + toNumber(b), 0);
+        const totalMetaAnio = metas.reduce((a,b) => a + toNumber(b), 0);
+        const ventaRango = sumar(DATASET_FILTRADO || []);
+        const metaRango = META_RANGO_ACTUAL || 0;
+        const pctRango = metaRango > 0 ? (ventaRango / metaRango) * 100 : 0;
+        const faltanteRango = Math.max(metaRango - ventaRango, 0);
+        const mesesConVenta = ventas.filter(v => toNumber(v) > 0).length;
+        const mejorIdx = ventas.reduce((best, v, i) => toNumber(v) > toNumber(ventas[best] || 0) ? i : best, 0);
+        const mejorMes = ventas.some(v => toNumber(v) > 0) ? `${nombreMes(mejorIdx + 1)} ${formatMoney(ventas[mejorIdx])}` : "Sin venta";
+
+        setHtml("cumplimientoMetaVista", formatMoney(metaRango || totalMetaAnio));
+        setHtml("cumplimientoVentaVista", formatMoney(ventaRango || totalVentaAnio));
+        setHtml("cumplimientoPctVista", `${(metaRango > 0 ? pctRango : (totalMetaAnio > 0 ? (totalVentaAnio / totalMetaAnio) * 100 : 0)).toFixed(1)}%`);
+        setHtml("cumplimientoFaltanteVista", formatMoney(metaRango > 0 ? faltanteRango : Math.max(totalMetaAnio - totalVentaAnio, 0)));
+        setHtml("cumplimientoMejorMesVista", mejorMes);
+        setHtml("cumplimientoMesesVentaVista", mesesConVenta);
+        setHtml("textoCumplimientoVista", `La meta del periodo seleccionado es <strong>${formatMoney(metaRango)}</strong> y la venta real es <strong>${formatMoney(ventaRango)}</strong>, con cumplimiento de <strong>${pctRango.toFixed(1)}%</strong>. ${faltanteRango > 0 ? `El faltante para cumplir es <strong>${formatMoney(faltanteRango)}</strong>.` : "La meta del periodo se encuentra cumplida o superada."}`);
+
+        crearChartLine("graficoCumplimientoMensual", labels, [
+            {label:"Venta", data:ventas, borderColor:"#008f46", backgroundColor:"rgba(0,143,70,.13)", fill:true, tension:.3},
+            {label:"Meta", data:metas, borderColor:"#f59e0b", borderDash:[8,6], fill:false, pointRadius:0}
+        ], `Cumplimiento mensual ${anio}`);
+
+        const tbody = document.querySelector("#tablaCumplimientoMensual tbody");
+        if(tbody){
+            tbody.innerHTML = labels.map((k, i) => {
+                const venta = ventas[i];
+                const meta = metas[i];
+                const pct = meta > 0 ? (venta / meta) * 100 : 0;
+                const faltante = Math.max(meta - venta, 0);
+                return `
+                    <tr>
+                        <td>${k}</td>
+                        <td>${formatMoney(meta)}</td>
+                        <td>${formatMoney(venta)}</td>
+                        <td>${pct.toFixed(1)}%</td>
+                        <td>${formatMoney(faltante)}</td>
+                        <td>${badgeEstado(pct)}</td>
+                    </tr>
+                `;
+            }).join("");
+        }
+        window.prepararTablasOrdenables();
+    };
+
+    const renderTiempoAfiliadoBase = window.renderTiempoAfiliado || (typeof renderTiempoAfiliado === "function" ? renderTiempoAfiliado : null);
+    window.renderTiempoAfiliado = function(){
+        if(renderTiempoAfiliadoBase) renderTiempoAfiliadoBase();
+        const tabla = document.querySelector("#tablaTiempoAfiliado");
+        if(tabla){
+            const ths = tabla.querySelectorAll("thead th");
+            const nombres = ["Orden","Contrato","Plan","Tipo afiliación","Edad","Fecha orden","Tiempo transcurrido entre la afiliación y fallecimiento","Clasificación","Fuente / acción"];
+            if(ths.length !== nombres.length){
+                const thead = tabla.querySelector("thead tr");
+                if(thead) thead.innerHTML = nombres.map(n => `<th>${n}</th>`).join("");
+            }
+        }
+        window.prepararTablasOrdenables();
+    };
+
+    const renderTodoBase = window.renderTodo || (typeof renderTodo === "function" ? renderTodo : null);
+    if(renderTodoBase){
+        window.renderTodo = function(resumen, metaInfo){
+            renderTodoBase(resumen, metaInfo);
+            window.prepararTablasOrdenables();
+        };
+    }
+
+    setTimeout(() => {
+        window.prepararTablasOrdenables();
+        if(typeof window.renderCumplimientoMensual === "function") window.renderCumplimientoMensual();
+    }, 900);
+
+    console.log("AJUSTES FINALES DE TABLAS Y CUMPLIMIENTO ACTIVOS - VERSION " + VERSION_AJUSTES_FINALES);
 })();
