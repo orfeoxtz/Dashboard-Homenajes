@@ -2063,3 +2063,14 @@ body.theme-slate .sortable-table thead th::after{
 #tablaTiempoAfiliado td:nth-child(2){
     min-width:92px;
 }
+
+
+/* Ajustes exportacion completa 20260727 */
+.reporte-exportacion-nota{
+    border-left:4px solid var(--green);
+    background:#f4fff8;
+    padding:10px 12px;
+    border-radius:12px;
+    font-size:12px;
+    color:#0f172a;
+}
