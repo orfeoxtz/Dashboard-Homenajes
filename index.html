@@ -6,12 +6,15 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260713">
+<link rel="stylesheet" href="./style.css?v=20260719">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
@@ -100,6 +103,7 @@
             <button id="btnRecargar" class="action-btn"><i class="fas fa-rotate"></i> Recargar</button>
             <button id="btnPdf" class="action-btn"><i class="fas fa-file-pdf"></i> PDF</button>
             <button id="btnExcel" class="action-btn"><i class="fas fa-file-excel"></i> Excel</button>
+            <button id="btnImagen" class="action-btn"><i class="fas fa-image"></i> Imagen</button>
             <button id="btnLogout" class="danger-btn"><i class="fas fa-right-from-bracket"></i> Salir</button>
         </div>
     </div>
@@ -963,6 +967,7 @@
         <button class="reporte-btn" id="reportePdfGeneral"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
         <button class="reporte-btn" id="reporteCsv"><i class="fas fa-file-csv"></i> Exportar CSV</button>
         <button class="reporte-btn" id="reporteJson"><i class="fas fa-code"></i> Backup JSON</button>
+        <button class="reporte-btn" id="reporteImagen"><i class="fas fa-image"></i> Exportar Imagen PNG</button>
         <button class="reporte-btn" id="reporteRecargar"><i class="fas fa-rotate"></i> Actualizar</button>
         <button class="reporte-btn danger-report" id="reporteLimpiarCache"><i class="fas fa-broom"></i> Limpiar Caché</button>
     </div>
@@ -1015,6 +1020,6 @@
 
 </main>
 
-<script src="./app.js?v=20260713"></script>
+<script src="./app.js?v=20260719"></script>
 </body>
 </html>
