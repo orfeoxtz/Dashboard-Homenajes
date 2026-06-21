@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260729");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260730");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -8464,4 +8464,364 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     setTimeout(refrescarSeguro, 1200);
     setTimeout(refrescarSeguro, 2800);
     console.log('RECUPERACIÓN SEGURA DE GRAFICAS Y TABLAS ACTIVA - VERSION ' + VERSION_RECUPERACION_SEGURA);
+})();
+
+
+/* =========================================================
+   RECUPERACIÓN DE DATOS GOOGLE SHEET 20260730
+   Fuente remota robusta, validación de CSV/JSON, cache local
+   y render protegido por secciones.
+   ========================================================= */
+(function(){
+    const VERSION_DATOS_GOOGLE_20260730 = "20260730";
+    const SHEET_ID_20260730 = "1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ";
+    const GID_DATOS_20260730 = "223294406";
+    const GID_PARAMETROS_20260730 = "1505384889";
+    const CACHE_REMOTO_KEY_20260730 = "dashboardRemoteCache20260730";
+
+    function urlNoCache(url){
+        const sep = String(url).includes("?") ? "&" : "?";
+        return `${url}${sep}_=${Date.now()}`;
+    }
+
+    function esRespuestaHtml(texto){
+        const t = String(texto || "").slice(0, 800).toLowerCase();
+        return t.includes("<!doctype") || t.includes("<html") || t.includes("service login") || t.includes("accounts.google") || t.includes("drive.google");
+    }
+
+    function urlsDatosGoogle20260730(){
+        return [
+            {nombre:"Apps Script", tipo:"json", url:API_URL},
+            {nombre:"Google Sheets CSV export", tipo:"csv", url:`https://docs.google.com/spreadsheets/d/${SHEET_ID_20260730}/export?format=csv&gid=${GID_DATOS_20260730}`},
+            {nombre:"Google Sheets GViz CSV", tipo:"csv", url:`https://docs.google.com/spreadsheets/d/${SHEET_ID_20260730}/gviz/tq?tqx=out:csv&gid=${GID_DATOS_20260730}`}
+        ];
+    }
+
+    function urlsParametrosGoogle20260730(){
+        return [
+            {nombre:"Parámetros CSV export", tipo:"csv", url:`https://docs.google.com/spreadsheets/d/${SHEET_ID_20260730}/export?format=csv&gid=${GID_PARAMETROS_20260730}`},
+            {nombre:"Parámetros GViz CSV", tipo:"csv", url:`https://docs.google.com/spreadsheets/d/${SHEET_ID_20260730}/gviz/tq?tqx=out:csv&gid=${GID_PARAMETROS_20260730}`}
+        ];
+    }
+
+    function obtenerDatosJsonRobusto(json){
+        if(!json) return [];
+        if(Array.isArray(json)) return convertirArrayAObjetos(json);
+        if(Array.isArray(json.homenajes)) return convertirArrayAObjetos(json.homenajes);
+        if(Array.isArray(json.datos)) return convertirArrayAObjetos(json.datos);
+        if(Array.isArray(json.data)) return convertirArrayAObjetos(json.data);
+        if(Array.isArray(json.registros)) return convertirArrayAObjetos(json.registros);
+        if(Array.isArray(json.result)) return convertirArrayAObjetos(json.result);
+        if(json.values && Array.isArray(json.values)) return convertirArrayAObjetos(json.values);
+        if(json.resultado && Array.isArray(json.resultado)) return convertirArrayAObjetos(json.resultado);
+        return obtenerDatosDesdeApi(json);
+    }
+
+    function validarFilasGoogle20260730(datos){
+        if(!Array.isArray(datos) || datos.length === 0){
+            return {ok:false, motivo:"sin registros"};
+        }
+
+        const columnas = Object.keys(datos[0] || {});
+        const columnasNorm = columnas.map(c => normalizarLlave(c));
+        const tieneColumna = nombres => nombres.some(n => columnasNorm.includes(normalizarLlave(n)));
+
+        const tieneFecha = tieneColumna(["FECHA","Fecha","FECHA DE LA ORDEN"]);
+        const tieneOrden = tieneColumna(["ORDEN_SERVICIO_FUNERARIO","ORDEN SERVICIO FUNERARIO","ORDEN"]);
+        const tieneCategoria = tieneColumna(["TIPO_HOMENAJE","TIPO HOMENAJE","TIPO_SERVICIO_TIPOSRV","TIPO_EXCEDENTE"]);
+        const tieneGestor = tieneColumna(["GESTOR","Gestor"]);
+        const tieneValor = tieneColumna(["VALOR SERVICIO","VALOR_EXCEDENTE","VALOR EXCEDENTE","VALOR","Valor"]);
+
+        if(!tieneFecha && !tieneOrden){
+            return {ok:false, motivo:`encabezados no válidos: ${columnas.slice(0,8).join(" | ")}`};
+        }
+
+        if(!(tieneCategoria || tieneGestor || tieneValor)){
+            return {ok:false, motivo:`estructura incompleta: ${columnas.slice(0,8).join(" | ")}`};
+        }
+
+        const filasConDatos = datos.filter(item => {
+            return String(getFechaItem(item) || getOrdenServicioItem(item) || getGestorItem(item) || getCategoriaItem(item) || getValorItem(item) || "").trim() !== "";
+        }).length;
+
+        if(filasConDatos === 0){
+            return {ok:false, motivo:"filas sin datos operativos"};
+        }
+
+        return {ok:true, motivo:"estructura válida", filasConDatos};
+    }
+
+    async function fetchTextoRobusto(url){
+        const response = await fetch(urlNoCache(url), {
+            method:"GET",
+            cache:"no-store",
+            redirect:"follow",
+            credentials:"omit"
+        });
+        if(!response.ok) throw new Error(`HTTP ${response.status}`);
+        const texto = await response.text();
+        if(esRespuestaHtml(texto)) throw new Error("la respuesta fue HTML/login, no datos CSV/JSON");
+        return texto;
+    }
+
+    async function cargarFuenteRobusta(fuente){
+        const texto = await fetchTextoRobusto(fuente.url);
+        let datos = [];
+        if(fuente.tipo === "json"){
+            const json = JSON.parse(texto);
+            datos = obtenerDatosJsonRobusto(json);
+        }else{
+            datos = parseTablaTexto(texto);
+        }
+        const validacion = validarFilasGoogle20260730(datos);
+        if(!validacion.ok) throw new Error(validacion.motivo);
+        return {datos, validacion};
+    }
+
+    async function cargarDatosRemotosRobusto20260730(){
+        const errores = [];
+        for(const fuente of urlsDatosGoogle20260730()){
+            try{
+                const resultado = await cargarFuenteRobusta(fuente);
+                console.info(`[Dashboard] Fuente OK: ${fuente.nombre}`, resultado.validacion);
+                return {datos:resultado.datos, fuente:fuente.nombre};
+            }catch(error){
+                const msg = `${fuente.nombre}: ${error.message}`;
+                errores.push(msg);
+                console.warn(`[Dashboard] Fuente fallida: ${msg}`);
+            }
+        }
+        throw new Error(errores.join(" | "));
+    }
+
+    async function cargarParametrosRemotosRobusto20260730(){
+        const errores = [];
+        for(const fuente of urlsParametrosGoogle20260730()){
+            try{
+                const texto = await fetchTextoRobusto(fuente.url);
+                const datos = parseTablaTexto(texto);
+                const utiles = datos.filter(item => esFilaParametro(item) || normalizarTexto(getCampo(item,["Tipo","TIPO"])) === "SEDE");
+                if(utiles.length){
+                    console.info(`[Dashboard] Parámetros OK: ${fuente.nombre}`, utiles.length);
+                    return utiles;
+                }
+                errores.push(`${fuente.nombre}: sin parámetros útiles`);
+            }catch(error){
+                errores.push(`${fuente.nombre}: ${error.message}`);
+                console.warn(`[Dashboard] Parámetros fallidos: ${fuente.nombre}`, error);
+            }
+        }
+        console.warn("[Dashboard] Se usarán parámetros base.", errores.join(" | "));
+        return parametrosBaseDashboard();
+    }
+
+    async function cargarFallecidosPlanesRobusto20260730(){
+        const urls = [
+            `https://docs.google.com/spreadsheets/d/${SHEET_ID_20260730}/gviz/tq?tqx=out:csv&sheet=FALLECIDOS%20PLANES`,
+            GOOGLE_SHEET_FALLECIDOS_PLANES_CSV_URL
+        ];
+        for(const url of urls){
+            try{
+                const texto = await fetchTextoRobusto(url);
+                const datos = parseTablaTexto(texto);
+                const normalizados = datos
+                    .map((item,index) => normalizarFallecidoPlan(item,index))
+                    .filter(item => item.ordenServicio || item.numeroContrato || item.tiempoAfiliacionTexto || item.fechaOrden);
+                if(normalizados.length){
+                    console.info("[Dashboard] FALLECIDOS PLANES OK", normalizados.length);
+                    return normalizados;
+                }
+            }catch(error){
+                console.warn("[Dashboard] No se pudo cargar FALLECIDOS PLANES desde una fuente.", error);
+            }
+        }
+        return [];
+    }
+
+    function guardarCacheRemoto20260730(payload){
+        try{
+            localStorage.setItem(CACHE_REMOTO_KEY_20260730, JSON.stringify({
+                ...payload,
+                guardado:new Date().toISOString()
+            }));
+        }catch(error){
+            console.warn("[Dashboard] No se pudo guardar cache remoto.", error);
+        }
+    }
+
+    function leerCacheRemoto20260730(){
+        try{
+            const cache = JSON.parse(localStorage.getItem(CACHE_REMOTO_KEY_20260730) || "null");
+            if(cache && Array.isArray(cache.datosVentas) && cache.datosVentas.length){
+                return cache;
+            }
+        }catch(error){
+            console.warn("[Dashboard] Cache remoto inválido.", error);
+        }
+        return null;
+    }
+
+    function renderSeccionSegura(nombre, fn){
+        try{ fn(); }
+        catch(error){ console.error(`[Dashboard] Error renderizando ${nombre}:`, error); }
+    }
+
+    renderTodo = window.renderTodo = function(resumen, metaInfo){
+        renderSeccionSegura("KPIs", () => actualizarKPIs(resumen, metaInfo));
+        renderSeccionSegura("Resumen ejecutivo", () => crearResumenEjecutivo(resumen, metaInfo));
+        renderSeccionSegura("Gráficos dashboard", () => renderGraficosDashboard(resumen));
+        renderSeccionSegura("Categorías", () => renderCategorias());
+        renderSeccionSegura("Gestores", () => renderGestores());
+        renderSeccionSegura("Excedentes", () => renderExcedentes());
+        renderSeccionSegura("Metas", () => renderMetas());
+        renderSeccionSegura("Cumplimiento", () => renderCumplimientoMensual());
+        renderSeccionSegura("Comparativo", () => renderComparativoAnual());
+        renderSeccionSegura("Pareto", () => renderPareto());
+        renderSeccionSegura("Datos", () => renderDatos());
+        renderSeccionSegura("Alertas", () => renderAlertas(resumen));
+        renderSeccionSegura("Energía", () => renderEnergia());
+        renderSeccionSegura("Vacaciones", () => renderVacaciones());
+        renderSeccionSegura("Agenda", () => renderAgenda());
+        renderSeccionSegura("Tiempo afiliado", () => renderTiempoAfiliado());
+        renderSeccionSegura("Registros manuales", () => renderRegistrosManuales());
+        renderSeccionSegura("Reporte formal", () => renderReporteFormal());
+        renderSeccionSegura("Configuración", () => actualizarConfiguracion());
+    };
+
+    aplicarFiltrosYRender = window.aplicarFiltrosYRender = function(){
+        try{
+            DATASET_FILTRADO = filtrarDataset();
+            const f = obtenerFiltros();
+            const metaInfo = calcularMetaPorRango(f.fechaInicio, f.fechaFin);
+            const resumen = calcularResumen(DATASET_FILTRADO);
+
+            META_RANGO_ACTUAL = metaInfo.meta;
+            MESES_EQUIVALENTES_ACTUAL = metaInfo.mesesEquivalentes;
+            DIAS_RANGO_ACTUAL = metaInfo.diasRango;
+            ULTIMO_RESUMEN = resumen;
+            ULTIMA_META_INFO = metaInfo;
+
+            renderTodo(resumen, metaInfo);
+            console.info(`[Dashboard] Render OK: ${DATASET_FILTRADO.length} registros filtrados de ${DATASET_NORMAL.length}.`);
+        }catch(error){
+            console.error("[Dashboard] Error crítico aplicando filtros/render:", error);
+            setEstadoApi("error", "Error render");
+            toast("Error renderizando el dashboard. Revisa consola.", "error");
+        }
+    };
+
+    cargarDashboard = window.cargarDashboard = async function(){
+        setEstadoApi("cargando", "Cargando Google Sheet...");
+        showLoading(true);
+
+        try{
+            const remoto = await cargarDatosRemotosRobusto20260730();
+            const parametrosRemotos = await cargarParametrosRemotosRobusto20260730();
+            const fallecidosPlanes = await cargarFallecidosPlanesRobusto20260730();
+
+            const datosVentas = remoto.datos.filter(item => !esFilaParametro(item));
+            const normalApi = datosVentas
+                .map(item => normalizarRegistro(item, "GOOGLE_SHEET"))
+                .filter(row => row.fecha || row.ordenServicio || row.gestor || row.categoria || row.servicio);
+
+            if(!normalApi.length){
+                throw new Error("La fuente respondió, pero no produjo registros normalizados de ventas.");
+            }
+
+            DATASET_API = datosVentas;
+            DATASET_FALLECIDOS_PLANES = fallecidosPlanes;
+            procesarParametros([...(parametrosRemotos || parametrosBaseDashboard()), ...remoto.datos]);
+
+            const normalManual = cargarManuales();
+            DATASET_NORMAL = [...normalApi, ...normalManual];
+            API_STATUS = validarEstructuraApi(datosVentas);
+            API_STATUS.ok = true;
+            API_STATUS.mensaje = `Conectado · ${remoto.fuente}`;
+            API_STATUS.registros = datosVentas.length;
+
+            guardarCacheRemoto20260730({
+                fuente:remoto.fuente,
+                datosVentas,
+                parametros:parametrosRemotos,
+                fallecidosPlanes
+            });
+
+            poblarFiltros();
+            aplicarFiltrosYRender();
+            setEstadoApi("ok", `Conectado · ${remoto.fuente}`);
+            toast(`Datos cargados desde ${remoto.fuente}: ${datosVentas.length} registros.`);
+        }catch(error){
+            console.error("[Dashboard] No fue posible cargar Google Sheet/API:", error);
+
+            const cache = leerCacheRemoto20260730();
+            if(cache){
+                try{
+                    DATASET_API = cache.datosVentas;
+                    DATASET_FALLECIDOS_PLANES = Array.isArray(cache.fallecidosPlanes) ? cache.fallecidosPlanes : [];
+                    procesarParametros([...(cache.parametros || parametrosBaseDashboard()), ...cache.datosVentas]);
+                    DATASET_NORMAL = [
+                        ...cache.datosVentas.map(item => normalizarRegistro(item, "CACHE_GOOGLE_SHEET")),
+                        ...cargarManuales()
+                    ];
+                    API_STATUS = validarEstructuraApi(cache.datosVentas);
+                    API_STATUS.ok = false;
+                    API_STATUS.mensaje = `Cache local · ${cache.fuente || "Google Sheet"}`;
+                    API_STATUS.registros = cache.datosVentas.length;
+                    poblarFiltros();
+                    aplicarFiltrosYRender();
+                    setEstadoApi("cargando", `Cache local · ${cache.datosVentas.length}`);
+                    toast("No respondió Google Sheet. Se usa la última copia local guardada.", "warning");
+                    return;
+                }catch(cacheError){
+                    console.error("[Dashboard] También falló el cache local:", cacheError);
+                }
+            }
+
+            procesarParametros(parametrosBaseDashboard());
+            DATASET_API = [];
+            DATASET_FALLECIDOS_PLANES = await cargarFallecidosPlanesRobusto20260730();
+            DATASET_NORMAL = [...cargarManuales()];
+            API_STATUS = {ok:false, mensaje:error.message, registros:0, columnas:[]};
+            poblarFiltros();
+            aplicarFiltrosYRender();
+            setEstadoApi("error", "Sin Google Sheet");
+            toast("No se pudo cargar Google Sheet. Revisa permisos/publicación del archivo o consola.", "error");
+        }finally{
+            showLoading(false);
+        }
+    };
+
+    window.probarFuentesDashboard = async function(){
+        const resultados = [];
+        for(const fuente of urlsDatosGoogle20260730()){
+            try{
+                const resultado = await cargarFuenteRobusta(fuente);
+                resultados.push({fuente:fuente.nombre, ok:true, registros:resultado.datos.length, detalle:resultado.validacion.motivo});
+            }catch(error){
+                resultados.push({fuente:fuente.nombre, ok:false, registros:0, detalle:error.message});
+            }
+        }
+        console.table(resultados);
+        return resultados;
+    };
+
+    function vincularBotonRecarga20260730(){
+        ["btnRecargar","reporteRecargar"].forEach(id => {
+            const btn = document.getElementById(id);
+            if(!btn) return;
+            const nuevo = btn.cloneNode(true);
+            btn.parentNode.replaceChild(nuevo, btn);
+            nuevo.addEventListener("click", ev => {
+                ev.preventDefault();
+                ev.stopPropagation();
+                cargarDashboard();
+            });
+        });
+    }
+
+    vincularBotonRecarga20260730();
+    setTimeout(vincularBotonRecarga20260730, 800);
+    setTimeout(() => cargarDashboard(), 350);
+
+    console.log("RECUPERACIÓN GOOGLE SHEET ACTIVA - VERSION " + VERSION_DATOS_GOOGLE_20260730);
 })();
