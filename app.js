@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260720");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260721");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -123,12 +123,35 @@ function formatNumber(valor, decimales=0){
     });
 }
 
+function primerNombreGestor(nombre){
+    const texto = String(nombre || "").trim().toUpperCase();
+    if(!texto) return "-";
+
+    const partes = texto.split(/\s+/).filter(Boolean);
+    const nombresFrecuentes = [
+        "FERNANDO","CARLOS","OSVALDO","ALEXIS","WENDY","SAMIR","MARIO","JESSICA",
+        "JULIA","EDER","OSCAR","OCTAVIO","PAOLA","DAVID","ANDRES","JOSE","LUIS"
+    ];
+
+    const encontrado = nombresFrecuentes.find(nombreBase => partes.includes(nombreBase));
+    if(encontrado) return encontrado;
+
+    if(partes.length >= 4) return partes[2];
+    return partes[0] || "-";
+}
+
+function estadoMetaGrafica(porcentaje){
+    if(porcentaje >= 100) return "Cumplida";
+    if(porcentaje >= 80) return "En riesgo";
+    return "No cumple";
+}
+
 function formatChartValue(valor, tipo="money"){
     if(tipo === "number") return formatNumber(valor);
     if(tipo === "kwh") return `${formatNumber(valor)} kWh`;
     if(tipo === "percent") return `${Number(toNumber(valor)).toFixed(1)}%`;
     if(tipo === "days") return `${formatNumber(valor)} días`;
-    return formatMoneyCompact(valor);
+    return formatMoney(valor);
 }
 
 function isDarkChartTheme(){
@@ -1294,7 +1317,7 @@ function actualizarKPIs(resumen, metaInfo){
     setHtml("metaAnual", formatMoney(metaMensualTotal() * 12));
     setHtml("mesesEquivalentes", MESES_EQUIVALENTES_ACTUAL.toFixed(2));
     setHtml("promedioDiarioReal", formatMoney(promedioDiarioReal));
-    setHtml("mejorGestor", mejorGestor ? mejorGestor.nombre : "-");
+    setHtml("mejorGestor", mejorGestor ? primerNombreGestor(mejorGestor.nombre) : "-");
     setHtml("totalRegistros", DATASET_FILTRADO.length);
     setHtml("kpiCalidadDatos", calcularCalidadDatos().calidad.toFixed(1) + "%");
 
@@ -1337,40 +1360,74 @@ function destruirChart(id){
     }
 }
 
-function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, tipoValor="money"){
+function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, tipoValor="money", opciones={}){
     const canvas = $(idCanvas);
     if(!canvas || typeof Chart === "undefined") return;
 
     registrarPluginGraficas();
     destruirChart(idCanvas);
 
-    const maxValue = Math.max(...(data || []).map(v => Math.abs(toNumber(v))), 0);
-    const cantidad = Array.isArray(labels) ? labels.length : 0;
-    const alto = horizontal ? Math.min(Math.max(330, cantidad * 34 + 125), 780) : 340;
+    opciones = opciones || {};
+    const etiquetas = Array.isArray(labels) ? labels : [];
+    const valores = Array.isArray(data) ? data.map(v => toNumber(v)) : [];
+    const metas = Array.isArray(opciones.metas) ? opciones.metas.map(v => toNumber(v)) : [];
+    const totalReferencia = toNumber(opciones.total) || valores.reduce((acc,v) => acc + Math.abs(toNumber(v)), 0);
+
+    const maxDato = Math.max(...valores.map(v => Math.abs(toNumber(v))), 0);
+    const maxMeta = Math.max(...metas.map(v => Math.abs(toNumber(v))), 0);
+    const maxValue = Math.max(maxDato, maxMeta, 0);
+    const cantidad = etiquetas.length;
+    const alto = horizontal ? Math.min(Math.max(390, cantidad * 48 + 145), 1040) : 395;
+    const barraGruesa = horizontal ? Math.min(36, Math.max(28, Math.floor((alto - 150) / Math.max(cantidad,1) * .68))) : 46;
     const labelStyle = chartValueLabelStyle();
     const contenedor = canvas.parentElement;
 
     canvas.setAttribute("height", String(alto));
     canvas.style.setProperty("height", `${alto}px`, "important");
-    contenedor?.style.setProperty("min-height", `${alto + 84}px`);
-    contenedor?.classList.add("chart-card-enhanced");
+    contenedor?.style.setProperty("min-height", `${alto + 96}px`);
+    contenedor?.style.setProperty("height", "auto", "important");
+    contenedor?.classList.add("chart-card-enhanced", "chart-card-readable");
+
+    const formatearEtiquetaBarra = (value, ctx) => {
+        const i = ctx.dataIndex;
+        const valor = toNumber(value);
+        const meta = toNumber(metas[i]);
+        const valorTexto = formatChartValue(valor, tipoValor);
+
+        if(meta > 0){
+            const pct = (valor / meta) * 100;
+            const estado = estadoMetaGrafica(pct);
+            return horizontal
+                ? `${valorTexto} | ${pct.toFixed(1)}% | ${estado}`
+                : [valorTexto, `${pct.toFixed(1)}%`, estado];
+        }
+
+        if(totalReferencia > 0 && opciones.mostrarParticipacion !== false){
+            const pct = (Math.abs(valor) / totalReferencia) * 100;
+            return horizontal
+                ? `${valorTexto} | ${pct.toFixed(1)}% part.`
+                : [valorTexto, `${pct.toFixed(1)}% part.`];
+        }
+
+        return valorTexto;
+    };
 
     charts[idCanvas] = new Chart(canvas, {
         type:"bar",
         data:{
-            labels,
+            labels:etiquetas,
             datasets:[{
-                label,
-                data,
-                backgroundColor:isDarkChartTheme() ? "rgba(0,200,83,.88)" : "rgba(0,143,70,.92)",
-                borderColor:isDarkChartTheme() ? "rgba(34,197,94,.95)" : "rgba(0,79,42,.95)",
-                borderWidth:1,
-                borderRadius:horizontal ? 9 : 12,
-                barThickness:horizontal ? 22 : 38,
-                maxBarThickness:horizontal ? 28 : 48,
-                minBarLength:horizontal ? 10 : 5,
-                barPercentage:.9,
-                categoryPercentage:.82
+                label:opciones.legendLabel || label,
+                data:valores,
+                backgroundColor:isDarkChartTheme() ? "rgba(0,200,83,.92)" : "rgba(0,143,70,.94)",
+                borderColor:isDarkChartTheme() ? "rgba(74,222,128,.98)" : "rgba(0,79,42,.98)",
+                borderWidth:1.2,
+                borderRadius:horizontal ? 11 : 13,
+                barThickness:barraGruesa,
+                maxBarThickness:horizontal ? 38 : 54,
+                minBarLength:horizontal ? 16 : 7,
+                barPercentage:.96,
+                categoryPercentage:.90
             }]
         },
         options:{
@@ -1380,34 +1437,68 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
             indexAxis:horizontal ? "y" : "x",
             interaction:{mode:"nearest", axis:horizontal ? "y" : "x", intersect:false},
             hover:{mode:"nearest", intersect:false},
-            layout:{padding:horizontal ? {left:6,right:180,top:12,bottom:14} : {left:8,right:30,top:30,bottom:8}},
+            layout:{padding:horizontal ? {left:8,right:310,top:16,bottom:18} : {left:10,right:42,top:36,bottom:14}},
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?16:15},padding:{bottom:18}},
-                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?12:11}}},
-                tooltip:{callbacks:{label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed[horizontal ? "x" : "y"], tipoValor)}`}},
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?16:15},padding:{bottom:20}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:13,font:{weight:"900",size:isDarkChartTheme()?12:11}}},
+                tooltip:{
+                    callbacks:{
+                        title:items => items?.[0]?.label || "-",
+                        label:ctx => {
+                            const valor = toNumber(ctx.parsed[horizontal ? "x" : "y"]);
+                            const meta = toNumber(metas[ctx.dataIndex]);
+                            const lineas = [`${ctx.dataset.label}: ${formatChartValue(valor, tipoValor)}`];
+                            if(meta > 0){
+                                const pct = (valor / meta) * 100;
+                                lineas.push(`Meta: ${formatChartValue(meta, tipoValor)}`);
+                                lineas.push(`Cumplimiento: ${pct.toFixed(1)}%`);
+                                lineas.push(`Estado: ${estadoMetaGrafica(pct)}`);
+                            }else if(totalReferencia > 0){
+                                lineas.push(`Participación: ${((Math.abs(valor)/totalReferencia)*100).toFixed(1)}%`);
+                            }
+                            return lineas;
+                        }
+                    }
+                },
                 datalabels:{
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
                     anchor:"end",
                     align:horizontal ? "right" : "top",
-                    offset:horizontal ? 10 : 7,
-                    clamp:true,
+                    offset:horizontal ? 12 : 8,
+                    clamp:false,
                     clip:false,
                     color:labelStyle.color,
                     backgroundColor:labelStyle.backgroundColor,
                     borderColor:labelStyle.borderColor,
                     borderWidth:1,
-                    borderRadius:7,
-                    padding:{top:3,right:7,bottom:3,left:7},
+                    borderRadius:8,
+                    padding:{top:4,right:8,bottom:4,left:8},
                     font:{size:horizontal ? 11 : 10,weight:"900"},
-                    formatter:value => formatChartValue(value, tipoValor)
+                    formatter:formatearEtiquetaBarra
                 }
             },
             scales:horizontal ? {
-                y:{ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?12:11,weight:"850"},autoSkip:false,padding:7},grid:{color:chartGridColor()}},
-                x:{beginAtZero:true,suggestedMax:maxValue>0?maxValue*1.18:undefined,grid:{display:true,color:chartGridColor()},ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)}}
+                y:{
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?12:11,weight:"900"},autoSkip:false,padding:9},
+                    grid:{color:chartGridColor()}
+                },
+                x:{
+                    beginAtZero:true,
+                    suggestedMax:maxValue>0?maxValue*1.34:undefined,
+                    grid:{display:true,color:chartGridColor()},
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"850"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)}
+                }
             } : {
-                y:{beginAtZero:true,suggestedMax:maxValue>0?maxValue*1.14:undefined,ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)},grid:{color:chartGridColor()}},
-                x:{ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},autoSkip:false,maxRotation:25,minRotation:0},grid:{display:false}}
+                y:{
+                    beginAtZero:true,
+                    suggestedMax:maxValue>0?maxValue*1.22:undefined,
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"850"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)},
+                    grid:{color:chartGridColor()}
+                },
+                x:{
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"850"},autoSkip:false,maxRotation:22,minRotation:0},
+                    grid:{display:false}
+                }
             }
         }
     });
@@ -1470,7 +1561,13 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
             plugins:{
                 title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14}},
                 legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?12:11}}},
-                tooltip:{callbacks:{label:ctx => `${ctx.label}: ${formatChartValue(ctx.parsed, tipoValor)}`}},
+                tooltip:{callbacks:{
+                    label:ctx => {
+                        const total = (ctx.dataset.data || []).reduce((acc,v) => acc + toNumber(v), 0);
+                        const pct = total > 0 ? (toNumber(ctx.parsed) / total) * 100 : 0;
+                        return [`${ctx.label}: ${formatChartValue(ctx.parsed, tipoValor)}`, `Participación: ${pct.toFixed(1)}%`];
+                    }
+                }},
                 datalabels:{
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
                     color:isDarkChartTheme()?labelStyle.color:"#ffffff",
@@ -1482,7 +1579,11 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
                     textStrokeColor:isDarkChartTheme()?"transparent":"rgba(15,23,42,.45)",
                     textStrokeWidth:isDarkChartTheme()?0:2,
                     font:{size:9,weight:"900"},
-                    formatter:value => formatChartValue(value, tipoValor)
+                    formatter:(value, ctx) => {
+                        const total = (ctx.dataset.data || []).reduce((acc,v) => acc + toNumber(v), 0);
+                        const pct = total > 0 ? (toNumber(value) / total) * 100 : 0;
+                        return [formatChartValue(value, tipoValor), `${pct.toFixed(1)}%`];
+                    }
                 }
             }
         }
@@ -1495,7 +1596,10 @@ function renderGraficosDashboard(resumen){
         ["Meta", "Venta Real"],
         [META_RANGO_ACTUAL, resumen.total],
         "Valor",
-        "Meta vs Venta Real"
+        "Meta vs Venta Real",
+        false,
+        "money",
+        {metas:[META_RANGO_ACTUAL, META_RANGO_ACTUAL], legendLabel:"Valor | % cumplimiento | Estado", mostrarParticipacion:false}
     );
 
     crearChartDoughnut(
@@ -1611,7 +1715,9 @@ function renderCategorias(){
         particulares.slice(0,12).map(item => item.valor),
         "Venta",
         "Particulares por tipo de servicio",
-        true
+        true,
+        "money",
+        {total:totalParticulares, legendLabel:"Venta | % participación"}
     );
 
     const clinicas = Object.values(agruparClinicas(DATASET_FILTRADO)).sort((a,b) => b.cantidad - a.cantidad || b.valor - a.valor);
@@ -1640,7 +1746,8 @@ function renderCategorias(){
         "Reportes",
         "Clínicas que más reportan homenajes",
         true,
-        "number"
+        "number",
+        {total:totalClinicas, legendLabel:"Reportes | % participación"}
     );
 }
 
@@ -1674,13 +1781,21 @@ function renderGestores(){
         }
     }
 
+    const gestoresTop = gestores.slice(0,15);
+    const metasGestoresGrafico = gestoresTop.map(g => {
+        const metaConfig = metaGestorMensual(g.nombre);
+        return metaConfig > 0 ? metaConfig * MESES_EQUIVALENTES_ACTUAL : (cantidadGestores > 0 ? META_RANGO_ACTUAL / cantidadGestores : 0);
+    });
+
     crearChartBar(
         "graficoGestores",
-        gestores.slice(0,15).map(g => g.nombre),
-        gestores.slice(0,15).map(g => g.valor),
+        gestoresTop.map(g => primerNombreGestor(g.nombre)),
+        gestoresTop.map(g => g.valor),
         "Ventas",
         "Ranking de gestores",
-        true
+        true,
+        "money",
+        {metas:metasGestoresGrafico, total:gestoresTop.reduce((acc,g)=>acc+toNumber(g.valor),0), legendLabel:"Venta | % cumplimiento | Estado"}
     );
 }
 
@@ -1719,13 +1834,16 @@ function renderExcedentes(){
         }
     }
 
+    const excedentesTop = excedentes.slice(0,15);
     crearChartBar(
         "graficoExcedentes",
-        excedentes.slice(0,15).map(x => x.nombre),
-        excedentes.slice(0,15).map(x => x.valor),
+        excedentesTop.map(x => x.nombre),
+        excedentesTop.map(x => x.valor),
         "Ventas",
         "Excedentes por valor",
-        true
+        true,
+        "money",
+        {metas:excedentesTop.map(x => metaExcedenteMensual(x.nombre) * MESES_EQUIVALENTES_ACTUAL), total:totalExcedentes, legendLabel:"Venta | % cumplimiento | Estado"}
     );
 }
 
@@ -1893,13 +2011,21 @@ function renderPareto(){
         `).join("") : `<tr><td colspan="5">Sin registros</td></tr>`;
     }
 
+    const paretoTop = data.slice(0,15);
+    const metasParetoGrafico = paretoTop.map(item => {
+        const metaConfig = metaGestorMensual(item.nombre);
+        return metaConfig > 0 ? metaConfig * MESES_EQUIVALENTES_ACTUAL : (gestores.length > 0 ? META_RANGO_ACTUAL / gestores.length : 0);
+    });
+
     crearChartBar(
         "graficoParetoGestores",
-        data.slice(0,15).map(x => x.nombre),
-        data.slice(0,15).map(x => x.valor),
+        paretoTop.map(x => primerNombreGestor(x.nombre)),
+        paretoTop.map(x => x.valor),
         "Venta",
         "Pareto por gestor",
-        true
+        true,
+        "money",
+        {metas:metasParetoGrafico, total, legendLabel:"Venta | % cumplimiento | Estado"}
     );
 }
 
@@ -2092,7 +2218,7 @@ function renderEnergia(){
         {label:String(anioAnterior), data:kwhAnterior, borderColor:"#2563eb", backgroundColor:"rgba(37,99,235,.10)", fill:true, tension:.3}
     ], "Consumo kWh año actual vs anterior", "kwh");
 
-    crearChartBar("graficoEnergiaCosto", labels, costoActual, "Costo", `Costo mensual ${anioActual}`);
+    crearChartBar("graficoEnergiaCosto", labels, costoActual, "Costo", `Costo mensual ${anioActual}`, false, "money", {total:costoTotal, legendLabel:"Costo | % participación"});
 
     const tbody = document.querySelector("#tablaEnergia tbody");
     if(tbody){
@@ -2712,7 +2838,7 @@ function renderTiempoAfiliado(){
 
     const labels = Object.keys(resumen.rangos);
     const data = labels.map(label => resumen.rangos[label]);
-    crearChartBar("graficoTiempoAfiliado", labels, data, "Casos", "Casos por rango de permanencia", true, "number");
+    crearChartBar("graficoTiempoAfiliado", labels, data, "Casos", "Casos por rango de permanencia", true, "number", {total:data.reduce((acc,v)=>acc+toNumber(v),0), legendLabel:"Casos | % participación"});
 
     const tbody = document.querySelector("#tablaTiempoAfiliado tbody");
     if(tbody){
@@ -5638,12 +5764,12 @@ instalarExportacionForzada20260719();
 
 
 /* =========================================================
-   EXPORTACION FINAL ESTABLE 20260720
+   EXPORTACION FINAL ESTABLE 20260721
    PDF e Imagen descargan como Blob directo. Reemplaza eventos anteriores.
    ========================================================= */
-console.log("EXPORTACION FINAL ESTABLE ACTIVA - VERSION 20260720");
+console.log("EXPORTACION FINAL ESTABLE ACTIVA - VERSION 20260721");
 
-function descargarArchivo20260720(nombre, blob){
+function descargarArchivo20260721(nombre, blob){
     if(!blob || !(blob instanceof Blob)){
         throw new Error("No se pudo construir el archivo de descarga.");
     }
@@ -5668,19 +5794,19 @@ function descargarArchivo20260720(nombre, blob){
     }, 6000);
 }
 
-function fechaArchivo20260720(){
+function fechaArchivo20260721(){
     return new Date().toISOString().slice(0,10);
 }
 
-function money20260720(valor){
+function money20260721(valor){
     return "$" + Math.round(Number(valor || 0)).toLocaleString("es-CO");
 }
 
-function number20260720(valor){
+function number20260721(valor){
     return Math.round(Number(valor || 0)).toLocaleString("es-CO");
 }
 
-function limpiar20260720(valor){
+function limpiar20260721(valor){
     return String(valor ?? "")
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "")
@@ -5691,7 +5817,7 @@ function limpiar20260720(valor){
         .trim();
 }
 
-function obtenerReporteBase20260720(){
+function obtenerReporteBase20260721(){
     try{
         if(typeof aplicarFiltrosYRender === "function") aplicarFiltrosYRender();
     }catch(error){
@@ -5715,10 +5841,10 @@ function obtenerReporteBase20260720(){
     return {rows, resumen, meta, cumplimiento, faltante};
 }
 
-function agruparReporte20260720(rows, campo, limite=12){
+function agruparReporte20260721(rows, campo, limite=12){
     const mapa = new Map();
     (rows || []).forEach(row => {
-        const nombre = limpiar20260720(row?.[campo] || "SIN REGISTRO") || "SIN REGISTRO";
+        const nombre = limpiar20260721(row?.[campo] || "SIN REGISTRO") || "SIN REGISTRO";
         const actual = mapa.get(nombre) || {nombre, cantidad:0, valor:0};
         actual.cantidad += Number(row?.cantidadAtendida || 1);
         actual.valor += Number(row?.valorVenta || 0);
@@ -5729,8 +5855,8 @@ function agruparReporte20260720(rows, campo, limite=12){
         .slice(0, limite);
 }
 
-function crearHtmlReporte20260720(){
-    const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260720();
+function crearHtmlReporte20260721(){
+    const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260721();
     const categoria = [
         {nombre:"PARTICULAR", cantidad:rows.filter(r => r.categoriaGerencial === "PARTICULAR").length, valor:resumen.particular || 0},
         {nombre:"RED", cantidad:rows.filter(r => r.categoriaGerencial === "RED").length, valor:resumen.red || 0},
@@ -5742,7 +5868,7 @@ function crearHtmlReporte20260720(){
         <h2>${titulo}</h2>
         <table>
             <thead><tr><th>Concepto</th><th>Cantidad</th><th>Valor</th></tr></thead>
-            <tbody>${(data || []).map(x => `<tr><td>${limpiar20260720(x.nombre)}</td><td>${number20260720(x.cantidad)}</td><td>${money20260720(x.valor)}</td></tr>`).join("")}</tbody>
+            <tbody>${(data || []).map(x => `<tr><td>${limpiar20260721(x.nombre)}</td><td>${number20260721(x.cantidad)}</td><td>${money20260721(x.valor)}</td></tr>`).join("")}</tbody>
         </table>`;
 
     return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Reporte Gerencial</title>
@@ -5758,27 +5884,27 @@ function crearHtmlReporte20260720(){
         @media print{body{margin:12mm}.header{border-radius:0}.kpis{grid-template-columns:repeat(2,1fr)}}
     </style></head><body>
         <div class="header"><h1>Reporte Gerencial de Homenajes</h1><p>Generado: ${new Date().toLocaleString("es-CO")}</p></div>
-        <div class="nota">Venta real: <strong>${money20260720(resumen.total)}</strong>. Cumplimiento: <strong>${cumplimiento.toFixed(1)}%</strong>. Faltante: <strong>${money20260720(faltante)}</strong>.</div>
+        <div class="nota">Venta real: <strong>${money20260721(resumen.total)}</strong>. Cumplimiento: <strong>${cumplimiento.toFixed(1)}%</strong>. Faltante: <strong>${money20260721(faltante)}</strong>.</div>
         <div class="kpis">
-            <div class="kpi"><small>Meta</small><strong>${money20260720(meta)}</strong></div>
-            <div class="kpi"><small>Venta real</small><strong>${money20260720(resumen.total)}</strong></div>
+            <div class="kpi"><small>Meta</small><strong>${money20260721(meta)}</strong></div>
+            <div class="kpi"><small>Venta real</small><strong>${money20260721(resumen.total)}</strong></div>
             <div class="kpi"><small>Cumplimiento</small><strong>${cumplimiento.toFixed(1)}%</strong></div>
-            <div class="kpi"><small>Registros</small><strong>${number20260720(rows.length)}</strong></div>
+            <div class="kpi"><small>Registros</small><strong>${number20260721(rows.length)}</strong></div>
         </div>
         ${tabla("Ventas por categoria", categoria)}
-        ${tabla("Ranking de gestores", agruparReporte20260720(rows,"gestor",15))}
-        ${tabla("Clinicas principales", agruparReporte20260720(rows,"clinica",15))}
-        ${tabla("Municipios", agruparReporte20260720(rows,"municipio",15))}
-        ${tabla("Cementerios", agruparReporte20260720(rows,"cementerio",15))}
-        ${tabla("Destino final", agruparReporte20260720(rows,"destinoFinal",12))}
-        ${tabla("Tipo de muerte", agruparReporte20260720(rows,"tipoMuerte",10))}
+        ${tabla("Ranking de gestores", agruparReporte20260721(rows,"gestor",15))}
+        ${tabla("Clinicas principales", agruparReporte20260721(rows,"clinica",15))}
+        ${tabla("Municipios", agruparReporte20260721(rows,"municipio",15))}
+        ${tabla("Cementerios", agruparReporte20260721(rows,"cementerio",15))}
+        ${tabla("Destino final", agruparReporte20260721(rows,"destinoFinal",12))}
+        ${tabla("Tipo de muerte", agruparReporte20260721(rows,"tipoMuerte",10))}
     </body></html>`;
 }
 
-function abrirReporteImprimible20260720(){
-    const html = crearHtmlReporte20260720();
+function abrirReporteImprimible20260721(){
+    const html = crearHtmlReporte20260721();
     const blob = new Blob([html], {type:"text/html;charset=utf-8"});
-    descargarArchivo20260720(`reporte_gerencial_imprimible_${fechaArchivo20260720()}.html`, blob);
+    descargarArchivo20260721(`reporte_gerencial_imprimible_${fechaArchivo20260721()}.html`, blob);
     const url = URL.createObjectURL(blob);
     const win = window.open(url, "_blank", "noopener,noreferrer");
     if(win){
@@ -5787,12 +5913,12 @@ function abrirReporteImprimible20260720(){
     }
 }
 
-async function obtenerJsPDF20260720(){
+async function obtenerJsPDF20260721(){
     if(window.jspdf?.jsPDF) return window.jspdf.jsPDF;
     if(window.jsPDF) return window.jsPDF;
 
     await new Promise((resolve, reject) => {
-        const id = "jspdf-estable-20260720";
+        const id = "jspdf-estable-20260721";
         const existente = document.getElementById(id);
         if(existente){
             existente.addEventListener("load", resolve, {once:true});
@@ -5812,12 +5938,12 @@ async function obtenerJsPDF20260720(){
     throw new Error("jsPDF no quedó disponible.");
 }
 
-async function exportarPDFEstable20260720(){
-    console.log("CLICK PDF - EXPORTACION ESTABLE 20260720");
+async function exportarPDFEstable20260721(){
+    console.log("CLICK PDF - EXPORTACION ESTABLE 20260721");
     if(typeof showLoading === "function") showLoading(true);
     try{
-        const jsPDF = await obtenerJsPDF20260720();
-        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260720();
+        const jsPDF = await obtenerJsPDF20260721();
+        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260721();
         const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4", compress:true});
         const pageW = doc.internal.pageSize.getWidth();
         const pageH = doc.internal.pageSize.getHeight();
@@ -5830,10 +5956,10 @@ async function exportarPDFEstable20260720(){
             doc.setTextColor(255,255,255);
             doc.setFont("helvetica","bold");
             doc.setFontSize(16);
-            doc.text(limpiar20260720(titulo), margin, 13);
+            doc.text(limpiar20260721(titulo), margin, 13);
             doc.setFontSize(8);
             doc.setFont("helvetica","normal");
-            doc.text(limpiar20260720(new Date().toLocaleString("es-CO")), pageW-margin, 13, {align:"right"});
+            doc.text(limpiar20260721(new Date().toLocaleString("es-CO")), pageW-margin, 13, {align:"right"});
             doc.setTextColor(15,23,42);
             y = 32;
         }
@@ -5846,7 +5972,7 @@ async function exportarPDFEstable20260720(){
             doc.setFont("helvetica","bold");
             doc.setFontSize(12);
             doc.setTextColor(0,79,42);
-            doc.text(limpiar20260720(titulo), margin, y);
+            doc.text(limpiar20260721(titulo), margin, y);
             y += 7;
             doc.setTextColor(15,23,42);
         }
@@ -5857,13 +5983,13 @@ async function exportarPDFEstable20260720(){
             doc.setFont("helvetica","bold");
             doc.setFontSize(7.5);
             doc.setTextColor(100,116,139);
-            doc.text(limpiar20260720(titulo),x+4,y+7);
+            doc.text(limpiar20260721(titulo),x+4,y+7);
             doc.setTextColor(15,23,42);
             doc.setFontSize(12.5);
-            doc.text(limpiar20260720(valor),x+4,y+16);
+            doc.text(limpiar20260721(valor),x+4,y+16);
             doc.setFontSize(6.5);
             doc.setTextColor(100,116,139);
-            doc.text(limpiar20260720(detalle || ""),x+4,y+22);
+            doc.text(limpiar20260721(detalle || ""),x+4,y+22);
         }
         function tabla(titulo, columnas, data, maxRows=15){
             seccion(titulo);
@@ -5878,7 +6004,7 @@ async function exportarPDFEstable20260720(){
             doc.setTextColor(255,255,255);
             doc.setFont("helvetica","bold");
             doc.setFontSize(7);
-            columnas.forEach((c,i)=>{ doc.text(limpiar20260720(c.h),x+2,y+4.8,{maxWidth:widths[i]-4}); x += widths[i]; });
+            columnas.forEach((c,i)=>{ doc.text(limpiar20260721(c.h),x+2,y+4.8,{maxWidth:widths[i]-4}); x += widths[i]; });
             y += rowH;
             body.forEach((r,idx)=>{
                 if(y + rowH > pageH-10) nuevaPagina(titulo);
@@ -5890,7 +6016,7 @@ async function exportarPDFEstable20260720(){
                 doc.setFontSize(6.6);
                 columnas.forEach((c,i)=>{
                     let v = typeof c.v === "function" ? c.v(r) : r[c.k];
-                    v = limpiar20260720(v);
+                    v = limpiar20260721(v);
                     if(c.max && v.length > c.max) v = v.slice(0,c.max-1) + ".";
                     doc.text(v || "-",x+2,y+4.8,{maxWidth:widths[i]-4});
                     x += widths[i];
@@ -5901,15 +6027,15 @@ async function exportarPDFEstable20260720(){
         }
 
         header("Reporte Gerencial de Homenajes");
-        tarjeta(margin,"Meta",money20260720(meta),"Rango seleccionado");
-        tarjeta(margin+67,"Venta real",money20260720(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
-        tarjeta(margin+134,"Faltante",money20260720(faltante),"Valor pendiente");
-        tarjeta(margin+201,"Registros",number20260720(rows.length),"Base filtrada");
+        tarjeta(margin,"Meta",money20260721(meta),"Rango seleccionado");
+        tarjeta(margin+67,"Venta real",money20260721(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
+        tarjeta(margin+134,"Faltante",money20260721(faltante),"Valor pendiente");
+        tarjeta(margin+201,"Registros",number20260721(rows.length),"Base filtrada");
         y += 35;
         doc.setFont("helvetica","normal");
         doc.setFontSize(9);
         doc.setTextColor(15,23,42);
-        const intro = doc.splitTextToSize(limpiar20260720(`Este reporte consolida la informacion filtrada del dashboard. Venta real: ${money20260720(resumen.total)}. Cumplimiento: ${cumplimiento.toFixed(1)}%. Faltante: ${money20260720(faltante)}.`), pageW - margin*2);
+        const intro = doc.splitTextToSize(limpiar20260721(`Este reporte consolida la informacion filtrada del dashboard. Venta real: ${money20260721(resumen.total)}. Cumplimiento: ${cumplimiento.toFixed(1)}%. Faltante: ${money20260721(faltante)}.`), pageW - margin*2);
         doc.text(intro, margin, y);
         y += intro.length * 5 + 7;
 
@@ -5921,27 +6047,27 @@ async function exportarPDFEstable20260720(){
         ];
 
         tabla("Ventas por categoria",[
-            {h:"Categoria",k:"nombre",w:80},{h:"Cantidad",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55},{h:"%",v:r=>resumen.total?`${((Number(r.valor||0)/Number(resumen.total||1))*100).toFixed(1)}%`:"0%",w:30}
+            {h:"Categoria",k:"nombre",w:80},{h:"Cantidad",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55},{h:"%",v:r=>resumen.total?`${((Number(r.valor||0)/Number(resumen.total||1))*100).toFixed(1)}%`:"0%",w:30}
         ],categorias,8);
         tabla("Ranking de gestores",[
-            {h:"Gestor",k:"nombre",w:100,max:42},{h:"Servicios",v:r=>number20260720(r.cantidad),w:30},{h:"Venta",v:r=>money20260720(r.valor),w:55}
-        ],agruparReporte20260720(rows,"gestor",15),15);
+            {h:"Gestor",k:"nombre",w:100,max:42},{h:"Servicios",v:r=>number20260721(r.cantidad),w:30},{h:"Venta",v:r=>money20260721(r.valor),w:55}
+        ],agruparReporte20260721(rows,"gestor",15),15);
         tabla("Clinicas principales",[
-            {h:"Clinica",k:"nombre",w:115,max:48},{h:"Reportes",v:r=>number20260720(r.cantidad),w:30},{h:"Venta",v:r=>money20260720(r.valor),w:55}
-        ],agruparReporte20260720(rows,"clinica",15),15);
+            {h:"Clinica",k:"nombre",w:115,max:48},{h:"Reportes",v:r=>number20260721(r.cantidad),w:30},{h:"Venta",v:r=>money20260721(r.valor),w:55}
+        ],agruparReporte20260721(rows,"clinica",15),15);
         tabla("Municipios",[
-            {h:"Municipio",k:"nombre",w:90,max:38},{h:"Atenciones",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55}
-        ],agruparReporte20260720(rows,"municipio",15),15);
+            {h:"Municipio",k:"nombre",w:90,max:38},{h:"Atenciones",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55}
+        ],agruparReporte20260721(rows,"municipio",15),15);
         nuevaPagina("Destino final y control");
         tabla("Cementerios",[
-            {h:"Cementerio",k:"nombre",w:115,max:48},{h:"Servicios",v:r=>number20260720(r.cantidad),w:30},{h:"Venta",v:r=>money20260720(r.valor),w:55}
-        ],agruparReporte20260720(rows,"cementerio",15),15);
+            {h:"Cementerio",k:"nombre",w:115,max:48},{h:"Servicios",v:r=>number20260721(r.cantidad),w:30},{h:"Venta",v:r=>money20260721(r.valor),w:55}
+        ],agruparReporte20260721(rows,"cementerio",15),15);
         tabla("Destino final",[
-            {h:"Destino",k:"nombre",w:85},{h:"Servicios",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55}
-        ],agruparReporte20260720(rows,"destinoFinal",12),12);
+            {h:"Destino",k:"nombre",w:85},{h:"Servicios",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55}
+        ],agruparReporte20260721(rows,"destinoFinal",12),12);
         tabla("Tipo de muerte",[
-            {h:"Tipo",k:"nombre",w:85},{h:"Cantidad",v:r=>number20260720(r.cantidad),w:35},{h:"Venta",v:r=>money20260720(r.valor),w:55}
-        ],agruparReporte20260720(rows,"tipoMuerte",10),10);
+            {h:"Tipo",k:"nombre",w:85},{h:"Cantidad",v:r=>number20260721(r.cantidad),w:35},{h:"Venta",v:r=>money20260721(r.valor),w:55}
+        ],agruparReporte20260721(rows,"tipoMuerte",10),10);
 
         const totalPages = doc.internal.getNumberOfPages();
         for(let p=1; p<=totalPages; p++){
@@ -5952,13 +6078,13 @@ async function exportarPDFEstable20260720(){
         }
 
         const blob = doc.output("blob");
-        descargarArchivo20260720(`reporte_gerencial_homenajes_${fechaArchivo20260720()}.pdf`, blob);
-        if(typeof setEstadoExportacion === "function") setEstadoExportacion("PDF descargado correctamente con motor estable 20260720.", "ok");
+        descargarArchivo20260721(`reporte_gerencial_homenajes_${fechaArchivo20260721()}.pdf`, blob);
+        if(typeof setEstadoExportacion === "function") setEstadoExportacion("PDF descargado correctamente con motor estable 20260721.", "ok");
         if(typeof toast === "function") toast("PDF descargado correctamente.");
     }catch(error){
-        console.error("Error PDF estable 20260720:", error);
+        console.error("Error PDF estable 20260721:", error);
         try{
-            abrirReporteImprimible20260720();
+            abrirReporteImprimible20260721();
             if(typeof setEstadoExportacion === "function") setEstadoExportacion("No se pudo descargar PDF directo. Se descargó y abrió reporte HTML imprimible.", "error");
         }catch(fallbackError){
             alert("No se pudo generar PDF ni respaldo. Error: " + fallbackError.message);
@@ -5968,10 +6094,10 @@ async function exportarPDFEstable20260720(){
     }
 }
 
-function exportarImagenEstable20260720(){
-    console.log("CLICK IMAGEN - EXPORTACION ESTABLE 20260720");
+function exportarImagenEstable20260721(){
+    console.log("CLICK IMAGEN - EXPORTACION ESTABLE 20260721");
     try{
-        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260720();
+        const {rows, resumen, meta, cumplimiento, faltante} = obtenerReporteBase20260721();
         const canvas = document.createElement("canvas");
         canvas.width = 1600;
         canvas.height = 1100;
@@ -5997,17 +6123,17 @@ function exportarImagenEstable20260720(){
             ctx.fillStyle = "#0f172a"; ctx.font = "bold 34px Arial"; ctx.fillText(v,x+24,y+75);
             ctx.fillStyle = "#64748b"; ctx.font = "18px Arial"; ctx.fillText(d,x+24,y+102);
         };
-        card(50,155,"Meta",money20260720(meta),"Rango seleccionado");
-        card(425,155,"Venta real",money20260720(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
-        card(800,155,"Faltante",money20260720(faltante),"Valor pendiente");
-        card(1175,155,"Registros",number20260720(rows.length),"Base filtrada");
+        card(50,155,"Meta",money20260721(meta),"Rango seleccionado");
+        card(425,155,"Venta real",money20260721(resumen.total),`${cumplimiento.toFixed(1)}% cumplimiento`);
+        card(800,155,"Faltante",money20260721(faltante),"Valor pendiente");
+        card(1175,155,"Registros",number20260721(rows.length),"Base filtrada");
 
         ctx.fillStyle = "#004f2a";
         ctx.font = "bold 28px Arial";
         ctx.fillText("Resumen ejecutivo",50,330);
         ctx.fillStyle = "#0f172a";
         ctx.font = "21px Arial";
-        ctx.fillText(`Venta real: ${money20260720(resumen.total)} | Cumplimiento: ${cumplimiento.toFixed(1)}% | Faltante: ${money20260720(faltante)}`,50,365);
+        ctx.fillText(`Venta real: ${money20260721(resumen.total)} | Cumplimiento: ${cumplimiento.toFixed(1)}% | Faltante: ${money20260721(faltante)}`,50,365);
 
         const dibujarRanking = (titulo, data, x, y) => {
             ctx.fillStyle = "#004f2a"; ctx.font = "bold 25px Arial"; ctx.fillText(titulo,x,y);
@@ -6019,39 +6145,39 @@ function exportarImagenEstable20260720(){
                 const yy = y + i*46;
                 ctx.fillStyle = "#0f172a"; ctx.font = "17px Arial"; ctx.fillText((d.nombre || "-").slice(0,42),x,yy+18);
                 ctx.fillStyle = "#00984f"; ctx.fillRect(x+360,yy,ancho,24);
-                ctx.fillStyle = "#0f172a"; ctx.font = "bold 16px Arial"; ctx.fillText(d.valor ? money20260720(d.valor) : number20260720(d.cantidad),x+370+ancho,yy+18);
+                ctx.fillStyle = "#0f172a"; ctx.font = "bold 16px Arial"; ctx.fillText(d.valor ? money20260721(d.valor) : number20260721(d.cantidad),x+370+ancho,yy+18);
             });
         };
-        dibujarRanking("Gestores",agruparReporte20260720(rows,"gestor",8),50,430);
-        dibujarRanking("Clinicas",agruparReporte20260720(rows,"clinica",8),50,830);
+        dibujarRanking("Gestores",agruparReporte20260721(rows,"gestor",8),50,430);
+        dibujarRanking("Clinicas",agruparReporte20260721(rows,"clinica",8),50,830);
 
         canvas.toBlob(blob => {
             if(!blob){ alert("No se pudo crear la imagen PNG."); return; }
-            descargarArchivo20260720(`dashboard_gerencial_${fechaArchivo20260720()}.png`, blob);
-            if(typeof setEstadoExportacion === "function") setEstadoExportacion("Imagen PNG descargada correctamente con motor estable 20260720.", "ok");
+            descargarArchivo20260721(`dashboard_gerencial_${fechaArchivo20260721()}.png`, blob);
+            if(typeof setEstadoExportacion === "function") setEstadoExportacion("Imagen PNG descargada correctamente con motor estable 20260721.", "ok");
             if(typeof toast === "function") toast("Imagen PNG descargada correctamente.");
         }, "image/png", 0.95);
     }catch(error){
-        console.error("Error imagen estable 20260720:", error);
+        console.error("Error imagen estable 20260721:", error);
         alert("No se pudo generar la imagen. Error: " + error.message);
     }
 }
 
-function generarExcelEstable20260720(){
-    console.log("CLICK EXCEL - EXPORTACION ESTABLE 20260720");
+function generarExcelEstable20260721(){
+    console.log("CLICK EXCEL - EXPORTACION ESTABLE 20260721");
     if(typeof generarExcelBasico20260719 === "function") return generarExcelBasico20260719();
-    const html = crearHtmlReporte20260720();
-    descargarArchivo20260720(`dashboard_gerencial_homenajes_${fechaArchivo20260720()}.html`, new Blob([html], {type:"text/html;charset=utf-8"}));
+    const html = crearHtmlReporte20260721();
+    descargarArchivo20260721(`dashboard_gerencial_homenajes_${fechaArchivo20260721()}.html`, new Blob([html], {type:"text/html;charset=utf-8"}));
 }
 
-function instalarExportacionesEstables20260720(){
+function instalarExportacionesEstables20260721(){
     const pares = [
-        ["btnPdf", exportarPDFEstable20260720],
-        ["reportePdfGeneral", exportarPDFEstable20260720],
-        ["btnExcel", generarExcelEstable20260720],
-        ["reporteExcelResumen", generarExcelEstable20260720],
-        ["btnImagen", exportarImagenEstable20260720],
-        ["reporteImagen", exportarImagenEstable20260720]
+        ["btnPdf", exportarPDFEstable20260721],
+        ["reportePdfGeneral", exportarPDFEstable20260721],
+        ["btnExcel", generarExcelEstable20260721],
+        ["reporteExcelResumen", generarExcelEstable20260721],
+        ["btnImagen", exportarImagenEstable20260721],
+        ["reporteImagen", exportarImagenEstable20260721]
     ];
 
     pares.forEach(([id, fn]) => {
@@ -6067,10 +6193,10 @@ function instalarExportacionesEstables20260720(){
     });
 
     if(typeof setEstadoExportacion === "function"){
-        setEstadoExportacion("Motor estable 20260720 activo: PDF por Blob, Excel e Imagen PNG.", "ok");
+        setEstadoExportacion("Motor estable 20260721 activo: PDF por Blob, Excel e Imagen PNG.", "ok");
     }
 }
 
-instalarExportacionesEstables20260720();
-setTimeout(instalarExportacionesEstables20260720, 800);
-setTimeout(instalarExportacionesEstables20260720, 2500);
+instalarExportacionesEstables20260721();
+setTimeout(instalarExportacionesEstables20260721, 800);
+setTimeout(instalarExportacionesEstables20260721, 2500);
