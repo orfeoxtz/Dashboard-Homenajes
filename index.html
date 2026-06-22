@@ -6,7 +6,7 @@
 
 <title>General Report Jkfh | Dashboard Gerencial</title>
 
-<link rel="stylesheet" href="./style.css?v=20260802">
+<link rel="stylesheet" href="./style.css?v=20260803">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -317,6 +317,56 @@
         <p>PARTICULAR, RED y EXCEDENTES generan ventas. PLAN solo cuenta cantidad atendida y no suma para la meta.</p>
     </section>
 
+    <section id="panelCategoriasMetaReal" class="categoria-meta-real-panel">
+        <div class="categoria-meta-card" data-cat-card="PARTICULAR">
+            <div class="categoria-meta-head">
+                <span>Particular</span>
+                <strong id="estadoMetaParticular">-</strong>
+            </div>
+            <div class="categoria-meta-kpis">
+                <div><small>Meta real</small><b id="metaRealParticular">$0</b></div>
+                <div><small>Venta real</small><b id="ventaRealParticular">$0</b></div>
+                <div><small>Cumplimiento</small><b id="cumplimientoParticular">0.0%</b></div>
+                <div><small>Faltante</small><b id="faltanteParticular">$0</b></div>
+            </div>
+            <div class="categoria-meta-chart">
+                <canvas id="graficoMetaParticular"></canvas>
+            </div>
+        </div>
+
+        <div class="categoria-meta-card" data-cat-card="RED">
+            <div class="categoria-meta-head">
+                <span>Red</span>
+                <strong id="estadoMetaRed">-</strong>
+            </div>
+            <div class="categoria-meta-kpis">
+                <div><small>Meta real</small><b id="metaRealRed">$0</b></div>
+                <div><small>Venta real</small><b id="ventaRealRed">$0</b></div>
+                <div><small>Cumplimiento</small><b id="cumplimientoRed">0.0%</b></div>
+                <div><small>Faltante</small><b id="faltanteRed">$0</b></div>
+            </div>
+            <div class="categoria-meta-chart">
+                <canvas id="graficoMetaRed"></canvas>
+            </div>
+        </div>
+
+        <div class="categoria-meta-card" data-cat-card="EXCEDENTES">
+            <div class="categoria-meta-head">
+                <span>Excedentes</span>
+                <strong id="estadoMetaExcedentes">-</strong>
+            </div>
+            <div class="categoria-meta-kpis">
+                <div><small>Meta real</small><b id="metaRealExcedentes">$0</b></div>
+                <div><small>Venta real</small><b id="ventaRealExcedentes">$0</b></div>
+                <div><small>Cumplimiento</small><b id="cumplimientoExcedentes">0.0%</b></div>
+                <div><small>Faltante</small><b id="faltanteExcedentes">$0</b></div>
+            </div>
+            <div class="categoria-meta-chart">
+                <canvas id="graficoMetaExcedentes"></canvas>
+            </div>
+        </div>
+    </section>
+
     <div class="grafico-card grafico-full">
         <h3>Categorías que generan ventas</h3>
         <canvas id="graficoCategoriasVista"></canvas>
@@ -334,6 +384,8 @@
                     <th>Participación</th>
                     <th>Meta</th>
                     <th>Cumplimiento</th>
+                    <th>Faltante</th>
+                    <th>Estado</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -1035,6 +1087,6 @@
 
 </main>
 
-<script src="./app.js?v=20260802"></script>
+<script src="./app.js?v=20260803"></script>
 </body>
 </html>
