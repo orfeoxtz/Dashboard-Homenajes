@@ -2487,3 +2487,17 @@ body.theme-slate .fila-total-gerencial td{
 #tablaBaseDatos tbody tr td{
     vertical-align:middle;
 }
+
+
+/* Cierre tabla gerencial consolidada 20260805 */
+#tablaConsolidada tbody tr.fila-total-gerencial td{
+    background:#ecfdf5;
+    border-top:2px solid #008f46;
+    font-weight:800;
+}
+body.theme-dark #tablaConsolidada tbody tr.fila-total-gerencial td,
+body.theme-slate #tablaConsolidada tbody tr.fila-total-gerencial td{
+    background:rgba(0,143,70,.18);
+    color:#f8fafc;
+}
+#graficoMensual{min-height:340px !important;}
