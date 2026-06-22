@@ -2471,3 +2471,19 @@ body.dark-mode .categoria-meta-chart{
 @media(max-width:1200px){
     .categoria-meta-real-panel{grid-template-columns:1fr;}
 }
+
+
+/* Cierre datos/dashboard 20260804 */
+.fila-total-gerencial td{
+    background:#eefbf4 !important;
+    border-top:2px solid rgba(0,111,63,.35) !important;
+}
+body.theme-dark .fila-total-gerencial td,
+body.theme-slate .fila-total-gerencial td{
+    background:rgba(0,111,63,.22) !important;
+    color:#f8fafc !important;
+}
+#tablaConsolidada tbody tr td,
+#tablaBaseDatos tbody tr td{
+    vertical-align:middle;
+}
