@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260805");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260806");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -10064,4 +10064,416 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     setTimeout(refrescarConsolidadoFinal, 8000);
 
     console.log("CIERRE TABLA GERENCIAL CONSOLIDADA ACTIVO - VERSION " + VERSION_TABLA_CONSOLIDADA_FINAL);
+})();
+
+/* =========================================================
+   PRESENTACIÓN COMPLETA CON GRÁFICAS 20260806
+   Modo presentación independiente: muestra todas las secciones con gráficas y tablas.
+   ========================================================= */
+(function(){
+    const VERSION_PRESENTACION_COMPLETA = "20260806";
+    let chartsPresentacion = [];
+
+    function pId(id){ return document.getElementById(id); }
+
+    function pRows(){
+        if(Array.isArray(DATASET_FILTRADO) && DATASET_FILTRADO.length) return DATASET_FILTRADO;
+        if(Array.isArray(DATASET_NORMAL) && DATASET_NORMAL.length) return DATASET_NORMAL;
+        if(Array.isArray(DATASET_API) && DATASET_API.length) return DATASET_API;
+        return [];
+    }
+
+    function pMoney(v){ return typeof formatMoney === 'function' ? formatMoney(v) : ('$' + Math.round(Number(v || 0)).toLocaleString('es-CO')); }
+    function pNum(v, d=0){ return Number(toNumber(v)).toLocaleString('es-CO',{minimumFractionDigits:d,maximumFractionDigits:d}); }
+    function pPct(v){ return `${Number(v || 0).toFixed(1)}%`; }
+    function pSafe(v){ return typeof escapeHtml === 'function' ? escapeHtml(v ?? '') : String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c])); }
+    function pEstado(pct){ if(pct >= 100) return 'Cumplida'; if(pct >= 80) return 'En riesgo'; return 'No cumple'; }
+
+    function pPrimerNombre(nombre){
+        try{ if(typeof primerNombreGestor === 'function') return primerNombreGestor(nombre); }catch(e){}
+        const texto = String(nombre || '').trim().toUpperCase();
+        if(!texto) return '-';
+        const partes = texto.split(/\s+/).filter(Boolean);
+        const comunes = ['FERNANDO','CARLOS','OSVALDO','ALEXIS','WENDY','SAMIR','MARIO','JESSICA','JULIA','EDER','OSCAR','OCTAVIO','PAOLA','DAVID','ANDRES','JOSE','LUIS'];
+        return partes.find(p => comunes.includes(p)) || partes[0];
+    }
+
+    function pMetaTotal(){
+        const meta = Number(META_RANGO_ACTUAL || 0);
+        if(meta > 0) return meta;
+        const mensual = typeof metaMensualTotal === 'function' ? Number(metaMensualTotal() || 0) : Number(META_MENSUAL_BASE || 0);
+        const meses = Number(MESES_EQUIVALENTES_ACTUAL || 1) || 1;
+        return mensual * meses;
+    }
+
+    function pMetaCategoria(cat){
+        const meses = Number(MESES_EQUIVALENTES_ACTUAL || 1) || 1;
+        try{ return Number(metaCategoriaMensual(cat) || 0) * meses; }catch(e){ return 0; }
+    }
+
+    function pMetaGestor(nombre, totalGestores){
+        const meses = Number(MESES_EQUIVALENTES_ACTUAL || 1) || 1;
+        let meta = 0;
+        try{ meta = Number(metaGestorMensual(nombre) || 0) * meses; }catch(e){}
+        return meta > 0 ? meta : (pMetaTotal() / Math.max(totalGestores || 1, 1));
+    }
+
+    function pGroup(rows, campo, venta=false, fallback='SIN REGISTRO'){
+        const obj = {};
+        rows.forEach(row => {
+            const nombre = normalizarTexto(row[campo]) || fallback;
+            if(!obj[nombre]) obj[nombre] = {nombre, cantidad:0, valor:0};
+            obj[nombre].cantidad += Number(toNumber(row.cantidadAtendida) || 1);
+            obj[nombre].valor += Number(toNumber(row.valorVenta));
+        });
+        return Object.values(obj).sort((a,b) => venta ? b.valor - a.valor : b.cantidad - a.cantidad);
+    }
+
+    function pHomenajeExcedente(rows){
+        const obj = {};
+        rows.forEach(row => {
+            const cat = normalizarTexto(row.categoriaGerencial || row.categoria || 'SIN CATEGORIA');
+            const serv = normalizarTexto(row.servicio || row.tipoExcedente || row.tipoServicio || 'SERVICIO');
+            const key = `${cat} - ${serv}`;
+            if(!obj[key]) obj[key] = {nombre:key, cantidad:0, valor:0};
+            obj[key].cantidad += 1;
+            obj[key].valor += Number(toNumber(row.valorVenta));
+        });
+        return Object.values(obj).filter(x => x.valor > 0 || x.cantidad > 0).sort((a,b)=>b.valor-a.valor);
+    }
+
+    function pMensual(rows){
+        const obj = {};
+        rows.forEach(row => {
+            const f = row.fecha instanceof Date ? row.fecha : (typeof parseFecha === 'function' ? parseFecha(row.fecha) : new Date(row.fecha));
+            if(!f || isNaN(f.getTime())) return;
+            const key = typeof mesKey === 'function' ? mesKey(f) : `${String(f.getMonth()+1).padStart(2,'0')}/${f.getFullYear()}`;
+            if(!obj[key]) obj[key] = {periodo:key, meta:0, venta:0};
+            obj[key].venta += Number(toNumber(row.valorVenta));
+        });
+        let keys = Object.keys(obj);
+        try{ keys = ordenarMeses(keys); }catch(e){ keys.sort(); }
+        const metaMensual = typeof metaMensualTotal === 'function' ? Number(metaMensualTotal() || 0) : Number(META_MENSUAL_BASE || 0);
+        keys.forEach(k => obj[k].meta = metaMensual);
+        return keys.map(k => obj[k]);
+    }
+
+    function pEnergia(){
+        try{
+            return cargarEnergia().slice().sort((a,b)=>Number(a.anio)-Number(b.anio)||Number(a.mes)-Number(b.mes));
+        }catch(e){ return []; }
+    }
+
+    function pVacaciones(){
+        try{ return cargarVacaciones(); }catch(e){ return []; }
+    }
+
+    function pAgenda(){
+        try{ return cargarAgenda(); }catch(e){ return []; }
+    }
+
+    function pTiempoAfiliado(){
+        try{ return resumenTiempoAfiliado(); }catch(e){ return {rangos:{}, enriquecidos:[], validos:[], promedioDias:0}; }
+    }
+
+    function destruirChartsPresentacion(){
+        chartsPresentacion.forEach(ch => { try{ ch.destroy(); }catch(e){} });
+        chartsPresentacion = [];
+    }
+
+    function pChartBar(id, labels, values, label, horizontal=true, type='money', extra={}){
+        const canvas = pId(id);
+        if(!canvas || typeof Chart === 'undefined') return;
+        const max = Math.max(...values.map(v => Math.abs(Number(v)||0)), 1);
+        const total = values.reduce((a,b)=>a+Math.abs(Number(b)||0),0) || 1;
+        const meta = extra.metas || [];
+        const chart = new Chart(canvas, {
+            type:'bar',
+            data:{
+                labels,
+                datasets:[{
+                    label,
+                    data:values,
+                    backgroundColor: extra.color || '#008f46',
+                    borderColor: extra.border || '#005c31',
+                    borderWidth:1,
+                    borderRadius:8,
+                    barThickness: horizontal ? 22 : 44,
+                    maxBarThickness: horizontal ? 30 : 50,
+                    minBarLength:6
+                }]
+            },
+            options:{
+                indexAxis:horizontal ? 'y':'x',
+                responsive:true,
+                maintainAspectRatio:false,
+                animation:false,
+                layout:{padding: horizontal ? {right:120,left:4,top:8,bottom:8}:{right:12,left:6,top:8,bottom:8}},
+                plugins:{
+                    legend:{display:true,labels:{color:'#0f172a',font:{size:11,weight:'bold'}}},
+                    datalabels:{
+                        display: typeof ChartDataLabels !== 'undefined',
+                        anchor:'end',
+                        align:horizontal?'right':'top',
+                        color:'#0f172a',
+                        backgroundColor:'rgba(255,255,255,.94)',
+                        borderColor:'rgba(0,79,42,.18)',
+                        borderWidth:1,
+                        borderRadius:10,
+                        padding:4,
+                        font:{size:9,weight:'bold'},
+                        formatter:(v,ctx)=>{
+                            const i = ctx.dataIndex;
+                            const valor = type === 'money' ? pMoney(v) : pNum(v);
+                            if(meta[i] && Number(meta[i]) > 0){
+                                const pct = Number(v) / Number(meta[i]) * 100;
+                                return `${valor} | ${pPct(pct)} | ${pEstado(pct)}`;
+                            }
+                            const pct = Number(v) / total * 100;
+                            return `${valor} | ${pPct(pct)}`;
+                        }
+                    },
+                    tooltip:{
+                        callbacks:{
+                            label:ctx=>{
+                                const v = Number(ctx.parsed[horizontal?'x':'y']) || 0;
+                                const i = ctx.dataIndex;
+                                const lines = [`${label}: ${type === 'money' ? pMoney(v) : pNum(v)}`];
+                                if(meta[i] && Number(meta[i]) > 0){
+                                    const pct = v / Number(meta[i]) * 100;
+                                    lines.push(`Meta: ${type === 'money' ? pMoney(meta[i]) : pNum(meta[i])}`);
+                                    lines.push(`Cumplimiento: ${pPct(pct)}`);
+                                    lines.push(`Estado: ${pEstado(pct)}`);
+                                }
+                                return lines;
+                            }
+                        }
+                    }
+                },
+                scales: horizontal ? {
+                    y:{ticks:{color:'#0f172a',font:{size:11,weight:'700'},autoSkip:false},grid:{display:false}},
+                    x:{beginAtZero:true,suggestedMax:max*1.20,ticks:{color:'#475569',font:{size:10},callback:v=> type==='money'?pNum(v):pNum(v)},grid:{color:'rgba(15,23,42,.08)'}}
+                } : {
+                    y:{beginAtZero:true,suggestedMax:max*1.20,ticks:{color:'#475569',font:{size:10},callback:v=> type==='money'?pNum(v):pNum(v)},grid:{color:'rgba(15,23,42,.08)'}},
+                    x:{ticks:{color:'#0f172a',font:{size:11,weight:'700'}},grid:{display:false}}
+                }
+            }
+        });
+        chartsPresentacion.push(chart);
+    }
+
+    function pChartDoughnut(id, labels, values, label='Valor', type='money'){
+        const canvas = pId(id);
+        if(!canvas || typeof Chart === 'undefined') return;
+        const total = values.reduce((a,b)=>a+Number(b||0),0) || 1;
+        const chart = new Chart(canvas, {
+            type:'doughnut',
+            data:{labels,datasets:[{data:values,backgroundColor:['#008f46','#2563eb','#f59e0b','#7c3aed','#ef4444','#06b6d4','#84cc16'],borderColor:'#fff',borderWidth:3}]},
+            options:{responsive:true,maintainAspectRatio:false,animation:false,cutout:'58%',plugins:{legend:{position:'top',labels:{color:'#0f172a',font:{size:11,weight:'bold'}}},datalabels:{display:typeof ChartDataLabels !== 'undefined',color:'#fff',font:{size:10,weight:'bold'},textStrokeColor:'rgba(0,0,0,.35)',textStrokeWidth:2,formatter:v=>`${type==='money'?pMoney(v):pNum(v)}\n${pPct(Number(v)/total*100)}`},tooltip:{callbacks:{label:ctx=>`${ctx.label}: ${type==='money'?pMoney(ctx.parsed):pNum(ctx.parsed)} (${pPct(Number(ctx.parsed)/total*100)})`}}}}
+        });
+        chartsPresentacion.push(chart);
+    }
+
+    function pChartLine(id, labels, venta, meta){
+        const canvas = pId(id);
+        if(!canvas || typeof Chart === 'undefined') return;
+        const chart = new Chart(canvas, {
+            type:'line',
+            data:{labels,datasets:[
+                {label:'Venta real',data:venta,borderColor:'#008f46',backgroundColor:'rgba(0,143,70,.12)',fill:true,tension:.3,borderWidth:3,pointRadius:4},
+                {label:'Meta mensual',data:meta,borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,.10)',fill:false,tension:.1,borderWidth:3,pointRadius:3}
+            ]},
+            options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{position:'top',labels:{color:'#0f172a',font:{size:11,weight:'bold'}}},datalabels:{display:false},tooltip:{callbacks:{label:ctx=>`${ctx.dataset.label}: ${pMoney(ctx.parsed.y)}`}}},scales:{y:{beginAtZero:true,ticks:{color:'#475569',callback:v=>pNum(v)},grid:{color:'rgba(15,23,42,.08)'}},x:{ticks:{color:'#0f172a',font:{weight:'700'}},grid:{display:false}}}}
+        });
+        chartsPresentacion.push(chart);
+    }
+
+    function tablaHTML(items, tipo='money', limite=8, extras=false){
+        const rows = (items || []).slice(0, limite);
+        if(!rows.length) return '<div class="presentacion-empty">Sin datos para mostrar.</div>';
+        const totalValor = rows.reduce((a,b)=>a + Number(b.valor || b.cantidad || 0), 0) || 1;
+        return `<table class="presentacion-table"><thead><tr><th>Concepto</th><th>${tipo==='money'?'Valor':'Cantidad'}</th><th>%</th>${extras?'<th>Detalle</th>':''}</tr></thead><tbody>${rows.map(r=>{
+            const val = tipo==='money' ? Number(r.valor || 0) : Number(r.cantidad ?? r.valor ?? 0);
+            return `<tr><td>${pSafe(r.nombre)}</td><td>${tipo==='money'?pMoney(val):pNum(val)}</td><td>${pPct(val/totalValor*100)}</td>${extras?`<td>${pSafe(r.detalle || '')}</td>`:''}</tr>`;
+        }).join('')}</tbody></table>`;
+    }
+
+    function categoriaCard(cat, venta){
+        const meta = pMetaCategoria(cat);
+        const pct = meta > 0 ? venta / meta * 100 : 0;
+        const faltante = Math.max(meta - venta, 0);
+        return `<article class="presentacion-kpi categoria-mini"><span>${cat}</span><strong>${pMoney(venta)}</strong><small>Meta ${pMoney(meta)} | ${pPct(pct)} | ${pEstado(pct)} | Faltante ${pMoney(faltante)}</small><div class="presentacion-mini-chart"><canvas id="presCat${cat}"></canvas></div></article>`;
+    }
+
+    function seccionHTML(id, titulo, canvasId, tabla, clase=''){
+        return `<section class="presentacion-section ${clase}" id="${id}"><h2>${titulo}</h2><div class="presentacion-grid-2"><div class="presentacion-chart-card"><canvas id="${canvasId}"></canvas></div><div class="presentacion-table-card">${tabla}</div></div></section>`;
+    }
+
+    function construirPresentacion(){
+        const rows = pRows();
+        const resumen = calcularResumen(rows);
+        const metaTotal = pMetaTotal();
+        const ventaTotal = Number(resumen.total || 0);
+        const cumplimiento = metaTotal > 0 ? ventaTotal / metaTotal * 100 : 0;
+        const faltante = Math.max(metaTotal - ventaTotal, 0);
+
+        const categorias = [
+            {nombre:'PARTICULAR', valor:Number(resumen.particular || 0), meta:pMetaCategoria('PARTICULAR')},
+            {nombre:'RED', valor:Number(resumen.red || 0), meta:pMetaCategoria('RED')},
+            {nombre:'EXCEDENTES', valor:Number(resumen.excedentes || 0), meta:pMetaCategoria('EXCEDENTES')},
+            {nombre:'PLAN', valor:Number(resumen.planCantidad || 0), meta:0, cantidad:Number(resumen.planCantidad || 0)}
+        ];
+        const gestores = Object.values(agruparGestores(rows)).sort((a,b)=>b.valor-a.valor).slice(0,12);
+        const gestoresMetas = gestores.map(g => pMetaGestor(g.nombre, gestores.length));
+        const homenaje = pHomenajeExcedente(rows).slice(0,12);
+        const clinicas = pGroup(rows,'clinica',false,'SIN REGISTRO').slice(0,12);
+        const municipios = pGroup(rows,'municipio',false,'SIN REGISTRO').slice(0,12);
+        const muertes = pGroup(rows,'tipoMuerte',false,'SIN REGISTRO').slice(0,8);
+        const cementerios = pGroup(rows,'cementerio',false,'SIN REGISTRO').slice(0,12);
+        const destinos = pGroup(rows,'destinoFinal',false,'SIN REGISTRO').slice(0,8);
+        const mensual = pMensual(rows);
+        const tiempo = pTiempoAfiliado();
+        const tiempoItems = Object.entries(tiempo.rangos || {}).map(([nombre,valor])=>({nombre,valor:Number(valor)})).filter(x=>x.valor>=0);
+        const energia = pEnergia().filter(x => Number(x.anio) === (new Date()).getFullYear()).slice(0,12).map(x=>({nombre:`${nombreMes(Number(x.mes)).slice(0,3)} ${x.anio}`, valor:Number(x.kwh||0), detalle:`Costo ${pMoney(x.costo)}`}));
+        const vacacionesBase = pVacaciones();
+        const vacObj = {};
+        vacacionesBase.forEach(v => { const est = typeof estadoVacacion === 'function' ? estadoVacacion(v) : normalizarTexto(v.estado || 'PENDIENTE'); vacObj[est]=(vacObj[est]||0)+1; });
+        const vacaciones = Object.entries(vacObj).map(([nombre,valor])=>({nombre,valor}));
+        const agendaBase = pAgenda();
+        const agObj = {};
+        agendaBase.forEach(a => { const est = normalizarTexto(a.estado || 'PENDIENTE'); agObj[est]=(agObj[est]||0)+1; });
+        const agenda = Object.entries(agObj).map(([nombre,valor])=>({nombre,valor}));
+
+        const html = `
+        <div id="presentacionCompletaOverlay" class="presentacion-completa-overlay" role="dialog" aria-modal="true">
+            <header class="presentacion-header">
+                <div><h1>Presentación Gerencial de Homenajes</h1><p>Reporte ejecutivo con todas las secciones, gráficas y tablas principales · ${new Date().toLocaleString('es-CO')}</p></div>
+                <div class="presentacion-actions"><button id="btnPresIrInicio">Inicio</button><button id="btnPresCerrar">Salir</button></div>
+            </header>
+            <nav class="presentacion-nav">
+                ${['Resumen','Categorías','Mensual','Gestores','Homenaje / Excedente','Clínicas','Municipios','Tipo muerte','Cementerios','Destino final','Tiempo afiliado','Energía','Vacaciones','Agenda'].map((t,i)=>`<a href="#presSec${i}">${t}</a>`).join('')}
+            </nav>
+            <main class="presentacion-body">
+                <section class="presentacion-section hero" id="presSec0">
+                    <h2>Resumen ejecutivo</h2>
+                    <div class="presentacion-kpis">
+                        <div class="presentacion-kpi"><span>Meta del periodo</span><strong>${pMoney(metaTotal)}</strong><small>Rango seleccionado</small></div>
+                        <div class="presentacion-kpi"><span>Venta real</span><strong>${pMoney(ventaTotal)}</strong><small>${pPct(cumplimiento)} cumplimiento</small></div>
+                        <div class="presentacion-kpi"><span>Faltante</span><strong>${pMoney(faltante)}</strong><small>Brecha por cerrar</small></div>
+                        <div class="presentacion-kpi"><span>Registros</span><strong>${pNum(rows.length)}</strong><small>Base filtrada</small></div>
+                    </div>
+                    <div class="presentacion-grid-2"><div class="presentacion-chart-card"><h3>Meta vs Venta Real</h3><canvas id="presMetaVenta"></canvas></div><div class="presentacion-chart-card"><h3>Participación por categoría</h3><canvas id="presCategoriasDona"></canvas></div></div>
+                    <p class="presentacion-lectura">Venta real ${pMoney(ventaTotal)} frente a meta ${pMoney(metaTotal)}. Cumplimiento ${pPct(cumplimiento)}. Faltante ${pMoney(faltante)}. PLAN registra ${pNum(resumen.planCantidad || 0)} atenciones y no suma ventas.</p>
+                </section>
+                <section class="presentacion-section" id="presSec1"><h2>Categorías: meta real vs venta real</h2><div class="presentacion-categoria-cards">${categoriaCard('PARTICULAR', Number(resumen.particular||0))}${categoriaCard('RED', Number(resumen.red||0))}${categoriaCard('EXCEDENTES', Number(resumen.excedentes||0))}</div>${tablaHTML(categorias.filter(c=>c.nombre!=='PLAN'), 'money', 4)}</section>
+                <section class="presentacion-section" id="presSec2"><h2>Ventas mensuales vs meta mensual</h2><div class="presentacion-chart-card full"><canvas id="presMensual"></canvas></div>${tablaHTML(mensual.map(m=>({nombre:m.periodo,valor:m.venta,detalle:`Meta ${pMoney(m.meta)} | ${pPct(m.meta>0?m.venta/m.meta*100:0)} | ${pEstado(m.meta>0?m.venta/m.meta*100:0)}`})), 'money', 12, true)}</section>
+                ${seccionHTML('presSec3','Ranking de gestores','presGestores', tablaHTML(gestores.map((g,i)=>({nombre:pPrimerNombre(g.nombre),valor:g.valor,detalle:`Meta ${pMoney(gestoresMetas[i])}`})), 'money', 12, true))}
+                ${seccionHTML('presSec4','Tipo de homenaje / excedente','presHomenaje', tablaHTML(homenaje, 'money', 12))}
+                ${seccionHTML('presSec5','Clínicas que más reportan','presClinicas', tablaHTML(clinicas.map(x=>({nombre:x.nombre,cantidad:x.cantidad,valor:x.valor,detalle:`Venta ${pMoney(x.valor)}`})), 'number', 12, true))}
+                ${seccionHTML('presSec6','Municipios de atención','presMunicipios', tablaHTML(municipios.map(x=>({nombre:x.nombre,cantidad:x.cantidad,valor:x.valor,detalle:`Venta ${pMoney(x.valor)}`})), 'number', 12, true))}
+                ${seccionHTML('presSec7','Tipo de muerte','presTipoMuerte', tablaHTML(muertes.map(x=>({nombre:x.nombre,cantidad:x.cantidad,valor:x.valor,detalle:`Venta ${pMoney(x.valor)}`})), 'number', 8, true))}
+                ${seccionHTML('presSec8','Cementerios','presCementerios', tablaHTML(cementerios.map(x=>({nombre:x.nombre,cantidad:x.cantidad,valor:x.valor,detalle:`Venta ${pMoney(x.valor)}`})), 'number', 12, true))}
+                ${seccionHTML('presSec9','Destino final','presDestino', tablaHTML(destinos.map(x=>({nombre:x.nombre,cantidad:x.cantidad,valor:x.valor,detalle:`Venta ${pMoney(x.valor)}`})), 'number', 8, true))}
+                ${seccionHTML('presSec10','Tiempo afiliado','presTiempo', tablaHTML(tiempoItems.map(x=>({nombre:x.nombre,valor:x.valor})), 'number', 10))}
+                ${seccionHTML('presSec11','Consumo energía eléctrica','presEnergia', tablaHTML(energia, 'number', 12, true))}
+                ${seccionHTML('presSec12','Vacaciones del personal','presVacaciones', tablaHTML(vacaciones, 'number', 8))}
+                ${seccionHTML('presSec13','Agenda anual','presAgenda', tablaHTML(agenda, 'number', 8))}
+            </main>
+        </div>`;
+
+        return {html, data:{resumen,categorias,gestores,gestoresMetas,homenaje,clinicas,municipios,muertes,cementerios,destinos,mensual,tiempoItems,energia,vacaciones,agenda,metaTotal,ventaTotal}};
+    }
+
+    function dibujarPresentacion(data){
+        pChartBar('presMetaVenta',['Meta','Venta real'],[data.metaTotal,data.ventaTotal],'Valor',false,'money',{metas:[0,data.metaTotal],color:'#008f46'});
+        pChartDoughnut('presCategoriasDona',['PARTICULAR','RED','EXCEDENTES'],[data.resumen.particular||0,data.resumen.red||0,data.resumen.excedentes||0],'Venta','money');
+        ['PARTICULAR','RED','EXCEDENTES'].forEach(cat => {
+            const venta = cat === 'PARTICULAR' ? data.resumen.particular : cat === 'RED' ? data.resumen.red : data.resumen.excedentes;
+            const meta = pMetaCategoria(cat);
+            pChartBar(`presCat${cat}`,['Meta','Venta'],[meta,venta],cat,false,'money',{metas:[0,meta],color:cat==='RED'?'#2563eb':cat==='EXCEDENTES'?'#f59e0b':'#008f46'});
+        });
+        pChartLine('presMensual',data.mensual.map(m=>m.periodo),data.mensual.map(m=>m.venta),data.mensual.map(m=>m.meta));
+        pChartBar('presGestores',data.gestores.map(g=>pPrimerNombre(g.nombre)),data.gestores.map(g=>g.valor),'Venta',true,'money',{metas:data.gestoresMetas,color:'#008f46'});
+        pChartBar('presHomenaje',data.homenaje.map(x=>x.nombre),data.homenaje.map(x=>x.valor),'Venta',true,'money',{color:'#008f46'});
+        pChartBar('presClinicas',data.clinicas.map(x=>x.nombre),data.clinicas.map(x=>x.cantidad),'Reportes',true,'number',{color:'#2563eb'});
+        pChartBar('presMunicipios',data.municipios.map(x=>x.nombre),data.municipios.map(x=>x.cantidad),'Atenciones',true,'number',{color:'#0ea5e9'});
+        pChartDoughnut('presTipoMuerte',data.muertes.map(x=>x.nombre),data.muertes.map(x=>x.cantidad),'Casos','number');
+        pChartBar('presCementerios',data.cementerios.map(x=>x.nombre),data.cementerios.map(x=>x.cantidad),'Servicios',true,'number',{color:'#7c3aed'});
+        pChartDoughnut('presDestino',data.destinos.map(x=>x.nombre),data.destinos.map(x=>x.cantidad),'Servicios','number');
+        pChartBar('presTiempo',data.tiempoItems.map(x=>x.nombre),data.tiempoItems.map(x=>x.valor),'Casos',true,'number',{color:'#16a34a'});
+        pChartLine('presEnergia',data.energia.map(x=>x.nombre),data.energia.map(x=>x.valor),data.energia.map(()=>0));
+        pChartDoughnut('presVacaciones',data.vacaciones.map(x=>x.nombre),data.vacaciones.map(x=>x.valor),'Personas','number');
+        pChartDoughnut('presAgenda',data.agenda.map(x=>x.nombre),data.agenda.map(x=>x.valor),'Actividades','number');
+    }
+
+    function abrirPresentacionCompleta(){
+        cerrarPresentacionCompleta(false);
+        destruirChartsPresentacion();
+        const build = construirPresentacion();
+        document.body.insertAdjacentHTML('beforeend', build.html);
+        document.body.classList.add('presentacion-completa-activa');
+        const overlay = pId('presentacionCompletaOverlay');
+        pId('btnPresCerrar')?.addEventListener('click', () => cerrarPresentacionCompleta(true));
+        pId('btnPresIrInicio')?.addEventListener('click', () => overlay?.scrollTo({top:0,behavior:'smooth'}));
+        overlay?.addEventListener('click', ev => { if(ev.target === overlay) cerrarPresentacionCompleta(true); });
+        document.addEventListener('keydown', cerrarConEscPresentacion);
+        setTimeout(() => dibujarPresentacion(build.data), 80);
+        setTimeout(() => chartsPresentacion.forEach(ch => {try{ch.resize(); ch.update('none');}catch(e){}}), 450);
+        const btn = pId('btnPresentacion');
+        if(btn) btn.classList.add('presentacion-activa');
+    }
+
+    function cerrarConEscPresentacion(ev){
+        if(ev.key === 'Escape') cerrarPresentacionCompleta(true);
+    }
+
+    function cerrarPresentacionCompleta(quitarClase=true){
+        const overlay = pId('presentacionCompletaOverlay');
+        if(overlay) overlay.remove();
+        destruirChartsPresentacion();
+        if(quitarClase) document.body.classList.remove('presentacion-completa-activa');
+        document.removeEventListener('keydown', cerrarConEscPresentacion);
+        const btn = pId('btnPresentacion');
+        if(btn) btn.classList.remove('presentacion-activa');
+    }
+
+    function vincularBotonPresentacionCompleta(){
+        let btn = pId('btnPresentacion');
+        if(!btn){
+            const ref = pId('btnRecargar');
+            if(ref && ref.parentNode){
+                btn = document.createElement('button');
+                btn.id = 'btnPresentacion';
+                btn.className = 'icon-btn';
+                btn.title = 'Modo presentación';
+                btn.innerHTML = '<i class="fas fa-display"></i>';
+                ref.parentNode.insertBefore(btn, ref);
+            }
+        }
+        if(!btn || !btn.parentNode) return;
+        const nuevo = btn.cloneNode(true);
+        nuevo.id = 'btnPresentacion';
+        nuevo.title = 'Modo presentación completa';
+        nuevo.setAttribute('aria-label','Modo presentación completa');
+        nuevo.innerHTML = '<i class="fas fa-display"></i>';
+        btn.parentNode.replaceChild(nuevo, btn);
+        nuevo.addEventListener('click', ev => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            if(pId('presentacionCompletaOverlay')) cerrarPresentacionCompleta(true);
+            else abrirPresentacionCompleta();
+        });
+    }
+
+    window.abrirPresentacionCompletaDashboard = abrirPresentacionCompleta;
+    window.cerrarPresentacionCompletaDashboard = () => cerrarPresentacionCompleta(true);
+    window.activarModoPresentacionDashboard = abrirPresentacionCompleta;
+    window.salirModoPresentacionDashboard = () => cerrarPresentacionCompleta(true);
+    window.alternarModoPresentacionDashboard = () => pId('presentacionCompletaOverlay') ? cerrarPresentacionCompleta(true) : abrirPresentacionCompleta();
+
+    vincularBotonPresentacionCompleta();
+    setTimeout(vincularBotonPresentacionCompleta, 900);
+    setTimeout(vincularBotonPresentacionCompleta, 2500);
+
+    console.log('PRESENTACIÓN COMPLETA CON GRÁFICAS ACTIVA - VERSION ' + VERSION_PRESENTACION_COMPLETA);
 })();
