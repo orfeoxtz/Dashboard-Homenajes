@@ -1433,28 +1433,26 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
     const valores = Array.isArray(data) ? data.map(v => toNumber(v)) : [];
     const metas = Array.isArray(opciones.metas) ? opciones.metas.map(v => toNumber(v)) : [];
     const totalReferencia = toNumber(opciones.total) || valores.reduce((acc,v) => acc + Math.abs(toNumber(v)), 0);
-
     const maxDato = Math.max(...valores.map(v => Math.abs(toNumber(v))), 0);
     const maxMeta = Math.max(...metas.map(v => Math.abs(toNumber(v))), 0);
     const maxValue = Math.max(maxDato, maxMeta, 0);
     const cantidad = etiquetas.length;
-    const alto = horizontal ? Math.min(Math.max(430, cantidad * 56 + 165), 1180) : 420;
-    const barraGruesa = horizontal ? Math.min(46, Math.max(34, Math.floor((alto - 160) / Math.max(cantidad,1) * .82))) : 54;
+    const alto = horizontal ? Math.min(Math.max(320, cantidad * 34 + 120), 620) : 340;
+    const barraGruesa = horizontal ? Math.min(22, Math.max(14, Math.floor((alto - 110) / Math.max(cantidad,1) * 0.65))) : 46;
     const labelStyle = chartValueLabelStyle();
     const contenedor = canvas.parentElement;
 
     canvas.setAttribute("height", String(alto));
     canvas.style.setProperty("height", `${alto}px`, "important");
-    contenedor?.style.setProperty("min-height", `${alto + 96}px`);
+    contenedor?.style.setProperty("min-height", `${alto + 52}px`);
     contenedor?.style.setProperty("height", "auto", "important");
-    contenedor?.classList.add("chart-card-enhanced", "chart-card-readable");
+    contenedor?.classList.add("chart-card-enhanced", "chart-card-readable", "chart-compact-pro");
 
     const formatearEtiquetaBarra = (value, ctx) => {
         const i = ctx.dataIndex;
         const valor = toNumber(value);
         const meta = toNumber(metas[i]);
         const valorTexto = formatChartValue(valor, tipoValor);
-
         if(meta > 0){
             const pct = (valor / meta) * 100;
             const estado = estadoMetaGrafica(pct);
@@ -1462,16 +1460,14 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                 ? `${valorTexto} | ${pct.toFixed(1)}% | ${estado}`
                 : [valorTexto, `${pct.toFixed(1)}%`, estado];
         }
-
         if(totalReferencia > 0 && opciones.mostrarParticipacion !== false){
             const pct = (Math.abs(valor) / totalReferencia) * 100;
             const estado = opciones.estadoSinMeta || "Sin meta";
             return horizontal
-                ? `${valorTexto} | ${pct.toFixed(1)}% part. | ${estado}`
-                : [valorTexto, `${pct.toFixed(1)}% part.`, estado];
+                ? `${valorTexto} | ${pct.toFixed(1)}% part.`
+                : [valorTexto, `${pct.toFixed(1)}% part.`];
         }
-
-        return horizontal ? `${valorTexto} | Sin meta` : [valorTexto, "Sin meta"];
+        return horizontal ? valorTexto : [valorTexto];
     };
 
     charts[idCanvas] = new Chart(canvas, {
@@ -1481,15 +1477,15 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
             datasets:[{
                 label:opciones.legendLabel || label,
                 data:valores,
-                backgroundColor:"rgba(20, 184, 105, .96)",
-                borderColor:"rgba(187,247,208,.95)",
+                backgroundColor: horizontal ? "rgba(22,163,74,.95)" : "rgba(22,163,74,.92)",
+                borderColor:"rgba(0,111,63,.95)",
                 borderWidth:1.2,
-                borderRadius:horizontal ? 11 : 13,
+                borderRadius:horizontal ? 9 : 12,
                 barThickness:barraGruesa,
-                maxBarThickness:horizontal ? 50 : 62,
-                minBarLength:horizontal ? 22 : 9,
-                barPercentage:.96,
-                categoryPercentage:.90
+                maxBarThickness:horizontal ? 24 : 52,
+                minBarLength:horizontal ? 16 : 8,
+                barPercentage:.82,
+                categoryPercentage:.78
             }]
         },
         options:{
@@ -1497,12 +1493,13 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
             maintainAspectRatio:false,
             resizeDelay:0,
             indexAxis:horizontal ? "y" : "x",
+            animation:{duration:550},
             interaction:{mode:"nearest", axis:horizontal ? "y" : "x", intersect:false},
             hover:{mode:"nearest", intersect:false},
-            layout:{padding:horizontal ? {left:8,right:310,top:16,bottom:18} : {left:10,right:42,top:36,bottom:14}},
+            layout:{padding:horizontal ? {left:8,right:170,top:14,bottom:12} : {left:8,right:30,top:24,bottom:8}},
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?16:15},padding:{bottom:20}},
-                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:13,font:{weight:"900",size:isDarkChartTheme()?12:11}}},
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14},padding:{bottom:12}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?11:10}}},
                 tooltip:{
                     callbacks:{
                         title:items => items?.[0]?.label || "-",
@@ -1517,7 +1514,6 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                                 lineas.push(`Estado: ${estadoMetaGrafica(pct)}`);
                             }else if(totalReferencia > 0){
                                 lineas.push(`Participación: ${((Math.abs(valor)/totalReferencia)*100).toFixed(1)}%`);
-                                lineas.push(`Estado: ${opciones.estadoSinMeta || "Sin meta configurada"}`);
                             }
                             return lineas;
                         }
@@ -1527,39 +1523,39 @@ function crearChartBar(idCanvas, labels, data, label, titulo, horizontal=false, 
                     display:ctx => Math.abs(toNumber(ctx.dataset.data[ctx.dataIndex])) > 0,
                     anchor:"end",
                     align:horizontal ? "right" : "top",
-                    offset:horizontal ? 12 : 8,
+                    offset:horizontal ? 8 : 6,
                     clamp:false,
                     clip:false,
                     color:labelStyle.color,
                     backgroundColor:labelStyle.backgroundColor,
                     borderColor:labelStyle.borderColor,
                     borderWidth:1,
-                    borderRadius:8,
-                    padding:{top:4,right:8,bottom:4,left:8},
-                    font:{size:horizontal ? 11 : 10,weight:"900"},
+                    borderRadius:10,
+                    padding:{top:4,right:7,bottom:4,left:7},
+                    font:{size:horizontal ? 10 : 9,weight:"800"},
                     formatter:formatearEtiquetaBarra
                 }
             },
             scales:horizontal ? {
                 y:{
-                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?12:11,weight:"900"},autoSkip:false,padding:9},
-                    grid:{color:chartGridColor()}
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},autoSkip:false,padding:6},
+                    grid:{display:false,drawBorder:false}
                 },
                 x:{
                     beginAtZero:true,
-                    suggestedMax:maxValue>0?maxValue*1.34:undefined,
+                    suggestedMax:maxValue>0?maxValue*1.12:undefined,
                     grid:{display:true,color:chartGridColor()},
-                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"850"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)}
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?10:9,weight:"800"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)}
                 }
             } : {
                 y:{
                     beginAtZero:true,
-                    suggestedMax:maxValue>0?maxValue*1.22:undefined,
-                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"850"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)},
+                    suggestedMax:maxValue>0?maxValue*1.16:undefined,
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?10:9,weight:"800"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)},
                     grid:{color:chartGridColor()}
                 },
                 x:{
-                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"850"},autoSkip:false,maxRotation:22,minRotation:0},
+                    ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?10:9,weight:"800"},autoSkip:false,maxRotation:20,minRotation:0},
                     grid:{display:false}
                 }
             }
@@ -1579,21 +1575,31 @@ function crearChartLine(idCanvas, labels, datasets, titulo, tipoValor="money"){
     registrarPluginGraficas();
     destruirChart(idCanvas);
 
+    const contenedor = canvas.parentElement;
+    const alto = 320;
+    canvas.setAttribute("height", String(alto));
+    canvas.style.setProperty("height", `${alto}px`, "important");
+    contenedor?.style.setProperty("min-height", `${alto + 52}px`);
+    contenedor?.classList.add("chart-card-enhanced", "chart-card-readable", "chart-compact-pro");
+
     charts[idCanvas] = new Chart(canvas, {
         type:"line",
         data:{labels,datasets},
         options:{
             responsive:true,
             maintainAspectRatio:false,
+            animation:{duration:550},
+            layout:{padding:{left:8,right:18,top:16,bottom:6}},
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14}},
-                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?12:11}}},
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14},padding:{bottom:10}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?11:10}}},
                 tooltip:{callbacks:{label:ctx => `${ctx.dataset.label}: ${formatChartValue(ctx.parsed.y, tipoValor)}`}},
                 datalabels:{display:false}
             },
+            elements:{line:{borderWidth:3,tension:.32},point:{radius:3,hoverRadius:4}},
             scales:{
-                y:{beginAtZero:true,ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"}},grid:{color:chartGridColor()}},
-                x:{grid:{display:false},ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?11:10,weight:"800"},maxRotation:0}}
+                y:{beginAtZero:true,ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?10:9,weight:"800"},callback:value => tipoValor === "money" ? formatNumber(value) : formatChartValue(value, tipoValor)},grid:{color:chartGridColor()}},
+                x:{grid:{display:false},ticks:{color:chartTextColor(),font:{size:isDarkChartTheme()?10:9,weight:"800"},maxRotation:0}}
             }
         }
     });
@@ -1606,6 +1612,13 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
     registrarPluginGraficas();
     destruirChart(idCanvas);
 
+    const contenedor = canvas.parentElement;
+    const alto = 300;
+    canvas.setAttribute("height", String(alto));
+    canvas.style.setProperty("height", `${alto}px`, "important");
+    contenedor?.style.setProperty("min-height", `${alto + 50}px`);
+    contenedor?.classList.add("chart-card-enhanced", "chart-card-readable", "chart-compact-pro");
+
     const labelStyle = chartValueLabelStyle();
     charts[idCanvas] = new Chart(canvas, {
         type:"doughnut",
@@ -1613,17 +1626,20 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
             labels,
             datasets:[{
                 data,
-                backgroundColor:["rgba(37,99,235,.95)","rgba(0,166,81,.95)","rgba(245,158,11,.95)","rgba(100,116,139,.95)"],
+                backgroundColor:["rgba(22,163,74,.95)","rgba(37,99,235,.95)","rgba(245,158,11,.95)","rgba(124,58,237,.95)"],
                 borderColor:isDarkChartTheme()?"rgba(15,23,42,.92)":"#ffffff",
-                borderWidth:2
+                borderWidth:3,
+                hoverOffset:4
             }]
         },
         options:{
             responsive:true,
             maintainAspectRatio:false,
+            cutout:"62%",
+            layout:{padding:{left:8,right:8,top:10,bottom:6}},
             plugins:{
-                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14}},
-                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?12:11}}},
+                title:{display:true,text:titulo,color:chartTextColor(),font:{weight:"900",size:isDarkChartTheme()?15:14},padding:{bottom:10}},
+                legend:{display:true,position:"top",labels:{color:chartTextColor(),boxWidth:12,font:{weight:"800",size:isDarkChartTheme()?11:10}}},
                 tooltip:{callbacks:{
                     label:ctx => {
                         const total = (ctx.dataset.data || []).reduce((acc,v) => acc + toNumber(v), 0);
@@ -1637,11 +1653,9 @@ function crearChartDoughnut(idCanvas, labels, data, titulo, tipoValor="money"){
                     backgroundColor:labelStyle.backgroundColor,
                     borderColor:labelStyle.borderColor,
                     borderWidth:1,
-                    borderRadius:7,
-                    padding:{top:2,right:5,bottom:2,left:5},
-                    textStrokeColor:"transparent",
-                    textStrokeWidth:0,
-                    font:{size:9,weight:"900"},
+                    borderRadius:8,
+                    padding:{top:3,right:6,bottom:3,left:6},
+                    font:{size:9,weight:"800"},
                     formatter:(value, ctx) => {
                         const total = (ctx.dataset.data || []).reduce((acc,v) => acc + toNumber(v), 0);
                         const pct = total > 0 ? (toNumber(value) / total) * 100 : 0;
@@ -1844,7 +1858,7 @@ function renderGestores(){
         }
     }
 
-    const gestoresTop = gestores.slice(0,15);
+    const gestoresTop = gestores.slice(0,10);
     const metasGestoresGrafico = gestoresTop.map(g => {
         const metaConfig = metaGestorMensual(g.nombre);
         return metaConfig > 0 ? metaConfig * MESES_EQUIVALENTES_ACTUAL : (cantidadGestores > 0 ? META_RANGO_ACTUAL / cantidadGestores : 0);
@@ -1897,7 +1911,7 @@ function renderExcedentes(){
         }
     }
 
-    const excedentesTop = excedentes.slice(0,15);
+    const excedentesTop = excedentes.slice(0,10);
     crearChartBar(
         "graficoExcedentes",
         excedentesTop.map(x => x.nombre),
@@ -10531,7 +10545,14 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
     function alFinalDocumento(){
         const doc = document.documentElement;
-        return (window.scrollY + window.innerHeight) >= (doc.scrollHeight - 10);
+        return (window.scrollY + window.innerHeight) >= (doc.scrollHeight - 140);
+    }
+
+    function fondoVisibleVista(){
+        const vista = document.querySelector('.vista.active-view');
+        if(!vista) return false;
+        const rect = vista.getBoundingClientRect();
+        return window.scrollY > 150 && (rect.bottom - window.innerHeight) < 180;
     }
 
     function alInicioDocumento(){
@@ -10560,7 +10581,7 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
         if(dy > 0){
             ultimoSentido = 1;
-            if(alFinalDocumento()) siguienteSeccion();
+            if(alFinalDocumento() || fondoVisibleVista()) siguienteSeccion();
         }else if(dy < 0){
             ultimoSentido = -1;
             if(alInicioDocumento()) seccionAnterior();
@@ -10578,14 +10599,14 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
         const endY = ev.changedTouches?.[0]?.clientY || 0;
         const delta = touchStartY - endY;
         if(Math.abs(delta) < 35) return;
-        if(delta > 0 && alFinalDocumento()) siguienteSeccion();
+        if(delta > 0 && (alFinalDocumento() || fondoVisibleVista())) siguienteSeccion();
         if(delta < 0 && alInicioDocumento()) seccionAnterior();
     }, { passive:true });
 
     document.addEventListener('keydown', function(ev){
         if(document.body.classList.contains('modo-presentacion')) return;
         if(document.querySelector('.presentacion-overlay.active')) return;
-        if(['PageDown','ArrowDown'].includes(ev.key) && alFinalDocumento()){
+        if(['PageDown','ArrowDown'].includes(ev.key) && (alFinalDocumento() || fondoVisibleVista())){
             siguienteSeccion();
         }else if(['PageUp','ArrowUp'].includes(ev.key) && alInicioDocumento()){
             seccionAnterior();
@@ -10643,6 +10664,13 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
         return orden.findIndex(s => s.id === seccionActual());
     }
 
+    function fondoVisibleVistaIndicador(){
+        const vista = document.querySelector('.vista.active-view');
+        if(!vista) return false;
+        const rect = vista.getBoundingClientRect();
+        return window.scrollY > 150 && (rect.bottom - window.innerHeight) < 180;
+    }
+
     function crearElementos(){
         if(!sombra){
             sombra = document.createElement('div');
@@ -10697,7 +10725,7 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
         const doc = document.documentElement;
         const distanciaFinal = doc.scrollHeight - (window.scrollY + window.innerHeight);
-        const cercaFinal = distanciaFinal < 260;
+        const cercaFinal = distanciaFinal < 420 || fondoVisibleVistaIndicador();
 
         if(indicador && siguiente && cercaFinal){
             indicador.querySelector('strong').textContent = siguiente.nombre || siguiente.id;
@@ -10793,3 +10821,6 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
     console.log('TRANSICIÓN E INDICADOR DE SECCIÓN ACTIVOS - VERSION ' + VERSION_TRANSICION_SECCIONES);
 })();
+
+
+console.log("COMPACTACIÓN Y GRÁFICAS PRO ACTIVAS - VERSION 20260809");
