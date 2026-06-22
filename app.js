@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260801");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260802");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -9069,7 +9069,7 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
    Oculta estado técnico, mueve actualización al lateral y activa modo presentación.
    ========================================================= */
 (function(){
-    const VERSION_UI_GERENCIAL = "20260801";
+    const VERSION_UI_GERENCIAL = "20260802";
 
     function byId(id){ return document.getElementById(id); }
 
@@ -9150,24 +9150,44 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
         setModoPresentacionFinal(!document.body.classList.contains('modo-presentacion'));
     }
 
-    function instalarClickPresentacionFinal(){
-        if(window.__presentacionFinalDelegada20260801) return;
-        window.__presentacionFinalDelegada20260801 = true;
-        document.addEventListener('click', function(event){
-            const btn = event.target.closest && event.target.closest('#btnPresentacion');
-            if(!btn) return;
+    function vincularBotonPresentacionFinal(){
+        const btnBase = asegurarBotonPresentacionFinal();
+        if(!btnBase || !btnBase.parentNode) return null;
+
+        // Clonar el botón elimina eventos antiguos que venían de versiones anteriores.
+        const btn = btnBase.dataset.presentacionFinal20260802 === '1'
+            ? btnBase
+            : btnBase.cloneNode(true);
+
+        if(btn !== btnBase){
+            btnBase.parentNode.replaceChild(btn, btnBase);
+        }
+
+        btn.dataset.presentacionFinal20260802 = '1';
+        btn.setAttribute('type', 'button');
+        btn.setAttribute('aria-label', 'Modo presentación');
+
+        btn.onclick = function(event){
             event.preventDefault();
             event.stopPropagation();
-            if(typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
             alternarModoPresentacionFinal();
-        }, true);
+            return false;
+        };
+
+        btn.onkeydown = function(event){
+            if(event.key === 'Enter' || event.key === ' '){
+                event.preventDefault();
+                alternarModoPresentacionFinal();
+            }
+        };
+
+        return btn;
     }
 
     function initUiGerencialFinal(){
         limpiarCabeceraTecnica();
         asegurarActualizacionLateral();
-        asegurarBotonPresentacionFinal();
-        instalarClickPresentacionFinal();
+        vincularBotonPresentacionFinal();
         const activoGuardado = localStorage.getItem('dashboardModoPresentacion') === '1';
         if(activoGuardado) setModoPresentacionFinal(true);
         else pintarBotonPresentacion(false);
