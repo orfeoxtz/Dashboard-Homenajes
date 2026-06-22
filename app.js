@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260804");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260805");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -9764,4 +9764,304 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     setTimeout(refrescarCierre20260804, 4200);
 
     console.log("CIERRE DATOS Y DASHBOARD ACTIVO - VERSION " + VERSION_CIERRE_DATOS_DASHBOARD);
+})();
+
+
+/* =========================================================
+   CIERRE TABLA GERENCIAL CONSOLIDADA 20260805
+   Blindaje final para evitar grafica mensual y tabla vacias.
+   ========================================================= */
+(function(){
+    const VERSION_TABLA_CONSOLIDADA_FINAL = "20260805";
+    let rellenandoTablaConsolidada = false;
+
+    function el(id){ return document.getElementById(id); }
+    function numero(v){
+        try{ if(typeof toNumber === "function") return toNumber(v); }catch(e){}
+        const n = Number(String(v ?? "").replace(/\$/g,"").replace(/\./g,"").replace(/,/g,"."));
+        return Number.isFinite(n) ? n : 0;
+    }
+    function dinero(v){
+        try{ if(typeof formatMoney === "function") return formatMoney(v); }catch(e){}
+        return "$" + Math.round(numero(v)).toLocaleString("es-CO");
+    }
+    function estadoTexto(pct){
+        const n = Number(pct) || 0;
+        if(n >= 100) return "Cumplida";
+        if(n >= 80) return "En riesgo";
+        return "No cumple";
+    }
+    function estadoBadge(pct){
+        try{ if(typeof badgeEstado === "function") return badgeEstado(pct); }catch(e){}
+        const txt = estadoTexto(pct);
+        return `<span class="badge ${pct>=100?'badge-ok':pct>=80?'badge-warning':'badge-danger'}">${txt}</span>`;
+    }
+    function fechaRow(row){
+        if(row && row.fecha instanceof Date && !isNaN(row.fecha.getTime())) return row.fecha;
+        const candidatos = [row?.fecha, row?.fechaTexto, row?.Fecha, row?.FECHA];
+        for(const c of candidatos){
+            if(!c) continue;
+            if(typeof parseFecha === "function"){
+                try{ const p = parseFecha(c); if(p && !isNaN(p.getTime())) return p; }catch(e){}
+            }
+            const s = String(c).trim();
+            let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+            if(m){ const f = new Date(Number(m[3]), Number(m[2])-1, Number(m[1])); if(!isNaN(f.getTime())) return f; }
+            m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+            if(m){ const f = new Date(Number(m[1]), Number(m[2])-1, Number(m[3])); if(!isNaN(f.getTime())) return f; }
+            const f = new Date(s); if(!isNaN(f.getTime())) return f;
+        }
+        return null;
+    }
+    function valorVentaRow(row){
+        const valorVenta = numero(row?.valorVenta);
+        if(valorVenta) return valorVenta;
+        const servicio = numero(row?.valorServicio ?? row?.['VALOR SERVICIO']);
+        const excedente = numero(row?.valorExcedente ?? row?.['VALOR EXCEDENTE']);
+        return servicio + excedente;
+    }
+    function metaMensual(){
+        try{ const m = typeof metaMensualTotal === "function" ? numero(metaMensualTotal()) : 0; if(m > 0) return m; }catch(e){}
+        try{ if(typeof META_MENSUAL_BASE !== "undefined" && numero(META_MENSUAL_BASE) > 0) return numero(META_MENSUAL_BASE); }catch(e){}
+        return 219133881;
+    }
+    function leerFiltros(){
+        try{ if(typeof obtenerFiltros === "function") return obtenerFiltros() || {}; }catch(e){}
+        return {
+            fechaInicio:el("fechaInicio")?.value || "",
+            fechaFin:el("fechaFin")?.value || "",
+            gestor:el("filtroGestor")?.value || "",
+            categoria:el("filtroCategoria")?.value || "",
+            sede:el("filtroSede")?.value || "",
+            mes:el("filtroMes")?.value || "",
+            anio:el("filtroAnio")?.value || "",
+            busqueda:el("busquedaGeneral")?.value || ""
+        };
+    }
+    function fechaFiltro(v, fallback){
+        if(v){
+            const f = new Date(String(v) + "T00:00:00");
+            if(!isNaN(f.getTime())) return f;
+        }
+        return fallback;
+    }
+    function datasetNormalSeguro(){
+        const normal = Array.isArray(DATASET_NORMAL) ? DATASET_NORMAL : [];
+        const filtrado = Array.isArray(DATASET_FILTRADO) ? DATASET_FILTRADO : [];
+        const api = Array.isArray(DATASET_API) ? DATASET_API : [];
+        if(normal.length) return normal;
+        if(filtrado.length) return filtrado;
+        return api;
+    }
+    function datasetFiltradoSeguro(){
+        const filtrado = Array.isArray(DATASET_FILTRADO) ? DATASET_FILTRADO : [];
+        return filtrado.length ? filtrado : datasetNormalSeguro();
+    }
+    function aplicaFiltrosNoFecha(row, filtros){
+        try{ if(typeof coincideFiltrosNoFecha === "function") return coincideFiltrosNoFecha(row, filtros); }catch(e){}
+        return true;
+    }
+    function mesesRango(inicio, fin, rows){
+        const out = [];
+        if(inicio && fin && !isNaN(inicio) && !isNaN(fin)){
+            let d = new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+            const limite = new Date(fin.getFullYear(), fin.getMonth(), 1);
+            let guard = 0;
+            while(d <= limite && guard < 36){
+                out.push({anio:d.getFullYear(), mes:d.getMonth()+1, key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`});
+                d = new Date(d.getFullYear(), d.getMonth()+1, 1);
+                guard++;
+            }
+        }
+        if(!out.length && rows.length){
+            [...new Set(rows.map(r=>{
+                const f = fechaRow(r);
+                return f ? `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,"0")}` : "";
+            }).filter(Boolean))].sort().forEach(k=>out.push({anio:Number(k.slice(0,4)), mes:Number(k.slice(5,7)), key:k}));
+        }
+        if(!out.length){
+            const hoy = new Date();
+            out.push({anio:hoy.getFullYear(), mes:hoy.getMonth()+1, key:`${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`});
+        }
+        return out;
+    }
+    function nombreMesSeguro(anio, mes){
+        const nombres = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+        return `${nombres[mes-1] || mes} ${anio}`;
+    }
+    function construirMensualConsolidado(){
+        const normal = datasetNormalSeguro();
+        const filtradoActual = datasetFiltradoSeguro();
+        const filtros = leerFiltros();
+        const fechas = normal.map(fechaRow).filter(Boolean).sort((a,b)=>a-b);
+        const inicioFallback = fechas[0] || new Date(new Date().getFullYear(),0,1);
+        const finFallback = fechas[fechas.length-1] || new Date();
+        const inicio = fechaFiltro(filtros.fechaInicio, inicioFallback);
+        const fin = fechaFiltro(filtros.fechaFin, finFallback);
+
+        let rows = normal.filter(row => {
+            const f = fechaRow(row);
+            if(!f) return false;
+            if(inicio && f < inicio) return false;
+            if(fin && f > fin) return false;
+            return aplicaFiltrosNoFecha(row, filtros);
+        });
+        if(!rows.length && filtradoActual.length) rows = filtradoActual.slice();
+
+        const meses = mesesRango(inicio, fin, rows);
+        const meta = metaMensual();
+        const filas = meses.map(m => {
+            const venta = rows.filter(row => {
+                const f = fechaRow(row);
+                return f && f.getFullYear() === m.anio && (f.getMonth()+1) === m.mes;
+            }).reduce((a,row)=>a + valorVentaRow(row), 0);
+            const pct = meta > 0 ? (venta/meta)*100 : 0;
+            return {periodo:nombreMesSeguro(m.anio,m.mes), meta, venta, pct, faltante:Math.max(meta-venta,0)};
+        });
+
+        let resumen = null;
+        try{ resumen = typeof calcularResumen === "function" ? calcularResumen(filtradoActual) : null; }catch(e){}
+        const ventaResumen = numero(resumen?.total);
+        const totalVentaFilas = filas.reduce((a,f)=>a+numero(f.venta),0);
+        if(totalVentaFilas === 0 && ventaResumen > 0){
+            const idx = Math.max(filas.length-1,0);
+            if(!filas.length){
+                filas.push({periodo:"Rango seleccionado", meta, venta:ventaResumen, pct:meta>0?(ventaResumen/meta)*100:0, faltante:Math.max(meta-ventaResumen,0)});
+            }else{
+                filas[idx].venta = ventaResumen;
+                filas[idx].pct = meta > 0 ? (ventaResumen/meta)*100 : 0;
+                filas[idx].faltante = Math.max(meta-ventaResumen,0);
+            }
+        }
+
+        const totalMeta = filas.reduce((a,f)=>a+numero(f.meta),0);
+        const totalVenta = filas.reduce((a,f)=>a+numero(f.venta),0);
+        const totalPct = totalMeta > 0 ? (totalVenta/totalMeta)*100 : 0;
+        return {filas, totalMeta, totalVenta, totalPct, totalFaltante:Math.max(totalMeta-totalVenta,0)};
+    }
+    function pintarTablaConsolidadaFinal(){
+        const tbody = document.querySelector("#tablaConsolidada tbody");
+        if(!tbody || rellenandoTablaConsolidada) return;
+        rellenandoTablaConsolidada = true;
+        try{
+            const data = construirMensualConsolidado();
+            const htmlFilas = data.filas.map(f => `<tr>
+                <td>${f.periodo}</td>
+                <td>${dinero(f.meta)}</td>
+                <td>${dinero(f.venta)}</td>
+                <td>${f.pct.toFixed(1)}%</td>
+                <td>${dinero(f.faltante)}</td>
+                <td>${estadoBadge(f.pct)}</td>
+            </tr>`).join("");
+            tbody.innerHTML = htmlFilas + `<tr class="fila-total-gerencial">
+                <td><strong>Total periodo</strong></td>
+                <td><strong>${dinero(data.totalMeta)}</strong></td>
+                <td><strong>${dinero(data.totalVenta)}</strong></td>
+                <td><strong>${data.totalPct.toFixed(1)}%</strong></td>
+                <td><strong>${dinero(data.totalFaltante)}</strong></td>
+                <td>${estadoBadge(data.totalPct)}</td>
+            </tr>`;
+            try{ if(typeof activarTablasOrdenablesDashboard === "function") activarTablasOrdenablesDashboard(); }catch(e){}
+        }catch(error){
+            console.error("[20260805] No se pudo pintar tabla consolidada:", error);
+            tbody.innerHTML = `<tr><td colspan="6">No fue posible consolidar los datos. Revise la carga de Google Sheet.</td></tr>`;
+        }finally{
+            setTimeout(()=>{ rellenandoTablaConsolidada = false; }, 40);
+        }
+    }
+    function pintarGraficaMensualFinal(){
+        const canvas = el("graficoMensual");
+        if(!canvas || typeof Chart === "undefined") return;
+        try{
+            const data = construirMensualConsolidado();
+            const labels = data.filas.map(f=>f.periodo);
+            const ventas = data.filas.map(f=>f.venta);
+            const metas = data.filas.map(f=>f.meta);
+            if(canvas.parentElement){
+                canvas.parentElement.style.minHeight = "380px";
+                canvas.parentElement.style.height = "380px";
+            }
+            canvas.style.height = "340px";
+            try{ if(charts && charts.graficoMensual) charts.graficoMensual.destroy(); }catch(e){}
+            charts.graficoMensual = new Chart(canvas, {
+                data:{
+                    labels,
+                    datasets:[
+                        {type:"bar", label:"Venta real", data:ventas, backgroundColor:"rgba(0,166,81,.86)", borderColor:"#007a3d", borderWidth:1, borderRadius:8, barThickness:34, maxBarThickness:42},
+                        {type:"line", label:"Meta mensual", data:metas, borderColor:"#f59e0b", backgroundColor:"rgba(245,158,11,.12)", borderWidth:3, pointRadius:3, tension:.28}
+                    ]
+                },
+                options:{
+                    responsive:true,
+                    maintainAspectRatio:false,
+                    animation:false,
+                    interaction:{mode:"index", intersect:false},
+                    plugins:{
+                        legend:{display:true, position:"top", labels:{color:"#0f172a", boxWidth:13, font:{weight:"800", size:11}}},
+                        tooltip:{callbacks:{label:ctx => `${ctx.dataset.label}: ${dinero(ctx.parsed.y)}`}},
+                        datalabels:{display:false}
+                    },
+                    scales:{
+                        y:{beginAtZero:true, ticks:{color:"#334155", font:{size:10, weight:"700"}, callback:v=>Math.round(v).toLocaleString("es-CO")}, grid:{color:"rgba(15,23,42,.09)"}},
+                        x:{ticks:{color:"#0f172a", font:{size:10, weight:"800"}}, grid:{display:false}}
+                    }
+                }
+            });
+        }catch(error){
+            console.error("[20260805] No se pudo pintar gráfica mensual:", error);
+        }
+    }
+    function refrescarConsolidadoFinal(){
+        pintarTablaConsolidadaFinal();
+        pintarGraficaMensualFinal();
+    }
+    function instalarObservadorTabla(){
+        const tbody = document.querySelector("#tablaConsolidada tbody");
+        if(!tbody || tbody.dataset.observadorConsolidado20260805 === "1") return;
+        tbody.dataset.observadorConsolidado20260805 = "1";
+        const obs = new MutationObserver(() => {
+            if(!rellenandoTablaConsolidada && tbody.children.length === 0){
+                setTimeout(pintarTablaConsolidadaFinal, 60);
+            }
+        });
+        obs.observe(tbody, {childList:true});
+    }
+
+    const renderGraficosDashboardAnterior20260805 = typeof window.renderGraficosDashboard === "function" ? window.renderGraficosDashboard : null;
+    window.renderGraficosDashboard = function(resumen){
+        if(renderGraficosDashboardAnterior20260805){
+            try{ renderGraficosDashboardAnterior20260805(resumen); }catch(error){ console.warn("[20260805] renderGraficosDashboard anterior falló:", error); }
+        }
+        setTimeout(refrescarConsolidadoFinal, 80);
+    };
+    try{ renderGraficosDashboard = window.renderGraficosDashboard; }catch(e){}
+
+    const renderTodoAnterior20260805 = typeof window.renderTodo === "function" ? window.renderTodo : null;
+    window.renderTodo = function(resumen, metaInfo){
+        if(renderTodoAnterior20260805){
+            try{ renderTodoAnterior20260805(resumen, metaInfo); }catch(error){ console.warn("[20260805] renderTodo anterior falló:", error); }
+        }
+        setTimeout(refrescarConsolidadoFinal, 120);
+    };
+    try{ renderTodo = window.renderTodo; }catch(e){}
+
+    window.refrescarTablaGerencialConsolidada = refrescarConsolidadoFinal;
+
+    document.addEventListener("click", ev => {
+        if(ev.target.closest('[data-seccion="dashboard"], #btnFiltrar, #btnLimpiar, #btnRecargar')){
+            setTimeout(refrescarConsolidadoFinal, 250);
+            setTimeout(refrescarConsolidadoFinal, 900);
+        }
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        instalarObservadorTabla();
+        setTimeout(refrescarConsolidadoFinal, 600);
+    });
+    setTimeout(()=>{ instalarObservadorTabla(); refrescarConsolidadoFinal(); }, 1000);
+    setTimeout(refrescarConsolidadoFinal, 2500);
+    setTimeout(refrescarConsolidadoFinal, 5000);
+    setTimeout(refrescarConsolidadoFinal, 8000);
+
+    console.log("CIERRE TABLA GERENCIAL CONSOLIDADA ACTIVO - VERSION " + VERSION_TABLA_CONSOLIDADA_FINAL);
 })();
