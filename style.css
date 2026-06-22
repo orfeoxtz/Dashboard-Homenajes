@@ -2346,3 +2346,128 @@ body.modo-presentacion .topbar{
 body.modo-presentacion .header-actions button:not(#btnPresentacion):not(#btnPdf):not(#btnExcel):not(#btnImagen){
     display:none !important;
 }
+
+
+/* Categorías: Meta real vs Venta real 20260803 */
+.categoria-meta-real-panel{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:14px;
+    margin:14px 0 16px;
+}
+
+.categoria-meta-card{
+    background:linear-gradient(180deg,#ffffff 0%,#f3fff8 100%);
+    border:1px solid rgba(0,111,63,.15);
+    border-top:5px solid #008f46;
+    border-radius:18px;
+    padding:13px;
+    box-shadow:0 12px 28px rgba(15,23,42,.08);
+    min-width:0;
+}
+
+.categoria-meta-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+}
+
+.categoria-meta-head span{
+    color:#004f2a;
+    font-size:15px;
+    font-weight:950;
+    text-transform:uppercase;
+    letter-spacing:.2px;
+}
+
+.categoria-meta-head strong{
+    border-radius:999px;
+    padding:5px 9px;
+    font-size:10px;
+    font-weight:950;
+    white-space:nowrap;
+}
+
+.categoria-meta-head .estado-cumplida{background:#dcfce7;color:#166534;}
+.categoria-meta-head .estado-riesgo{background:#fef3c7;color:#92400e;}
+.categoria-meta-head .estado-no-cumple{background:#fee2e2;color:#991b1b;}
+
+.categoria-meta-kpis{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    margin-bottom:10px;
+}
+
+.categoria-meta-kpis div{
+    background:rgba(255,255,255,.86);
+    border:1px solid rgba(0,111,63,.10);
+    border-radius:12px;
+    padding:8px 9px;
+    min-width:0;
+}
+
+.categoria-meta-kpis small{
+    display:block;
+    color:#64748b;
+    font-size:9px;
+    font-weight:850;
+    margin-bottom:3px;
+}
+
+.categoria-meta-kpis b{
+    display:block;
+    color:#0f172a;
+    font-size:14px;
+    font-weight:950;
+    line-height:1.05;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.categoria-meta-chart{
+    height:300px;
+    min-height:300px;
+    background:#ffffff;
+    border:1px solid rgba(15,23,42,.08);
+    border-radius:14px;
+    padding:6px;
+}
+
+.categoria-meta-chart canvas{
+    height:285px !important;
+    min-height:285px !important;
+}
+
+body.theme-dark .categoria-meta-card,
+body.theme-slate .categoria-meta-card,
+body.dark-mode .categoria-meta-card{
+    background:linear-gradient(180deg,#111827 0%,#0b1725 100%);
+    border-color:rgba(34,197,94,.25);
+}
+
+body.theme-dark .categoria-meta-head span,
+body.theme-slate .categoria-meta-head span,
+body.dark-mode .categoria-meta-head span,
+body.theme-dark .categoria-meta-kpis b,
+body.theme-slate .categoria-meta-kpis b,
+body.dark-mode .categoria-meta-kpis b{
+    color:#f8fafc;
+}
+
+body.theme-dark .categoria-meta-kpis div,
+body.theme-slate .categoria-meta-kpis div,
+body.dark-mode .categoria-meta-kpis div,
+body.theme-dark .categoria-meta-chart,
+body.theme-slate .categoria-meta-chart,
+body.dark-mode .categoria-meta-chart{
+    background:rgba(15,23,42,.72);
+    border-color:rgba(148,163,184,.20);
+}
+
+@media(max-width:1200px){
+    .categoria-meta-real-panel{grid-template-columns:1fr;}
+}
