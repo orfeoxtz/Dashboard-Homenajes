@@ -2937,3 +2937,19 @@ body.dark-mode .section-progress-chip{
     .next-section-indicator .next-mini{display:none;}
     .section-progress-chip{left:14px; bottom:14px;}
 }
+
+
+/* =========================================================
+   AJUSTE 20260809 - Compactación y gráficas pro
+   ========================================================= */
+body .main{padding-bottom:12px !important;}
+body .vista.active-view{padding-bottom:0 !important; margin-bottom:0 !important;}
+body .grafico-card{padding:12px 14px 14px !important; min-height:240px !important; border-radius:18px !important; background:linear-gradient(180deg,#ffffff 0%,#fbfdfc 100%) !important;}
+body .grafico-card h3{font-size:12px !important; margin-bottom:10px !important; color:#123426 !important; letter-spacing:.1px;}
+body .grafico-card canvas{height:320px !important;}
+body .grafico-card.chart-compact-pro{box-shadow:0 10px 24px rgba(15,23,42,.08) !important; border:1px solid rgba(0,111,63,.12) !important;}
+body .grafico-card.chart-card-readable canvas{min-height:300px !important;}
+body #graficoGestores, body #graficoExcedentes, body #graficoClinicas, body #graficoMunicipios, body #graficoCementerios, body #graficoDestinosFinales, body #graficoTipoMuerte, body #graficoHomenajeExcedente{height:420px !important;}
+body #graficoMensual, body #graficoMetas, body #graficoCumplimientoMensual, body #graficoEnergiaComparativo, body #graficoEnergiaCosto{height:320px !important;}
+.section-progress-chip{bottom:10px !important;}
+.next-section-indicator{bottom:48px !important;}
