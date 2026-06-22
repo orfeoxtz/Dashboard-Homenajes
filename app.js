@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260803");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260804");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -9412,4 +9412,356 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     setTimeout(initCategoriasMetaReal, 2200);
 
     console.log("CATEGORIAS META REAL VS VENTA REAL ACTIVAS - VERSION " + VERSION_CATEGORIAS_META_REAL);
+})();
+
+
+/* =========================================================
+   CIERRE DATOS Y DASHBOARD 20260804
+   Recupera tablas/graficas vacias, consolida mensual y protege Datos.
+   ========================================================= */
+(function(){
+    const VERSION_CIERRE_DATOS_DASHBOARD = "20260804";
+
+    function q(id){ return document.getElementById(id); }
+    function n(v){ return typeof toNumber === "function" ? toNumber(v) : (Number(v) || 0); }
+    function money(v){ return typeof formatMoney === "function" ? formatMoney(v) : "$" + Math.round(n(v)).toLocaleString("es-CO"); }
+    function num(v){ return Math.round(n(v)).toLocaleString("es-CO"); }
+    function esc(v){ return typeof escapeHtml === "function" ? escapeHtml(v) : String(v ?? ""); }
+    function badge(p){ return typeof badgeEstado === "function" ? badgeEstado(p) : `<span>${p >= 100 ? "Cumplido" : p >= 80 ? "En riesgo" : "Bajo meta"}</span>`; }
+    function estado(p){ return p >= 100 ? "Cumplida" : p >= 80 ? "En riesgo" : "No cumple"; }
+
+    function fechaValida(row){
+        if(row?.fecha instanceof Date && !isNaN(row.fecha.getTime())) return row.fecha;
+        if(row?.fecha){
+            const f = new Date(row.fecha);
+            if(!isNaN(f.getTime())) return f;
+        }
+        return null;
+    }
+
+    function fechaFiltro(valor, fallback){
+        if(valor){
+            const f = new Date(`${valor}T00:00:00`);
+            if(!isNaN(f.getTime())) return f;
+        }
+        return fallback;
+    }
+
+    function datasetsBase(){
+        const normal = Array.isArray(DATASET_NORMAL) ? DATASET_NORMAL : [];
+        const filtrado = Array.isArray(DATASET_FILTRADO) ? DATASET_FILTRADO : [];
+        return {normal, filtrado};
+    }
+
+    function coincideSinFecha(row, filtros){
+        try{
+            return typeof coincideFiltrosNoFecha === "function" ? coincideFiltrosNoFecha(row, filtros) : true;
+        }catch(error){
+            return true;
+        }
+    }
+
+    function filasPorRangoYFiltros(){
+        const {normal, filtrado} = datasetsBase();
+        const filtros = typeof obtenerFiltros === "function" ? obtenerFiltros() : {};
+        const fechas = normal.map(fechaValida).filter(Boolean).sort((a,b)=>a-b);
+        const inicioFallback = fechas[0] || new Date(new Date().getFullYear(),0,1);
+        const finFallback = fechas[fechas.length - 1] || new Date();
+        const inicio = fechaFiltro(filtros.fechaInicio, inicioFallback);
+        const fin = fechaFiltro(filtros.fechaFin, finFallback);
+
+        let rows = normal.filter(row => {
+            const f = fechaValida(row);
+            if(!f) return false;
+            if(f < inicio || f > fin) return false;
+            return coincideSinFecha(row, filtros);
+        });
+
+        if(rows.length === 0 && filtrado.length > 0) rows = filtrado.slice();
+        return {rows, filtros, inicio, fin};
+    }
+
+    function mesesEntre(inicio, fin, rows){
+        const meses = [];
+        let actual = new Date(inicio.getFullYear(), inicio.getMonth(), 1);
+        const limite = new Date(fin.getFullYear(), fin.getMonth(), 1);
+        let guard = 0;
+        while(actual <= limite && guard < 24){
+            meses.push({anio:actual.getFullYear(), mes:actual.getMonth()+1, key:`${actual.getFullYear()}-${String(actual.getMonth()+1).padStart(2,"0")}`});
+            actual = new Date(actual.getFullYear(), actual.getMonth()+1, 1);
+            guard++;
+        }
+        if(!meses.length && rows?.length){
+            const keys = [...new Set(rows.map(r => {
+                const f = fechaValida(r);
+                return f ? `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,"0")}` : "";
+            }).filter(Boolean))].sort();
+            return keys.map(k => ({anio:Number(k.slice(0,4)), mes:Number(k.slice(5,7)), key:k}));
+        }
+        return meses;
+    }
+
+    function nombreMesCorto(anio, mes){
+        try{
+            const nombre = typeof nombreMes === "function" ? nombreMes(mes) : new Date(anio, mes-1, 1).toLocaleString("es-CO", {month:"short"});
+            return `${String(nombre).slice(0,3)} ${anio}`;
+        }catch(error){
+            return `${mes}/${anio}`;
+        }
+    }
+
+    function valorVenta(row){
+        return n(row?.valorVenta || row?.valorServicio || row?.valorExcedente || 0);
+    }
+
+    function metaMensualSegura(){
+        try{
+            const m = typeof metaMensualTotal === "function" ? n(metaMensualTotal()) : 0;
+            return m > 0 ? m : n(typeof META_MENSUAL_BASE !== "undefined" ? META_MENSUAL_BASE : 219133881);
+        }catch(error){
+            return 219133881;
+        }
+    }
+
+    function resumenSeguro(){
+        try{
+            return typeof calcularResumen === "function" ? calcularResumen(DATASET_FILTRADO || []) : {particular:0,red:0,excedentes:0,total:0,planCantidad:0};
+        }catch(error){
+            return {particular:0,red:0,excedentes:0,total:0,planCantidad:0};
+        }
+    }
+
+    function pintarMetaVentaRealSeguro(resumen){
+        const canvas = q("graficoMetaReal");
+        if(!canvas || typeof Chart === "undefined") return;
+        try{ if(typeof registrarPluginGraficas === "function") registrarPluginGraficas(); }catch(e){}
+        try{ if(charts?.graficoMetaReal) charts.graficoMetaReal.destroy(); }catch(e){}
+
+        const meta = n(typeof META_RANGO_ACTUAL !== "undefined" ? META_RANGO_ACTUAL : 0);
+        const venta = n(resumen?.total || 0);
+        const pct = meta > 0 ? (venta/meta)*100 : 0;
+        const max = Math.max(meta, venta, 1);
+
+        charts.graficoMetaReal = new Chart(canvas, {
+            type:"bar",
+            data:{
+                labels:["Meta", "Venta Real"],
+                datasets:[{
+                    label:"Valor",
+                    data:[meta, venta],
+                    backgroundColor:["rgba(0,79,42,.82)", "rgba(0,166,81,.94)"],
+                    borderColor:["#004f2a", "#008f46"],
+                    borderWidth:1,
+                    borderRadius:12,
+                    barThickness:54,
+                    maxBarThickness:62
+                }]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                animation:false,
+                layout:{padding:{left:10,right:36,top:22,bottom:10}},
+                plugins:{
+                    title:{display:false},
+                    legend:{display:true,position:"top",labels:{color:"#0f172a",boxWidth:13,font:{weight:"800",size:11}}},
+                    tooltip:{callbacks:{label:ctx => {
+                        const value = n(ctx.parsed.y);
+                        if(ctx.dataIndex === 0) return [`Meta objetivo: ${money(value)}`];
+                        return [`Venta real: ${money(value)}`, `Cumplimiento: ${pct.toFixed(1)}%`, `Estado: ${estado(pct)}`];
+                    }}},
+                    datalabels:{
+                        display:ctx => n(ctx.dataset.data[ctx.dataIndex]) > 0,
+                        anchor:"end",
+                        align:"top",
+                        offset:5,
+                        color:"#0f172a",
+                        backgroundColor:"rgba(255,255,255,.96)",
+                        borderColor:"rgba(0,79,42,.18)",
+                        borderWidth:1,
+                        borderRadius:999,
+                        padding:{top:4,right:8,bottom:4,left:8},
+                        font:{size:10.5,weight:"900"},
+                        formatter:(value, ctx) => ctx.dataIndex === 0 ? [money(value), "Objetivo"] : [money(value), `${pct.toFixed(1)}%`, estado(pct)]
+                    }
+                },
+                scales:{
+                    y:{beginAtZero:true,suggestedMax:max*1.18,ticks:{color:"#334155",font:{size:10,weight:"800"},callback:v=>num(v)},grid:{color:"rgba(15,23,42,.09)"}},
+                    x:{ticks:{color:"#0f172a",font:{size:11,weight:"900"}},grid:{display:false}}
+                }
+            }
+        });
+    }
+
+    function pintarDonaCategoriasSegura(resumen){
+        const canvas = q("graficoCategoriasDashboard");
+        if(!canvas || typeof Chart === "undefined") return;
+        try{ if(typeof registrarPluginGraficas === "function") registrarPluginGraficas(); }catch(e){}
+        try{ if(charts?.graficoCategoriasDashboard) charts.graficoCategoriasDashboard.destroy(); }catch(e){}
+        const valores = [n(resumen?.particular), n(resumen?.red), n(resumen?.excedentes)];
+        const total = valores.reduce((a,b)=>a+b,0);
+        charts.graficoCategoriasDashboard = new Chart(canvas, {
+            type:"doughnut",
+            data:{
+                labels:["PARTICULAR", "RED", "EXCEDENTES"],
+                datasets:[{data:valores, backgroundColor:["#16a34a", "#2563eb", "#f59e0b"], borderColor:"#ffffff", borderWidth:3, hoverOffset:6}]
+            },
+            options:{
+                responsive:true,
+                maintainAspectRatio:false,
+                cutout:"56%",
+                animation:false,
+                plugins:{
+                    legend:{display:true,position:"top",labels:{color:"#0f172a",boxWidth:13,font:{weight:"900",size:12}}},
+                    tooltip:{callbacks:{label:ctx => `${ctx.label}: ${money(ctx.parsed)} (${total>0?((n(ctx.parsed)/total)*100).toFixed(1):"0.0"}%)`}},
+                    datalabels:{
+                        display:ctx => n(ctx.dataset.data[ctx.dataIndex]) > 0,
+                        color:"#ffffff",
+                        textStrokeColor:"rgba(0,0,0,.38)",
+                        textStrokeWidth:2,
+                        font:{size:10.5,weight:"900"},
+                        formatter:value => total>0 ? `${money(value)}\n${((n(value)/total)*100).toFixed(1)}%` : money(value)
+                    }
+                }
+            }
+        });
+    }
+
+    function pintarMensualDashboardSeguro(resumen){
+        const {rows, inicio, fin} = filasPorRangoYFiltros();
+        const meses = mesesEntre(inicio, fin, rows);
+        const labels = meses.map(m => nombreMesCorto(m.anio, m.mes));
+        const ventas = meses.map(m => rows.filter(r => {
+            const f = fechaValida(r);
+            return f && f.getFullYear() === m.anio && f.getMonth()+1 === m.mes;
+        }).reduce((a,r)=>a+valorVenta(r),0));
+        const metaMensual = metaMensualSegura();
+        const metas = meses.map(()=>metaMensual);
+
+        const canvas = q("graficoMensual");
+        if(canvas && typeof crearChartLine === "function"){
+            try{
+                crearChartLine("graficoMensual", labels, [
+                    {label:"Venta real", data:ventas, borderColor:"#008f46", backgroundColor:"rgba(0,143,70,.16)", fill:true, tension:.28},
+                    {label:"Meta mensual", data:metas, borderColor:"#f59e0b", borderDash:[8,6], fill:false, pointRadius:2}
+                ], "Ventas Mensuales vs Meta Mensual", "money");
+            }catch(error){
+                console.error("[20260804] No se pudo pintar graficoMensual:", error);
+            }
+        }
+
+        const tbody = document.querySelector("#tablaConsolidada tbody");
+        if(tbody){
+            const totalVenta = ventas.reduce((a,b)=>a+n(b),0);
+            const totalMeta = metas.reduce((a,b)=>a+n(b),0);
+            const filasMes = meses.map((m,i)=>{
+                const venta = n(ventas[i]);
+                const meta = n(metas[i]);
+                const pct = meta > 0 ? (venta/meta)*100 : 0;
+                return `<tr>
+                    <td>${nombreMesCorto(m.anio,m.mes)}</td>
+                    <td>${money(meta)}</td>
+                    <td>${money(venta)}</td>
+                    <td>${pct.toFixed(1)}%</td>
+                    <td>${money(Math.max(meta-venta,0))}</td>
+                    <td>${badge(pct)}</td>
+                </tr>`;
+            }).join("");
+            const pctTotal = totalMeta > 0 ? (totalVenta/totalMeta)*100 : 0;
+            tbody.innerHTML = filasMes + `<tr class="fila-total-gerencial">
+                <td><strong>Total periodo</strong></td>
+                <td><strong>${money(totalMeta)}</strong></td>
+                <td><strong>${money(totalVenta || n(resumen?.total))}</strong></td>
+                <td><strong>${pctTotal.toFixed(1)}%</strong></td>
+                <td><strong>${money(Math.max(totalMeta-totalVenta,0))}</strong></td>
+                <td>${badge(pctTotal)}</td>
+            </tr>`;
+            try{ if(typeof activarTablasOrdenablesDashboard === "function") activarTablasOrdenablesDashboard(); }catch(e){}
+        }
+    }
+
+    const renderGraficosDashboardBase = typeof window.renderGraficosDashboard === "function" ? window.renderGraficosDashboard : (typeof renderGraficosDashboard === "function" ? renderGraficosDashboard : null);
+    window.renderGraficosDashboard = function(resumen){
+        resumen = resumen || resumenSeguro();
+        try{ pintarMetaVentaRealSeguro(resumen); }catch(error){ console.error("[20260804] Meta vs venta falló:", error); }
+        try{ pintarDonaCategoriasSegura(resumen); }catch(error){ console.error("[20260804] Dona categorías falló:", error); }
+        try{ pintarMensualDashboardSeguro(resumen); }catch(error){ console.error("[20260804] Mensual dashboard falló:", error); }
+    };
+    try{ renderGraficosDashboard = window.renderGraficosDashboard; }catch(error){}
+
+    const renderDatosBase = typeof window.renderDatos === "function" ? window.renderDatos : (typeof renderDatos === "function" ? renderDatos : null);
+    window.renderDatos = function(){
+        try{ if(renderDatosBase) renderDatosBase(); }catch(error){ console.warn("[20260804] Render datos base falló:", error); }
+        try{
+            const {normal, filtrado} = datasetsBase();
+            const muestra = filtrado.length ? filtrado : normal;
+            setHtml("diagTotalApi", Array.isArray(DATASET_API) ? DATASET_API.length : 0);
+            setHtml("diagFiltrados", filtrado.length);
+            const tbody = document.querySelector("#tablaBaseDatos tbody");
+            if(tbody){
+                tbody.innerHTML = muestra.length ? muestra.slice(0,100).map(row => `
+                    <tr>
+                        <td>${esc(row.origen || "GOOGLE_SHEET")}</td>
+                        <td>${esc(row.fechaTexto || (fechaValida(row) ? fechaValida(row).toLocaleDateString("es-CO") : "-"))}</td>
+                        <td>${esc(row.gestor || "-")}</td>
+                        <td>${esc(row.categoriaGerencial || row.categoria || "-")}</td>
+                        <td>${esc(row.servicio || "-")}</td>
+                        <td>${esc(row.sede || "-")}</td>
+                        <td>${money(row.valorVenta || row.valorServicio || row.valorExcedente || 0)}</td>
+                    </tr>`).join("") : `<tr><td colspan="7">Sin registros cargados. Presione Recargar y revise permisos de Google Sheet.</td></tr>`;
+            }
+        }catch(error){
+            console.error("[20260804] No se pudo reforzar sección Datos:", error);
+        }
+    };
+    try{ renderDatos = window.renderDatos; }catch(error){}
+
+    const renderTodoBase = typeof window.renderTodo === "function" ? window.renderTodo : (typeof renderTodo === "function" ? renderTodo : null);
+    window.renderTodo = function(resumen, metaInfo){
+        if(renderTodoBase){
+            try{ renderTodoBase(resumen, metaInfo); }catch(error){ console.error("[20260804] renderTodo base falló:", error); }
+        }
+        try{ window.renderGraficosDashboard(resumen || resumenSeguro()); }catch(error){ console.error(error); }
+        try{ window.renderDatos(); }catch(error){ console.error(error); }
+    };
+    try{ renderTodo = window.renderTodo; }catch(error){}
+
+    function refrescarCierre20260804(){
+        try{
+            const resumen = resumenSeguro();
+            window.renderGraficosDashboard(resumen);
+            window.renderDatos();
+            if(document.querySelector("#tablaConsolidada tbody") && (!document.querySelector("#tablaConsolidada tbody")?.children.length)){
+                pintarMensualDashboardSeguro(resumen);
+            }
+        }catch(error){
+            console.error("[20260804] Refresco final falló:", error);
+        }
+    }
+
+    window.probarDatosDashboard = function(){
+        const {normal, filtrado} = datasetsBase();
+        const diag = {
+            version:VERSION_CIERRE_DATOS_DASHBOARD,
+            datasetNormal:normal.length,
+            datasetFiltrado:filtrado.length,
+            datasetApi:Array.isArray(DATASET_API)?DATASET_API.length:0,
+            estadoApi:typeof API_STATUS !== "undefined" ? API_STATUS.mensaje : "Sin estado",
+            metaPeriodo:typeof META_RANGO_ACTUAL !== "undefined" ? META_RANGO_ACTUAL : 0
+        };
+        console.table([diag]);
+        return diag;
+    };
+
+    document.addEventListener("click", ev => {
+        if(ev.target.closest('[data-seccion="dashboard"], [data-seccion="datos"], #btnFiltrar, #btnLimpiar')){
+            setTimeout(refrescarCierre20260804, 250);
+        }
+    });
+
+    setTimeout(refrescarCierre20260804, 900);
+    setTimeout(refrescarCierre20260804, 2200);
+    setTimeout(refrescarCierre20260804, 4200);
+
+    console.log("CIERRE DATOS Y DASHBOARD ACTIVO - VERSION " + VERSION_CIERRE_DATOS_DASHBOARD);
 })();
