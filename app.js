@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260802");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260803");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -9202,4 +9202,214 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     setTimeout(initUiGerencialFinal, 1800);
 
     console.log('AJUSTE UI GERENCIAL ACTIVO - VERSION ' + VERSION_UI_GERENCIAL);
+})();
+
+
+/* =========================================================
+   CATEGORIAS META REAL VS VENTA REAL 20260803
+   Agrega comparativo individual para PARTICULAR, RED y EXCEDENTES.
+   ========================================================= */
+(function(){
+    const VERSION_CATEGORIAS_META_REAL = "20260803";
+
+    function q(id){ return document.getElementById(id); }
+
+    function estadoTextoCategoria(pct){
+        const n = Number(pct) || 0;
+        if(n >= 100) return "Cumplida";
+        if(n >= 80) return "En riesgo";
+        return "No cumple";
+    }
+
+    function cssEstadoCategoria(pct){
+        const n = Number(pct) || 0;
+        if(n >= 100) return "estado-cumplida";
+        if(n >= 80) return "estado-riesgo";
+        return "estado-no-cumple";
+    }
+
+    function nombreSeguroCategoria(cat){
+        const c = String(cat || "").toUpperCase();
+        if(c === "PARTICULAR") return "Particular";
+        if(c === "RED") return "Red";
+        if(c === "EXCEDENTES") return "Excedentes";
+        return c;
+    }
+
+    function sufijoCategoria(cat){
+        const c = String(cat || "").toUpperCase();
+        if(c === "PARTICULAR") return "Particular";
+        if(c === "RED") return "Red";
+        return "Excedentes";
+    }
+
+    function datosCategoriaMetaReal(cat){
+        const categorias = typeof agruparCategorias === "function" ? agruparCategorias(DATASET_FILTRADO || []) : {};
+        const data = categorias[cat] || {cantidad:0, valor:0};
+        const venta = toNumber(data.valor);
+        const metaMensual = typeof metaCategoriaMensual === "function" ? toNumber(metaCategoriaMensual(cat)) : 0;
+        const factor = toNumber(typeof MESES_EQUIVALENTES_ACTUAL !== "undefined" ? MESES_EQUIVALENTES_ACTUAL : 1) || 1;
+        const meta = metaMensual * factor;
+        const cumplimiento = meta > 0 ? (venta / meta) * 100 : 0;
+        const faltante = Math.max(meta - venta, 0);
+        return {cat, nombre:nombreSeguroCategoria(cat), cantidad:toNumber(data.cantidad), venta, meta, cumplimiento, faltante, estado:estadoTextoCategoria(cumplimiento)};
+    }
+
+    function asegurarPanelCategoriasMetaReal(){
+        let panel = q("panelCategoriasMetaReal");
+        if(panel) return panel;
+
+        const categoriaVista = q("categorias");
+        if(!categoriaVista) return null;
+
+        panel = document.createElement("section");
+        panel.id = "panelCategoriasMetaReal";
+        panel.className = "categoria-meta-real-panel";
+        panel.innerHTML = ["PARTICULAR","RED","EXCEDENTES"].map(cat => {
+            const suf = sufijoCategoria(cat);
+            return `
+                <div class="categoria-meta-card" data-cat-card="${cat}">
+                    <div class="categoria-meta-head"><span>${nombreSeguroCategoria(cat)}</span><strong id="estadoMeta${suf}">-</strong></div>
+                    <div class="categoria-meta-kpis">
+                        <div><small>Meta real</small><b id="metaReal${suf}">$0</b></div>
+                        <div><small>Venta real</small><b id="ventaReal${suf}">$0</b></div>
+                        <div><small>Cumplimiento</small><b id="cumplimiento${suf}">0.0%</b></div>
+                        <div><small>Faltante</small><b id="faltante${suf}">$0</b></div>
+                    </div>
+                    <div class="categoria-meta-chart"><canvas id="graficoMeta${suf}"></canvas></div>
+                </div>`;
+        }).join("");
+
+        const resumen = categoriaVista.querySelector(".resumen-ejecutivo");
+        if(resumen && resumen.parentNode) resumen.parentNode.insertBefore(panel, resumen.nextSibling);
+        else categoriaVista.prepend(panel);
+        return panel;
+    }
+
+    function actualizarCardCategoria(dato){
+        const suf = sufijoCategoria(dato.cat);
+        const estado = q(`estadoMeta${suf}`);
+        if(estado){
+            estado.textContent = dato.estado;
+            estado.className = cssEstadoCategoria(dato.cumplimiento);
+        }
+        if(q(`metaReal${suf}`)) q(`metaReal${suf}`).textContent = formatMoney(dato.meta);
+        if(q(`ventaReal${suf}`)) q(`ventaReal${suf}`).textContent = formatMoney(dato.venta);
+        if(q(`cumplimiento${suf}`)) q(`cumplimiento${suf}`).textContent = dato.cumplimiento.toFixed(1) + "%";
+        if(q(`faltante${suf}`)) q(`faltante${suf}`).textContent = formatMoney(dato.faltante);
+    }
+
+    function pintarGraficaCategoria(dato){
+        const suf = sufijoCategoria(dato.cat);
+        const id = `graficoMeta${suf}`;
+        const canvas = q(id);
+        if(!canvas || typeof crearChartBar !== "function") return;
+
+        crearChartBar(
+            id,
+            ["Meta real", "Venta real"],
+            [dato.meta, dato.venta],
+            "Valor",
+            `${dato.nombre}: meta real vs venta real`,
+            false,
+            "money",
+            {
+                metas:[0, dato.meta],
+                mostrarParticipacion:false,
+                legendLabel:"Valor | % cumplimiento | Estado"
+            }
+        );
+    }
+
+    function renderCategoriasMetaReal(){
+        try{
+            asegurarPanelCategoriasMetaReal();
+            ["PARTICULAR","RED","EXCEDENTES"].forEach(cat => {
+                const dato = datosCategoriaMetaReal(cat);
+                actualizarCardCategoria(dato);
+                pintarGraficaCategoria(dato);
+            });
+        }catch(error){
+            console.error("Error renderizando categoría meta real vs venta real:", error);
+        }
+    }
+
+    function actualizarTablaCategoriasConEstado(){
+        const tbody = document.querySelector("#tablaCategoriasVista tbody");
+        const theadRow = document.querySelector("#tablaCategoriasVista thead tr");
+        if(!tbody || !theadRow) return;
+
+        theadRow.innerHTML = `
+            <th>Categoría</th>
+            <th>Tipo</th>
+            <th>Cantidad atendida</th>
+            <th>Venta real</th>
+            <th>Participación</th>
+            <th>Meta real</th>
+            <th>Cumplimiento</th>
+            <th>Faltante</th>
+            <th>Estado</th>`;
+
+        const categorias = typeof agruparCategorias === "function" ? agruparCategorias(DATASET_FILTRADO || []) : {};
+        const total = typeof sumar === "function" ? sumar(DATASET_FILTRADO || []) : 0;
+        const orden = ["PARTICULAR","RED","EXCEDENTES","PLAN"];
+
+        tbody.innerHTML = orden.map(cat => {
+            const data = categorias[cat] || {cantidad:0, valor:0};
+            const generaVenta = typeof categoriaGeneraVenta === "function" ? categoriaGeneraVenta(cat) : cat !== "PLAN";
+            const meta = generaVenta ? (toNumber(metaCategoriaMensual(cat)) * (toNumber(MESES_EQUIVALENTES_ACTUAL) || 1)) : 0;
+            const venta = toNumber(data.valor);
+            const participacion = generaVenta && total > 0 ? (venta / total) * 100 : 0;
+            const cumplimiento = generaVenta && meta > 0 ? (venta / meta) * 100 : 0;
+            const faltante = Math.max(meta - venta, 0);
+
+            return `
+                <tr>
+                    <td><strong>${cat}</strong></td>
+                    <td>${generaVenta ? '<span class="badge badge-ok">Genera ventas</span>' : '<span class="badge badge-info">Solo cantidad</span>'}</td>
+                    <td>${formatNumber(toNumber(data.cantidad))}</td>
+                    <td>${generaVenta ? formatMoney(venta) : "-"}</td>
+                    <td>${generaVenta ? participacion.toFixed(1) + "%" : "-"}</td>
+                    <td>${generaVenta ? formatMoney(meta) : "-"}</td>
+                    <td>${generaVenta ? cumplimiento.toFixed(1) + "%" : "-"}</td>
+                    <td>${generaVenta ? formatMoney(faltante) : "-"}</td>
+                    <td>${generaVenta ? badgeEstado(cumplimiento) : '<span class="badge badge-info">No aplica</span>'}</td>
+                </tr>`;
+        }).join("");
+
+        try{ if(typeof activarTablasOrdenablesDashboard === "function") activarTablasOrdenablesDashboard(); }catch(e){}
+    }
+
+    const renderCategoriasAnterior = (typeof window.renderCategorias === "function")
+        ? window.renderCategorias
+        : (typeof renderCategorias === "function" ? renderCategorias : null);
+
+    window.renderCategorias = function(){
+        if(renderCategoriasAnterior){
+            try{ renderCategoriasAnterior(); }catch(error){ console.error("Error en renderCategorias base:", error); }
+        }
+        actualizarTablaCategoriasConEstado();
+        renderCategoriasMetaReal();
+    };
+
+    try{ renderCategorias = window.renderCategorias; }catch(error){}
+
+    function initCategoriasMetaReal(){
+        if(document.readyState === "loading") return;
+        renderCategoriasMetaReal();
+        actualizarTablaCategoriasConEstado();
+    }
+
+    document.addEventListener("click", event => {
+        if(event.target.closest('[data-seccion="categorias"]')){
+            setTimeout(() => {
+                try{ window.renderCategorias(); }catch(error){ console.error(error); }
+            }, 180);
+        }
+    });
+
+    setTimeout(initCategoriasMetaReal, 800);
+    setTimeout(initCategoriasMetaReal, 2200);
+
+    console.log("CATEGORIAS META REAL VS VENTA REAL ACTIVAS - VERSION " + VERSION_CATEGORIAS_META_REAL);
 })();
