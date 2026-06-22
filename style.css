@@ -2282,3 +2282,67 @@ body.modo-presentacion .topbar p{
 body.modo-presentacion #panelDiagnosticoCierre{
     display:none !important;
 }
+
+
+/* =========================================================
+   AJUSTE 20260802 - Botones superiores compactos y presentación
+   ========================================================= */
+.header-actions .action-btn,
+.header-actions .danger-btn{
+    font-size:8.8px !important;
+    padding:5px 7px !important;
+    min-height:28px !important;
+    border-radius:9px !important;
+    gap:4px !important;
+    line-height:1 !important;
+    letter-spacing:-.1px !important;
+    white-space:nowrap !important;
+}
+
+.header-actions .action-btn i,
+.header-actions .danger-btn i{
+    font-size:9px !important;
+    margin-right:3px !important;
+}
+
+.header-actions .icon-btn{
+    width:28px !important;
+    height:28px !important;
+    min-width:28px !important;
+    border-radius:9px !important;
+}
+
+.header-actions .icon-btn i{
+    font-size:12px !important;
+}
+
+#btnPresentacion.presentacion-activa,
+body.modo-presentacion #btnPresentacion{
+    background:linear-gradient(135deg,#004f2a 0%,#00a651 100%) !important;
+    color:#ffffff !important;
+    box-shadow:0 0 0 3px rgba(0,166,81,.18),0 12px 26px rgba(0,79,42,.22) !important;
+}
+
+body.modo-presentacion .sidebar,
+body.modo-presentacion .filtros,
+body.modo-presentacion .theme-dock,
+body.modo-presentacion .quick-theme-dock,
+body.modo-presentacion .toast-container,
+body.modo-presentacion .version-final-badge{
+    display:none !important;
+}
+
+body.modo-presentacion .main{
+    margin-left:0 !important;
+    width:100% !important;
+    padding:14px 22px !important;
+}
+
+body.modo-presentacion .topbar{
+    position:relative !important;
+    top:0 !important;
+}
+
+body.modo-presentacion .header-actions button:not(#btnPresentacion):not(#btnPdf):not(#btnExcel):not(#btnImagen){
+    display:none !important;
+}
