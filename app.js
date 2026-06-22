@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260730");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260801");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -886,7 +886,7 @@ async function cargarParametrosRemotos(){
 
 async function cargarDatosRemotos(){
     const fuentes = [
-        {nombre:"Apps Script", url:API_URL, tipo:"json"},
+        {nombre:"Fuente principal", url:API_URL, tipo:"json"},
         {nombre:"Google Sheets CSV", url:GOOGLE_SHEET_CSV_URL, tipo:"csv"}
     ];
 
@@ -937,7 +937,7 @@ async function cargarDashboard(){
         poblarFiltros();
         aplicarFiltrosYRender();
 
-        setEstadoApi("ok", `Conectado · ${remoto.fuente}`);
+        setEstadoApi("ok", "Datos actualizados");
         toast("Dashboard actualizado correctamente.");
 
     }catch(error){
@@ -8748,7 +8748,7 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
             poblarFiltros();
             aplicarFiltrosYRender();
-            setEstadoApi("ok", `Conectado · ${remoto.fuente}`);
+            setEstadoApi("ok", "Datos actualizados");
             toast(`Datos cargados desde ${remoto.fuente}: ${datosVentas.length} registros.`);
         }catch(error){
             console.error("[Dashboard] No fue posible cargar Google Sheet/API:", error);
@@ -8824,4 +8824,362 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     setTimeout(() => cargarDashboard(), 350);
 
     console.log("RECUPERACIÓN GOOGLE SHEET ACTIVA - VERSION " + VERSION_DATOS_GOOGLE_20260730);
+})();
+
+
+/* =========================================================
+   CIERRE FINAL 20260731
+   Modo presentación, cumplimiento robusto y validación final.
+   ========================================================= */
+(function(){
+    const VERSION_CIERRE_FINAL = "20260731";
+
+    function safeNumber(valor){
+        try{return toNumber(valor);}catch(e){return Number(valor)||0;}
+    }
+
+    function dinero(valor){
+        try{return formatMoney(valor);}catch(e){return '$' + Math.round(safeNumber(valor)).toLocaleString('es-CO');}
+    }
+
+    function badgeFinal(pct){
+        try{return badgeEstado(pct);}catch(e){
+            const estado = pct >= 100 ? 'Cumplida' : (pct >= 80 ? 'En riesgo' : 'No cumple');
+            return `<span class="badge">${estado}</span>`;
+        }
+    }
+
+    function mesesBase(anio){
+        const nombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        return nombres.map((nombre,i)=>({mes:i+1,nombre:`${nombre} ${anio}`}));
+    }
+
+    function getAnioFinal(){
+        try{return anioReferenciaFiltros();}catch(e){return new Date().getFullYear();}
+    }
+
+    function getFiltrosFinal(){
+        try{return obtenerFiltros();}catch(e){return {};}
+    }
+
+    function coincideNoFechaFinal(row, filtros){
+        try{return coincideFiltrosNoFecha(row, filtros);}catch(e){return true;}
+    }
+
+    function ventaFilaFinal(row){
+        return safeNumber(row?.valorVenta || row?.valorServicio || row?.valorExcedente || 0);
+    }
+
+    function ventaMensualFinal(rows, anio, mes, filtros){
+        return (rows || []).filter(row => {
+            const fecha = row.fecha instanceof Date ? row.fecha : (row.fecha ? new Date(row.fecha) : null);
+            return fecha && !isNaN(fecha.getTime()) && fecha.getFullYear() === anio && fecha.getMonth()+1 === mes && coincideNoFechaFinal(row, filtros);
+        }).reduce((acc,row)=>acc + ventaFilaFinal(row),0);
+    }
+
+    function metaMensualFinal(){
+        try{
+            const meta = metaMensualTotal();
+            return safeNumber(meta) > 0 ? safeNumber(meta) : safeNumber(META_MENSUAL_BASE || 219133881);
+        }catch(e){
+            return safeNumber(window.META_MENSUAL_BASE || 219133881);
+        }
+    }
+
+    function renderCumplimientoFinal(){
+        const rowsBase = Array.isArray(DATASET_NORMAL) ? DATASET_NORMAL : [];
+        const rowsFiltrados = Array.isArray(DATASET_FILTRADO) ? DATASET_FILTRADO : [];
+        const filtros = getFiltrosFinal();
+        const anio = getAnioFinal();
+        const meses = mesesBase(anio);
+        const ventas = meses.map(m => ventaMensualFinal(rowsBase, anio, m.mes, filtros));
+        const metaMensual = metaMensualFinal();
+        const metas = meses.map(()=>metaMensual);
+        const ventaRango = rowsFiltrados.reduce((a,row)=>a + ventaFilaFinal(row),0);
+        const metaRango = safeNumber(typeof META_RANGO_ACTUAL !== 'undefined' ? META_RANGO_ACTUAL : 0) || metaMensual;
+        const pctRango = metaRango > 0 ? (ventaRango / metaRango) * 100 : 0;
+        const faltanteRango = Math.max(metaRango - ventaRango, 0);
+        const totalMetaAnual = metas.reduce((a,b)=>a+b,0);
+        const totalVentaAnual = ventas.reduce((a,b)=>a+b,0);
+        const mejorIdx = ventas.reduce((best,v,i)=>safeNumber(v)>safeNumber(ventas[best]||0)?i:best,0);
+        const mesesConVenta = ventas.filter(v=>safeNumber(v)>0).length;
+
+        setHtml('cumplimientoMetaVista', dinero(metaRango));
+        setHtml('cumplimientoVentaVista', dinero(ventaRango));
+        setHtml('cumplimientoPctVista', `${pctRango.toFixed(1)}%`);
+        setHtml('cumplimientoFaltanteVista', dinero(faltanteRango));
+        setHtml('cumplimientoMejorMesVista', ventas.some(v=>safeNumber(v)>0) ? `${meses[mejorIdx].nombre.split(' ')[0]} ${dinero(ventas[mejorIdx])}` : 'Sin venta');
+        setHtml('cumplimientoMesesVentaVista', mesesConVenta);
+        setHtml('textoCumplimientoVista', `La meta del periodo seleccionado es <strong>${dinero(metaRango)}</strong>. La venta real filtrada es <strong>${dinero(ventaRango)}</strong>, con cumplimiento de <strong>${pctRango.toFixed(1)}%</strong>. ${faltanteRango > 0 ? `Faltante pendiente: <strong>${dinero(faltanteRango)}</strong>.` : 'La meta se encuentra cumplida o superada.'}`);
+
+        const tbody = document.querySelector('#tablaCumplimientoMensual tbody');
+        if(tbody){
+            tbody.innerHTML = meses.map((m,i)=>{
+                const venta = ventas[i];
+                const meta = metas[i];
+                const pct = meta > 0 ? (venta/meta)*100 : 0;
+                const faltante = Math.max(meta-venta,0);
+                return `<tr>
+                    <td>${m.nombre}</td>
+                    <td>${dinero(meta)}</td>
+                    <td>${dinero(venta)}</td>
+                    <td>${pct.toFixed(1)}%</td>
+                    <td>${dinero(faltante)}</td>
+                    <td>${badgeFinal(pct)}</td>
+                </tr>`;
+            }).join('');
+            if(typeof window.activarTablasOrdenablesDashboard === 'function') window.activarTablasOrdenablesDashboard();
+        }
+
+        try{
+            if(typeof crearChartLine === 'function'){
+                crearChartLine('graficoCumplimientoMensual', meses.map(m=>m.nombre), [
+                    {label:'Venta real', data:ventas, borderColor:'#008f46', backgroundColor:'rgba(0,143,70,.14)', fill:true, tension:.3},
+                    {label:'Meta mensual', data:metas, borderColor:'#f59e0b', borderDash:[8,6], fill:false, pointRadius:0}
+                ], `Ventas Mensuales vs Meta Mensual ${anio}`);
+            }
+        }catch(error){
+            console.error('[Cierre final] No se pudo pintar gráfica de cumplimiento:', error);
+        }
+
+        return {anio, registros:rowsBase.length, filtrados:rowsFiltrados.length, metaRango, ventaRango, pctRango, totalMetaAnual, totalVentaAnual};
+    }
+
+    window.renderCumplimientoMensual = renderCumplimientoFinal;
+
+    function insertarBadgeVersion(){
+        if(document.getElementById('versionFinalBadge')) return;
+        const div = document.createElement('div');
+        div.id = 'versionFinalBadge';
+        div.className = 'version-final-badge';
+        div.textContent = 'v' + VERSION_CIERRE_FINAL;
+        document.body.appendChild(div);
+    }
+
+    function activarSeccionDashboard(){
+        try{
+            document.querySelectorAll('.vista').forEach(v=>v.classList.remove('active-view'));
+            document.getElementById('dashboard')?.classList.add('active-view');
+            document.querySelectorAll('.menu-item').forEach(i=>i.classList.remove('active'));
+            document.querySelector('.menu-item[data-seccion="dashboard"]')?.classList.add('active');
+        }catch(e){}
+    }
+
+    function alternarPresentacion(){
+        document.body.classList.toggle('modo-presentacion');
+        const activo = document.body.classList.contains('modo-presentacion');
+        const btn = document.getElementById('btnPresentacion');
+        if(btn){
+            btn.title = activo ? 'Salir de presentación' : 'Modo presentación';
+            btn.innerHTML = activo ? '<i class="fas fa-xmark"></i>' : '<i class="fas fa-display"></i>';
+        }
+        if(activo) activarSeccionDashboard();
+        setTimeout(()=>{
+            try{ if(typeof redimensionarGraficos === 'function') redimensionarGraficos(); }catch(e){}
+        },250);
+    }
+
+    function asegurarBotonPresentacion(){
+        if(document.getElementById('btnPresentacion')) return;
+        const ref = document.getElementById('btnRecargar');
+        if(!ref || !ref.parentNode) return;
+        const btn = document.createElement('button');
+        btn.id = 'btnPresentacion';
+        btn.className = 'icon-btn';
+        btn.title = 'Modo presentación';
+        btn.innerHTML = '<i class="fas fa-display"></i>';
+        ref.parentNode.insertBefore(btn, ref);
+    }
+
+    function vincularPresentacion(){
+        asegurarBotonPresentacion();
+        const btn = document.getElementById('btnPresentacion');
+        if(!btn || btn.dataset.cierreVinculado === '1') return;
+        btn.dataset.cierreVinculado = '1';
+        btn.addEventListener('click', ev=>{
+            ev.preventDefault();
+            ev.stopPropagation();
+            alternarPresentacion();
+        });
+    }
+
+    function insertarDiagnostico(){
+        const resumen = document.querySelector('#dashboard .resumen-ejecutivo');
+        if(!resumen || document.getElementById('panelDiagnosticoCierre')) return;
+        const panel = document.createElement('div');
+        panel.id = 'panelDiagnosticoCierre';
+        panel.className = 'cierre-panel-diagnostico';
+        panel.innerHTML = 'Diagnóstico: <strong>cargando datos...</strong>';
+        resumen.insertAdjacentElement('afterend', panel);
+    }
+
+    function actualizarDiagnostico(){
+        const panel = document.getElementById('panelDiagnosticoCierre');
+        if(!panel) return;
+        const api = typeof API_STATUS !== 'undefined' ? API_STATUS : {};
+        const normal = Array.isArray(DATASET_NORMAL) ? DATASET_NORMAL.length : 0;
+        const filtrado = Array.isArray(DATASET_FILTRADO) ? DATASET_FILTRADO.length : 0;
+        const fuente = api?.mensaje || 'Sin validar';
+        panel.innerHTML = `Diagnóstico: <strong>${fuente}</strong> | Registros base: <strong>${normal}</strong> | Filtrados: <strong>${filtrado}</strong> | Última versión: <strong>${VERSION_CIERRE_FINAL}</strong>`;
+    }
+
+    window.validacionFinalDashboard = function(){
+        const resumen = {
+            version:VERSION_CIERRE_FINAL,
+            registrosApi:Array.isArray(DATASET_API)?DATASET_API.length:0,
+            registrosNormal:Array.isArray(DATASET_NORMAL)?DATASET_NORMAL.length:0,
+            registrosFiltrados:Array.isArray(DATASET_FILTRADO)?DATASET_FILTRADO.length:0,
+            fallecidosPlanes:Array.isArray(DATASET_FALLECIDOS_PLANES)?DATASET_FALLECIDOS_PLANES.length:0,
+            api:typeof API_STATUS !== 'undefined' ? API_STATUS.mensaje : 'Sin estado',
+            metaPeriodo:typeof META_RANGO_ACTUAL !== 'undefined' ? META_RANGO_ACTUAL : 0
+        };
+        console.table([resumen]);
+        actualizarDiagnostico();
+        return resumen;
+    };
+
+    document.addEventListener('click', ev=>{
+        const item = ev.target.closest('[data-seccion="cumplimiento"]');
+        if(item) setTimeout(()=>{try{renderCumplimientoFinal();}catch(e){console.error(e);}},150);
+    });
+
+    function cierreInit(){
+        vincularPresentacion();
+        insertarBadgeVersion();
+        insertarDiagnostico();
+        actualizarDiagnostico();
+        const tbody = document.querySelector('#tablaCumplimientoMensual tbody');
+        if(tbody && !tbody.children.length){
+            try{renderCumplimientoFinal();}catch(e){console.warn('[Cierre final] Cumplimiento aún no disponible:', e.message);}
+        }
+        try{ if(typeof activarTablasOrdenablesDashboard === 'function') activarTablasOrdenablesDashboard(); }catch(e){}
+    }
+
+    cierreInit();
+    setTimeout(cierreInit, 900);
+    setTimeout(cierreInit, 2200);
+    setInterval(actualizarDiagnostico, 10000);
+
+    console.log('CIERRE FINAL GERENCIAL ACTIVO - VERSION ' + VERSION_CIERRE_FINAL);
+})();
+
+
+/* =========================================================
+   AJUSTE UI GERENCIAL 20260801
+   Oculta estado técnico, mueve actualización al lateral y activa modo presentación.
+   ========================================================= */
+(function(){
+    const VERSION_UI_GERENCIAL = "20260801";
+
+    function byId(id){ return document.getElementById(id); }
+
+    function asegurarBotonPresentacionFinal(){
+        let btn = byId('btnPresentacion');
+        if(btn) return btn;
+        const ref = byId('btnRecargar');
+        if(!ref || !ref.parentNode) return null;
+        btn = document.createElement('button');
+        btn.id = 'btnPresentacion';
+        btn.className = 'icon-btn';
+        btn.title = 'Modo presentación';
+        btn.innerHTML = '<i class="fas fa-display"></i>';
+        ref.parentNode.insertBefore(btn, ref);
+        return btn;
+    }
+
+    function asegurarActualizacionLateral(){
+        const sidebar = document.querySelector('.sidebar');
+        if(!sidebar) return;
+
+        let footer = byId('sidebarActualizacion');
+        if(!footer){
+            footer = document.createElement('div');
+            footer.id = 'sidebarActualizacion';
+            footer.className = 'sidebar-footer-info';
+            footer.innerHTML = '<span>Última actualización</span><strong id="ultimaActualizacion">-</strong>';
+            sidebar.appendChild(footer);
+        }
+
+        const valor = byId('ultimaActualizacion');
+        if(valor && (!valor.textContent || valor.textContent.trim() === '-')){
+            valor.textContent = new Date().toLocaleString('es-CO');
+        }
+    }
+
+    function limpiarCabeceraTecnica(){
+        const estado = byId('estadoApi');
+        if(estado){
+            estado.innerHTML = '';
+            estado.setAttribute('aria-hidden', 'true');
+            estado.style.display = 'none';
+        }
+        document.querySelectorAll('.topbar .ultima-act').forEach(el => el.remove());
+    }
+
+    function activarVistaDashboardPresentacion(){
+        try{
+            document.querySelectorAll('.vista').forEach(v => v.classList.remove('active-view'));
+            byId('dashboard')?.classList.add('active-view');
+            document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+            document.querySelector('.menu-item[data-seccion="dashboard"]')?.classList.add('active');
+        }catch(error){
+            console.warn('No fue posible activar vista dashboard en presentación:', error);
+        }
+    }
+
+    function pintarBotonPresentacion(activo){
+        const btn = asegurarBotonPresentacionFinal();
+        if(!btn) return;
+        btn.classList.toggle('presentacion-activa', activo);
+        btn.title = activo ? 'Salir de presentación' : 'Modo presentación';
+        btn.innerHTML = activo ? '<i class="fas fa-xmark"></i>' : '<i class="fas fa-display"></i>';
+    }
+
+    function setModoPresentacionFinal(activo){
+        document.body.classList.toggle('modo-presentacion', activo);
+        localStorage.setItem('dashboardModoPresentacion', activo ? '1' : '0');
+        pintarBotonPresentacion(activo);
+        if(activo) activarVistaDashboardPresentacion();
+        setTimeout(() => {
+            try{ if(typeof aplicarFiltrosYRender === 'function') aplicarFiltrosYRender(); }catch(error){ console.warn(error); }
+            try{ if(typeof redimensionarGraficos === 'function') redimensionarGraficos(); }catch(error){ console.warn(error); }
+        }, 180);
+    }
+
+    function alternarModoPresentacionFinal(){
+        setModoPresentacionFinal(!document.body.classList.contains('modo-presentacion'));
+    }
+
+    function instalarClickPresentacionFinal(){
+        if(window.__presentacionFinalDelegada20260801) return;
+        window.__presentacionFinalDelegada20260801 = true;
+        document.addEventListener('click', function(event){
+            const btn = event.target.closest && event.target.closest('#btnPresentacion');
+            if(!btn) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if(typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+            alternarModoPresentacionFinal();
+        }, true);
+    }
+
+    function initUiGerencialFinal(){
+        limpiarCabeceraTecnica();
+        asegurarActualizacionLateral();
+        asegurarBotonPresentacionFinal();
+        instalarClickPresentacionFinal();
+        const activoGuardado = localStorage.getItem('dashboardModoPresentacion') === '1';
+        if(activoGuardado) setModoPresentacionFinal(true);
+        else pintarBotonPresentacion(false);
+    }
+
+    window.activarModoPresentacionDashboard = () => setModoPresentacionFinal(true);
+    window.salirModoPresentacionDashboard = () => setModoPresentacionFinal(false);
+    window.alternarModoPresentacionDashboard = alternarModoPresentacionFinal;
+
+    initUiGerencialFinal();
+    setTimeout(initUiGerencialFinal, 700);
+    setTimeout(initUiGerencialFinal, 1800);
+
+    console.log('AJUSTE UI GERENCIAL ACTIVO - VERSION ' + VERSION_UI_GERENCIAL);
 })();
