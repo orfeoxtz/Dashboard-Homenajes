@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260808");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260810");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -10824,3 +10824,135 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
 
 console.log("COMPACTACIÓN Y GRÁFICAS PRO ACTIVAS - VERSION 20260809");
+
+
+/* =========================================================
+   MODO CONTINUO COMPACTO 20260810
+   Elimina transiciones/jump entre secciones y muestra el dashboard
+   como scroll continuo, sin espacios largos entre vistas.
+   ========================================================= */
+(function(){
+    const VERSION_CONTINUO_COMPACTO = "20260810";
+    window.__DASHBOARD_MODO_CONTINUO_COMPACTO__ = true;
+
+    function q(sel){ return document.querySelector(sel); }
+    function qa(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+    function bloquearTransicionAutomatica(event){
+        // Bloquea únicamente los escuchadores anteriores que forzaban cambio de página.
+        // No se cancela el evento, por lo tanto el scroll normal del navegador continúa.
+        event.stopImmediatePropagation();
+    }
+
+    // Evita que los bloques 20260807/20260808 hagan saltos automáticos entre secciones.
+    window.addEventListener('wheel', bloquearTransicionAutomatica, {capture:true, passive:true});
+    window.addEventListener('touchend', bloquearTransicionAutomatica, {capture:true, passive:true});
+    window.addEventListener('keydown', function(event){
+        if(['PageDown','PageUp','ArrowDown','ArrowUp','Space'].includes(event.key)){
+            event.stopImmediatePropagation();
+        }
+    }, true);
+
+    function limpiarTextoMenu(texto){
+        return String(texto || '')
+            .replace(/[▲▼↕]/g,'')
+            .replace(/\s+/g,' ')
+            .trim();
+    }
+
+    function itemsMenu(){
+        return qa('.menu-item[data-seccion]').filter(item => {
+            const id = item.dataset.seccion;
+            return id && document.getElementById(id);
+        });
+    }
+
+    function compactarVistas(){
+        qa('.vista').forEach(vista => {
+            vista.style.display = 'block';
+            vista.style.minHeight = '0';
+            vista.style.marginBottom = '12px';
+            vista.style.paddingBottom = '0';
+            vista.classList.add('vista-continua-compacta');
+        });
+
+        qa('.next-section-indicator,.section-progress-chip,.section-transition-shade').forEach(el => {
+            el.style.display = 'none';
+            el.classList.remove('show');
+        });
+
+        document.body.classList.add('dashboard-continuo-compacto');
+        document.body.classList.remove('section-changing');
+    }
+
+    function actualizarMenuActivoPorId(id){
+        qa('.menu-item[data-seccion]').forEach(item => item.classList.toggle('active', item.dataset.seccion === id));
+        qa('.vista').forEach(vista => vista.classList.toggle('active-view', vista.id === id));
+    }
+
+    function cambiarVistaContinuo(seccion){
+        compactarVistas();
+        const vista = document.getElementById(seccion);
+        if(!vista) return;
+        actualizarMenuActivoPorId(seccion);
+
+        if(seccion === 'cumplimiento' && typeof renderCumplimientoMensual === 'function'){
+            setTimeout(renderCumplimientoMensual, 80);
+        }
+        if(seccion === 'tiempoAfiliado' && typeof renderTiempoAfiliado === 'function'){
+            setTimeout(renderTiempoAfiliado, 80);
+        }
+        if(seccion === 'dashboard' && typeof refrescarTablaGerencialConsolidada === 'function'){
+            setTimeout(refrescarTablaGerencialConsolidada, 100);
+        }
+        if(typeof prepararTablasOrdenables === 'function'){
+            setTimeout(prepararTablasOrdenables, 120);
+        }
+
+        vista.scrollIntoView({behavior:'smooth', block:'start'});
+        setTimeout(() => { try{ if(typeof redimensionarGraficos === 'function') redimensionarGraficos(); }catch(e){} }, 260);
+    }
+
+    function activarObservadorMenu(){
+        if(!('IntersectionObserver' in window)) return;
+        if(window.__OBS_CONTINUO_20260810__) return;
+        window.__OBS_CONTINUO_20260810__ = true;
+
+        const obs = new IntersectionObserver(entries => {
+            const visibles = entries
+                .filter(e => e.isIntersecting)
+                .sort((a,b) => Math.abs(a.boundingClientRect.top) - Math.abs(b.boundingClientRect.top));
+            const actual = visibles[0]?.target;
+            if(actual?.id) actualizarMenuActivoPorId(actual.id);
+        }, {root:null, rootMargin:'-90px 0px -58% 0px', threshold:[0.03,0.12,0.25]});
+
+        qa('.vista').forEach(v => obs.observe(v));
+    }
+
+    function instalarModoContinuo(){
+        compactarVistas();
+        window.cambiarVista = cambiarVistaContinuo;
+        try{ cambiarVista = cambiarVistaContinuo; }catch(e){}
+
+        itemsMenu().forEach(item => {
+            if(item.dataset.continuoCompacto20260810 === '1') return;
+            item.dataset.continuoCompacto20260810 = '1';
+            item.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                cambiarVistaContinuo(item.dataset.seccion);
+            }, true);
+        });
+
+        activarObservadorMenu();
+        setTimeout(() => { try{ if(typeof redimensionarGraficos === 'function') redimensionarGraficos(); }catch(e){} }, 500);
+    }
+
+    document.addEventListener('DOMContentLoaded', instalarModoContinuo);
+    setTimeout(instalarModoContinuo, 300);
+    setTimeout(instalarModoContinuo, 1200);
+    setTimeout(instalarModoContinuo, 3000);
+
+    window.activarModoContinuoCompactoDashboard = instalarModoContinuo;
+    console.log('MODO CONTINUO SIN TRANSICIONES ACTIVO - VERSION ' + VERSION_CONTINUO_COMPACTO);
+})();
