@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260806");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260808");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -10600,4 +10600,196 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
     });
 
     console.log('FLUJO CONTINUO ENTRE SECCIONES ACTIVO - VERSION ' + VERSION_FLUJO_CONTINUO);
+})();
+
+
+/* =========================================================
+   TRANSICIONES E INDICADOR DE SECCIÓN 20260808
+   Mejora visual del flujo continuo: transición suave, indicador
+   de próxima sección y progreso ejecutivo.
+   ========================================================= */
+(function(){
+    const VERSION_TRANSICION_SECCIONES = "20260808";
+    let indicador = null;
+    let progreso = null;
+    let sombra = null;
+    let cambioEnCurso = false;
+
+    function limpiarTextoMenu(texto){
+        return String(texto || "")
+            .replace(/[▲▼↕]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+    }
+
+    function itemsMenu(){
+        return Array.from(document.querySelectorAll('.menu-item[data-seccion]'))
+            .filter(item => item.dataset.seccion && document.getElementById(item.dataset.seccion));
+    }
+
+    function ordenSecciones(){
+        return itemsMenu().map(item => ({
+            id:item.dataset.seccion,
+            nombre:limpiarTextoMenu(item.textContent)
+        }));
+    }
+
+    function seccionActual(){
+        return document.querySelector('.vista.active-view')?.id || 'dashboard';
+    }
+
+    function indiceActual(){
+        const orden = ordenSecciones();
+        return orden.findIndex(s => s.id === seccionActual());
+    }
+
+    function crearElementos(){
+        if(!sombra){
+            sombra = document.createElement('div');
+            sombra.className = 'section-transition-shade';
+            document.body.appendChild(sombra);
+        }
+
+        if(!indicador){
+            indicador = document.createElement('button');
+            indicador.type = 'button';
+            indicador.className = 'next-section-indicator';
+            indicador.innerHTML = '<span class="next-mini">Siguiente sección</span><strong>—</strong><i>↓</i>';
+            document.body.appendChild(indicador);
+            indicador.addEventListener('click', () => irSiguienteSeccion());
+        }
+
+        if(!progreso){
+            progreso = document.createElement('div');
+            progreso.className = 'section-progress-chip';
+            progreso.innerHTML = '<span class="section-progress-dot"></span><span class="section-progress-text">Dashboard</span><span class="section-progress-count">1/1</span>';
+            document.body.appendChild(progreso);
+        }
+    }
+
+    function ocultarIndicadoresTecnicos(){
+        const estadoConexion = document.querySelector('#estadoConexion, .api-status, .conexion-status, .pill-status');
+        if(estadoConexion && /apps script|conectado/i.test(estadoConexion.textContent || '')){
+            estadoConexion.style.display = 'none';
+        }
+    }
+
+    function actualizarIndicador(){
+        crearElementos();
+        ocultarIndicadoresTecnicos();
+
+        if(document.body.classList.contains('modo-presentacion') || document.querySelector('.presentacion-overlay.active')){
+            indicador?.classList.remove('show');
+            progreso?.classList.remove('show');
+            return;
+        }
+
+        const orden = ordenSecciones();
+        const idx = indiceActual();
+        const actual = orden[idx] || orden[0];
+        const siguiente = orden[idx + 1];
+
+        if(progreso && actual){
+            progreso.querySelector('.section-progress-text').textContent = actual.nombre || actual.id;
+            progreso.querySelector('.section-progress-count').textContent = `${Math.max(idx+1,1)}/${Math.max(orden.length,1)}`;
+            progreso.classList.add('show');
+        }
+
+        const doc = document.documentElement;
+        const distanciaFinal = doc.scrollHeight - (window.scrollY + window.innerHeight);
+        const cercaFinal = distanciaFinal < 260;
+
+        if(indicador && siguiente && cercaFinal){
+            indicador.querySelector('strong').textContent = siguiente.nombre || siguiente.id;
+            indicador.classList.add('show');
+        }else{
+            indicador?.classList.remove('show');
+        }
+    }
+
+    function animarEntrada(id){
+        const vista = document.getElementById(id);
+        if(!vista) return;
+        vista.classList.remove('section-enter-active');
+        void vista.offsetWidth;
+        vista.classList.add('section-enter-active');
+        setTimeout(() => vista.classList.remove('section-enter-active'), 520);
+    }
+
+    function mostrarSombra(){
+        if(!sombra) return;
+        sombra.classList.add('show');
+        setTimeout(() => sombra.classList.remove('show'), 360);
+    }
+
+    const cambiarVistaBase = typeof window.cambiarVista === 'function' ? window.cambiarVista : (typeof cambiarVista === 'function' ? cambiarVista : null);
+
+    function cambiarVistaConTransicion(seccion){
+        if(!seccion || cambioEnCurso){
+            if(cambiarVistaBase) return cambiarVistaBase(seccion);
+            return;
+        }
+        cambioEnCurso = true;
+        mostrarSombra();
+        document.body.classList.add('section-changing');
+
+        try{
+            if(cambiarVistaBase) cambiarVistaBase(seccion);
+            window.scrollTo({top:0, behavior:'smooth'});
+            animarEntrada(seccion);
+        }catch(error){
+            console.warn('[20260808] No se pudo aplicar transición de sección:', error);
+        }finally{
+            setTimeout(() => {
+                document.body.classList.remove('section-changing');
+                cambioEnCurso = false;
+                actualizarIndicador();
+            }, 430);
+        }
+    }
+
+    function irSiguienteSeccion(){
+        const orden = ordenSecciones();
+        const idx = indiceActual();
+        const siguiente = orden[idx + 1];
+        if(!siguiente) return;
+        cambiarVistaConTransicion(siguiente.id);
+    }
+
+    function irAnteriorSeccion(){
+        const orden = ordenSecciones();
+        const idx = indiceActual();
+        const anterior = orden[idx - 1];
+        if(!anterior) return;
+        cambiarVistaConTransicion(anterior.id);
+    }
+
+    window.cambiarVista = cambiarVistaConTransicion;
+    try{ cambiarVista = cambiarVistaConTransicion; }catch(e){}
+    window.irSiguienteSeccionDashboard = irSiguienteSeccion;
+    window.irAnteriorSeccionDashboard = irAnteriorSeccion;
+    window.actualizarIndicadorSeccionDashboard = actualizarIndicador;
+
+    document.addEventListener('click', event => {
+        const item = event.target.closest('.menu-item[data-seccion]');
+        if(!item) return;
+        setTimeout(() => {
+            animarEntrada(item.dataset.seccion);
+            actualizarIndicador();
+        }, 90);
+    });
+
+    window.addEventListener('scroll', actualizarIndicador, {passive:true});
+    window.addEventListener('resize', actualizarIndicador);
+    document.addEventListener('DOMContentLoaded', () => {
+        crearElementos();
+        setTimeout(actualizarIndicador, 300);
+        setTimeout(actualizarIndicador, 1200);
+    });
+
+    setTimeout(() => { crearElementos(); actualizarIndicador(); }, 700);
+    setTimeout(actualizarIndicador, 2200);
+    setInterval(actualizarIndicador, 3500);
+
+    console.log('TRANSICIÓN E INDICADOR DE SECCIÓN ACTIVOS - VERSION ' + VERSION_TRANSICION_SECCIONES);
 })();
