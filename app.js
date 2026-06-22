@@ -10477,3 +10477,127 @@ console.log("MEJORAS VISUALES DE GRAFICAS ACTIVAS - VERSION 20260725");
 
     console.log('PRESENTACIÓN COMPLETA CON GRÁFICAS ACTIVA - VERSION ' + VERSION_PRESENTACION_COMPLETA);
 })();
+
+
+/* =========================================================
+   FLUJO CONTINUO ENTRE SECCIONES 20260807
+   Evita espacios muertos al final de una vista.
+   Si el usuario sigue bajando al final de una sección,
+   el dashboard cambia automáticamente a la siguiente.
+   ========================================================= */
+(function(){
+    const VERSION_FLUJO_CONTINUO = "20260807";
+    let ultimoCambioAuto = 0;
+    let ultimoSentido = 0;
+    const COOLDOWN = 700;
+
+    function ahora(){ return Date.now(); }
+    function puedeCambiar(){ return (ahora() - ultimoCambioAuto) > COOLDOWN; }
+    function marcarCambio(){ ultimoCambioAuto = ahora(); }
+
+    function menuItemsOrdenados(){
+        return Array.from(document.querySelectorAll('.menu-item[data-seccion]'))
+            .filter(item => item.dataset.seccion && !item.closest('.presentacion-modal'));
+    }
+
+    function seccionesOrdenadas(){
+        return menuItemsOrdenados().map(item => item.dataset.seccion);
+    }
+
+    function seccionActiva(){
+        return document.querySelector('.vista.active-view')?.id || 'dashboard';
+    }
+
+    function indiceSeccionActual(){
+        const orden = seccionesOrdenadas();
+        return orden.indexOf(seccionActiva());
+    }
+
+    function irASeccionPorIndice(idx){
+        const orden = seccionesOrdenadas();
+        if(idx < 0 || idx >= orden.length) return false;
+        const destino = orden[idx];
+        if(!destino) return false;
+        try{
+            if(typeof cambiarVista === 'function') cambiarVista(destino);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            marcarCambio();
+            return true;
+        }catch(error){
+            console.warn('[20260807] No se pudo cambiar automáticamente de sección:', error);
+            return false;
+        }
+    }
+
+    function alFinalDocumento(){
+        const doc = document.documentElement;
+        return (window.scrollY + window.innerHeight) >= (doc.scrollHeight - 10);
+    }
+
+    function alInicioDocumento(){
+        return window.scrollY <= 6;
+    }
+
+    function siguienteSeccion(){
+        if(!puedeCambiar()) return;
+        const idx = indiceSeccionActual();
+        if(idx < 0) return;
+        irASeccionPorIndice(idx + 1);
+    }
+
+    function seccionAnterior(){
+        if(!puedeCambiar()) return;
+        const idx = indiceSeccionActual();
+        if(idx <= 0) return;
+        irASeccionPorIndice(idx - 1);
+    }
+
+    window.addEventListener('wheel', function(event){
+        if(document.body.classList.contains('modo-presentacion')) return;
+        if(document.querySelector('.presentacion-overlay.active')) return;
+        const dy = Number(event.deltaY || 0);
+        if(!dy) return;
+
+        if(dy > 0){
+            ultimoSentido = 1;
+            if(alFinalDocumento()) siguienteSeccion();
+        }else if(dy < 0){
+            ultimoSentido = -1;
+            if(alInicioDocumento()) seccionAnterior();
+        }
+    }, { passive:true });
+
+    let touchStartY = 0;
+    window.addEventListener('touchstart', function(ev){
+        touchStartY = ev.touches?.[0]?.clientY || 0;
+    }, { passive:true });
+
+    window.addEventListener('touchend', function(ev){
+        if(document.body.classList.contains('modo-presentacion')) return;
+        if(document.querySelector('.presentacion-overlay.active')) return;
+        const endY = ev.changedTouches?.[0]?.clientY || 0;
+        const delta = touchStartY - endY;
+        if(Math.abs(delta) < 35) return;
+        if(delta > 0 && alFinalDocumento()) siguienteSeccion();
+        if(delta < 0 && alInicioDocumento()) seccionAnterior();
+    }, { passive:true });
+
+    document.addEventListener('keydown', function(ev){
+        if(document.body.classList.contains('modo-presentacion')) return;
+        if(document.querySelector('.presentacion-overlay.active')) return;
+        if(['PageDown','ArrowDown'].includes(ev.key) && alFinalDocumento()){
+            siguienteSeccion();
+        }else if(['PageUp','ArrowUp'].includes(ev.key) && alInicioDocumento()){
+            seccionAnterior();
+        }
+    });
+
+    // Cuando se cambia manualmente de vista, arrancar desde arriba.
+    document.addEventListener('click', function(ev){
+        const item = ev.target.closest('.menu-item[data-seccion]');
+        if(!item) return;
+        setTimeout(() => window.scrollTo({ top:0, behavior:'smooth' }), 40);
+    });
+
+    console.log('FLUJO CONTINUO ENTRE SECCIONES ACTIVO - VERSION ' + VERSION_FLUJO_CONTINUO);
+})();
