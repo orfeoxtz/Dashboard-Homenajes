@@ -1,4 +1,4 @@
-console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260810");
+console.log("APP.JS CARGADO CORRECTAMENTE - VERSION 20260811");
 
 const API_URL = "https://script.google.com/macros/s/AKfycbxEyu57a5spnJNju9t4654U8SDBrWFWQ0GWLibubGy5ntZsOV3N-TeL73423-a23j6FwA/exec";
 const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q1hyG-SXsMJdrgsLRIPiVlVePZuov4eJSYsb6l4EmyQ/export?format=csv&gid=223294406";
@@ -10955,4 +10955,604 @@ console.log("COMPACTACIÓN Y GRÁFICAS PRO ACTIVAS - VERSION 20260809");
 
     window.activarModoContinuoCompactoDashboard = instalarModoContinuo;
     console.log('MODO CONTINUO SIN TRANSICIONES ACTIVO - VERSION ' + VERSION_CONTINUO_COMPACTO);
+})();
+
+
+/* =========================================================
+   MIGRACIÓN 20260811 - NUEVOS ENCABEZADOS HOJA HOMENAJES
+   Encabezados compatibles:
+   FECHA, OSF, ENCARGADO DE SERVICIO, SEDE, TIPO DE HOMENAJE,
+   TIPO DE SERVICIO, NIVEL DE SERVICIO, PLAN, TIPO DE EXCEDENTE,
+   CANTIDAD, VALOR EXCEDENTE, VALOR VENTA SERVICIO FUNERARIO.
+   ========================================================= */
+(function(){
+    const VERSION_MIGRACION_HOMENAJES = "20260811";
+
+    function q(id){ return document.getElementById(id); }
+    function texto(v){ return String(v ?? "").trim(); }
+    function n(v){ return typeof toNumber === "function" ? toNumber(v) : (Number(v) || 0); }
+    function money(v){ return typeof formatMoney === "function" ? formatMoney(v) : "$" + Math.round(n(v)).toLocaleString("es-CO"); }
+    function num(v){ return typeof formatNumber === "function" ? formatNumber(v) : Math.round(n(v)).toLocaleString("es-CO"); }
+    function norm(v){ return typeof normalizarTexto === "function" ? normalizarTexto(v) : String(v ?? "").trim().toUpperCase(); }
+    function key(v){ return typeof normalizarLlave === "function" ? normalizarLlave(v) : String(v ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toUpperCase().replace(/[^A-Z0-9]/g,""); }
+    function esc(v){ return typeof escapeHtml === "function" ? escapeHtml(v) : String(v ?? ""); }
+
+    function campo(item, posibles){
+        return typeof getCampo === "function" ? getCampo(item, posibles) : "";
+    }
+
+    const MAPA_EXCEDENTES = {
+        CARTEL:"CARTELES", CARTELS:"CARTELES", CARTELES:"CARTELES",
+        ARREGLOFLORAL:"ARREGLO FLORAL", ARREGLOSFLORALES:"ARREGLO FLORAL", ARREGLOFLORALES:"ARREGLO FLORAL",
+        SERVICIODEVELACION:"SERVICIO DE VELACION", SERVICIOVELACION:"SERVICIO DE VELACION", VELACION:"SERVICIO DE VELACION", VELACIONES:"SERVICIO DE VELACION",
+        TRANSPORTEACOMPANANTE:"TRANSPORTE ACOMPAÑANTE", TRANSPORTEACOMPANAMIENTO:"TRANSPORTE ACOMPAÑANTE", SERVICIODEBUS:"TRANSPORTE ACOMPAÑANTE", BUS:"TRANSPORTE ACOMPAÑANTE", BUSES:"TRANSPORTE ACOMPAÑANTE",
+        TRASLADO:"TRASLADO", TRASLADOS:"TRASLADO",
+        HABITO:"HABITOS", HABITOS:"HABITOS",
+        COFRE:"COFRES", COFRES:"COFRES", EXCEDENTESPORCOFRES:"COFRES",
+        ALISTAMIENTO:"ALISTAMIENTO", ALISTAMIENTOS:"ALISTAMIENTO", PREPARACION:"ALISTAMIENTO", PREPARACIONES:"ALISTAMIENTO",
+        OTROSSERVICIOSADICIONALES:"OTROS SERVICIOS ADICIONALES", OTROSSERVICIOS:"OTROS SERVICIOS ADICIONALES", OTROS:"OTROS SERVICIOS ADICIONALES",
+        DESTINOFINAL:"DESTINO FINAL", DESTINOFINALES:"DESTINO FINAL", DESTINO:"DESTINO FINAL",
+        LAPIDA:"LAPIDA", LAPIDAS:"LAPIDA",
+        BASICO:"BASICOS", BASICOS:"BASICOS", BASICOSFUNERARIOS:"BASICOS",
+        SERVICIOFUNERARIO:"SERVICIO FUNERARIO", SERVICIOSFUNERARIOS:"SERVICIO FUNERARIO", SERVFUNERARIO:"SERVICIO FUNERARIO",
+        NOAPLICA:"NO APLICA", NA:"NO APLICA", NINGUNO:"NO APLICA", SINEXCEDENTE:"NO APLICA"
+    };
+
+    function canonizarExcedente(valor){
+        const original = texto(valor);
+        if(!original) return "";
+        const k = key(original);
+        return MAPA_EXCEDENTES[k] || norm(original).replace(/_/g," ").replace(/\s+/g," ").trim();
+    }
+
+    function esServicioBase(servicio){
+        const c = canonizarExcedente(servicio);
+        return ["", "NO APLICA", "SERVICIO FUNERARIO", "BASICOS", "N/A", "NA", "-", "SIN EXCEDENTE"].includes(c);
+    }
+
+    function esVentaParqueServicio(servicio){
+        const c = canonizarExcedente(servicio);
+        return c === "DESTINO FINAL" || c === "LAPIDA";
+    }
+
+    function esExcedenteReal(servicio){
+        const c = canonizarExcedente(servicio);
+        if(!c || esServicioBase(c) || esVentaParqueServicio(c)) return false;
+        return true;
+    }
+
+    function categoriaBaseDesdeHomenaje(row){
+        const cat = norm(row?.categoria || row?.tipoHomenaje || "");
+        const plan = norm(row?.plan || "");
+        const tipoServicio = norm(row?.tipoServicio || "");
+
+        if(cat.includes("PARTICULAR")) return "PARTICULAR";
+        if(cat.includes("RED")) return "RED";
+        if(cat.includes("PLAN") || cat.includes("PREVISION") || cat.includes("PREVISIÓN")) return "PLAN";
+        if(plan || tipoServicio.includes("PLAN")) return "PLAN";
+        return cat || "SIN CATEGORÍA";
+    }
+
+    window.canonizarExcedenteDashboard = canonizarExcedente;
+    window.esVentaParqueServicioDashboard = esVentaParqueServicio;
+
+    window.getFechaItem = function(item){
+        return campo(item, ["FECHA","Fecha","fecha","FECHA DE SERVICIO","Fecha Servicio"]);
+    };
+
+    window.getOrdenServicioItem = function(item){
+        return campo(item, ["OSF","ORDEN_SERVICIO_FUNERARIO","ORDEN SERVICIO FUNERARIO","Orden Servicio Funerario","Orden Servicio","Orden"]);
+    };
+
+    window.getGestorItem = function(item){
+        return campo(item, ["ENCARGADO DE SERVICIO","Encargado de Servicio","ENCARGADO_SERVICIO","GESTOR","Gestor","gestor","Asesor","Vendedor","Responsable"]);
+    };
+
+    window.getCategoriaItem = function(item){
+        return campo(item, ["TIPO DE HOMENAJE","Tipo de Homenaje","TIPO_HOMENAJE","Tipo_Homenaje","Tipo Homenaje","Categoria","Categoría","CATEGORIA","Tipo"]);
+    };
+
+    window.getTipoServicioItem = function(item){
+        return campo(item, ["TIPO DE SERVICIO","Tipo de Servicio","TIPO_SERVICIO","TIPO_SERVICIO_TIPOSRV","Tipo Servicio TipoSrv","Servicio"]);
+    };
+
+    window.getNivelServicioItem = function(item){
+        return campo(item, ["NIVEL DE SERVICIO","Nivel de Servicio","NIVEL_SERVICIO"]);
+    };
+
+    window.getPlanItem = function(item){
+        return campo(item, ["PLAN","Plan"]);
+    };
+
+    window.getServicioItem = function(item){
+        return campo(item, ["TIPO DE EXCEDENTE","Tipo de Excedente","TIPO_EXCEDENTE","Tipo_Excedente","Excedente","EXCEDENTE","Producto","Servicio"]);
+    };
+
+    window.getCantidadItem = function(item){
+        return campo(item, ["CANTIDAD","Cantidad","cantidad"]);
+    };
+
+    window.getValorServicioItem = function(item){
+        return campo(item, ["VALOR VENTA SERVICIO FUNERARIO","Valor Venta Servicio Funerario","VALOR_VENTA_SERVICIO_FUNERARIO","VALOR SERVICIO","Valor Servicio","VALOR_SERVICIO","Valor"]);
+    };
+
+    window.getValorExcedenteItem = function(item){
+        return campo(item, ["VALOR EXCEDENTE","Valor Excedente","VALOR_EXCEDENTE"]);
+    };
+
+    window.getValorItem = function(item){
+        return campo(item, ["VALOR VENTA SERVICIO FUNERARIO","VALOR SERVICIO","Valor Servicio","VALOR EXCEDENTE","Valor Excedente","Valor","VALOR","Venta","VENTA","Total","TOTAL"]);
+    };
+
+    window.esServicioExcedente = function(servicio){
+        return esExcedenteReal(servicio);
+    };
+
+    window.obtenerCategoriaGerencial = function(row){
+        const servicio = row?.tipoExcedente || row?.servicio || "";
+        if(esVentaParqueServicio(servicio)) return "PARQUE";
+        if(esExcedenteReal(servicio)) return "EXCEDENTES";
+        return categoriaBaseDesdeHomenaje(row);
+    };
+
+    window.categoriaGeneraVenta = function(categoria){
+        return ["PARTICULAR","RED","EXCEDENTES"].includes(norm(categoria));
+    };
+
+    window.normalizarRegistro = function(item, origen="API"){
+        const fecha = typeof parseFecha === "function" ? parseFecha(window.getFechaItem(item)) : null;
+        const valorServicio = n(window.getValorServicioItem(item));
+        const valorExcedente = n(window.getValorExcedenteItem(item));
+        const valorBase = n(window.getValorItem(item));
+        const tipoExcedenteOriginal = texto(window.getServicioItem(item));
+        const tipoExcedenteCanon = canonizarExcedente(tipoExcedenteOriginal);
+        const tipoServicio = texto(window.getTipoServicioItem(item));
+        const nivelServicio = texto(window.getNivelServicioItem(item));
+        const plan = texto(window.getPlanItem(item));
+        const cantidad = n(window.getCantidadItem(item)) || 1;
+        const valorOriginal = (valorServicio + valorExcedente) > 0 ? (valorServicio + valorExcedente) : valorBase;
+
+        const row = {
+            id:item.id || (typeof cryptoRandom === "function" ? cryptoRandom() : `id_${Date.now()}_${Math.random()}`),
+            origen,
+            raw:item,
+            fecha,
+            fechaTexto:window.getFechaItem(item),
+            valorOriginal,
+            valorServicio,
+            valorExcedente,
+            valorServicioFunerario:valorServicio,
+            valorParque:0,
+            ordenServicio:texto(window.getOrdenServicioItem(item)),
+            gestor:texto(window.getGestorItem(item)),
+            categoria:texto(window.getCategoriaItem(item)),
+            tipoHomenaje:texto(window.getCategoriaItem(item)),
+            servicio:tipoExcedenteCanon || tipoServicio,
+            tipoExcedente:tipoExcedenteCanon,
+            tipoExcedenteOriginal,
+            tipoServicio,
+            nivelServicio,
+            plan,
+            sede:texto(typeof getSedeItem === "function" ? getSedeItem(item) : campo(item,["SEDE","Sede"])),
+            clinica:texto(typeof getClinicaItem === "function" ? getClinicaItem(item) : ""),
+            municipio:texto(typeof getMunicipioItem === "function" ? getMunicipioItem(item) : ""),
+            tipoMuerte:texto(typeof getTipoMuerteItem === "function" ? getTipoMuerteItem(item) : ""),
+            cementerio:texto(typeof getCementerioItem === "function" ? getCementerioItem(item) : ""),
+            destinoFinal:texto(typeof getDestinoFinalItem === "function" ? getDestinoFinalItem(item) : ""),
+            observacion:texto(typeof getObservacionItem === "function" ? getObservacionItem(item) : ""),
+            cantidadAtendida:cantidad
+        };
+
+        row.categoriaGerencial = window.obtenerCategoriaGerencial(row);
+        row.esVentaParque = row.categoriaGerencial === "PARQUE";
+
+        if(row.esVentaParque){
+            row.valorParque = valorExcedente > 0 ? valorExcedente : (valorServicio > 0 ? valorServicio : valorOriginal);
+            row.valorVenta = 0;
+            row.generaVenta = false;
+        }else if(row.categoriaGerencial === "EXCEDENTES"){
+            row.valorVenta = valorExcedente > 0 ? valorExcedente : valorOriginal;
+            row.generaVenta = true;
+        }else if(row.categoriaGerencial === "PARTICULAR" || row.categoriaGerencial === "RED"){
+            row.valorVenta = valorServicio > 0 ? valorServicio : valorOriginal;
+            row.generaVenta = true;
+        }else{
+            row.valorVenta = 0;
+            row.generaVenta = false;
+        }
+
+        return row;
+    };
+
+    window.parametrosBaseDashboard = function(){
+        return [
+            {Tipo:"SEDE", Nombre:"Monteria", Valor:219133881},
+            {Tipo:"GESTOR", Nombre:"Fernando Argel", Valor:25000000},
+            {Tipo:"GESTOR", Nombre:"Osvaldo Ramos", Valor:25000000},
+            {Tipo:"GESTOR", Nombre:"Carlos Lopez", Valor:25000000},
+            {Tipo:"GESTOR", Nombre:"Alexis Ayazo", Valor:25000000},
+            {Tipo:"GESTOR", Nombre:"Wendy Cordero", Valor:7000000},
+            {Tipo:"META_CATEGORIA", Nombre:"PARTICULAR", Valor:69090369},
+            {Tipo:"META_CATEGORIA", Nombre:"RED", Valor:127371072},
+            {Tipo:"META_CATEGORIA", Nombre:"EXCEDENTES", Valor:22672440},
+            {Tipo:"META_EXCEDENTE", Nombre:"CARTELES", Valor:136560},
+            {Tipo:"META_EXCEDENTE", Nombre:"ARREGLO_FLORAL", Valor:4727400},
+            {Tipo:"META_EXCEDENTE", Nombre:"SERVICIO_DE_VELACION", Valor:4564800},
+            {Tipo:"META_EXCEDENTE", Nombre:"TRANSPORTE_ACOMPAÑANTE", Valor:510000},
+            {Tipo:"META_EXCEDENTE", Nombre:"TRASLADO", Valor:1835280},
+            {Tipo:"META_EXCEDENTE", Nombre:"HABITOS", Valor:214800},
+            {Tipo:"META_EXCEDENTE", Nombre:"COFRES", Valor:9558000},
+            {Tipo:"META_EXCEDENTE", Nombre:"ALISTAMIENTO", Valor:60000},
+            {Tipo:"META_EXCEDENTE", Nombre:"OTROS SERVICIOS ADICIONALES", Valor:1068600},
+            {Tipo:"META_EXCEDENTE", Nombre:"DESTINO_FINAL", Valor:0},
+            {Tipo:"META_EXCEDENTE", Nombre:"LAPIDA", Valor:0}
+        ];
+    };
+
+    window.esFilaParametro = function(item){
+        const tipo = norm(campo(item, ["Tipo","TIPO","tipo"]));
+        const nombre = campo(item, ["Nombre","NOMBRE","nombre"]);
+        const valor = campo(item, ["Valor","VALOR","valor"]);
+        return ["GESTOR","META_CATEGORIA","META_EXCEDENTE","SEDE"].includes(tipo)
+            && texto(nombre) !== ""
+            && texto(valor) !== "";
+    };
+
+    window.procesarParametros = function(datos){
+        PARAMETROS = {gestor:{}, categoria:{}, excedente:{}};
+        const fuenteParametros = [...window.parametrosBaseDashboard(), ...(Array.isArray(datos) ? datos : [])];
+
+        fuenteParametros.filter(window.esFilaParametro).forEach(item => {
+            const tipo = norm(campo(item, ["Tipo","TIPO","tipo"]));
+            const nombreOriginal = texto(campo(item, ["Nombre","NOMBRE","nombre"]));
+            const valor = n(campo(item, ["Valor","VALOR","valor"]));
+            if(!nombreOriginal) return;
+
+            if(tipo === "GESTOR" && valor > 0) PARAMETROS.gestor[norm(nombreOriginal)] = valor;
+            if(tipo === "META_CATEGORIA" && valor > 0) PARAMETROS.categoria[norm(nombreOriginal)] = valor;
+            if(tipo === "META_EXCEDENTE"){
+                const canon = canonizarExcedente(nombreOriginal);
+                PARAMETROS.excedente[canon] = valor;
+            }
+        });
+
+        try{ if(typeof procesarParametrosManuales === "function") procesarParametrosManuales(); }catch(error){}
+
+        const totalCategoria =
+            (PARAMETROS.categoria["PARTICULAR"] || 0) +
+            (PARAMETROS.categoria["RED"] || 0) +
+            (PARAMETROS.categoria["EXCEDENTES"] || 0);
+
+        if(totalCategoria > 0) META_MENSUAL_BASE = totalCategoria;
+    };
+
+    window.metaExcedenteMensual = function(nombre){
+        const canon = canonizarExcedente(nombre);
+        const normal = norm(nombre);
+        const llave = key(nombre);
+        return n(PARAMETROS?.excedente?.[canon]) || n(PARAMETROS?.excedente?.[normal]) || n(PARAMETROS?.excedente?.[llave]) || 0;
+    };
+
+    window.validarEstructuraApi = function(datos){
+        const columnas = datos.length ? Object.keys(datos[0]) : [];
+        const existe = nombres => nombres.some(req => columnas.some(c => key(c) === key(req)));
+        const faltantes = [];
+
+        if(!existe(["FECHA","Fecha"])) faltantes.push("FECHA");
+        if(!existe(["OSF","ORDEN_SERVICIO_FUNERARIO","ORDEN SERVICIO FUNERARIO"])) faltantes.push("OSF");
+        if(!existe(["ENCARGADO DE SERVICIO","GESTOR","Gestor"])) faltantes.push("ENCARGADO DE SERVICIO");
+        if(!existe(["TIPO DE HOMENAJE","TIPO_HOMENAJE","Tipo_Homenaje"])) faltantes.push("TIPO DE HOMENAJE");
+        if(!existe(["TIPO DE EXCEDENTE","TIPO_EXCEDENTE","Tipo_Excedente"])) faltantes.push("TIPO DE EXCEDENTE");
+        if(!existe(["VALOR VENTA SERVICIO FUNERARIO","VALOR SERVICIO","VALOR EXCEDENTE"])) faltantes.push("VALOR VENTA SERVICIO FUNERARIO / VALOR EXCEDENTE");
+        if(!existe(["SEDE","Sede"])) faltantes.push("SEDE");
+
+        return {
+            ok:datos.length > 0 && faltantes.length === 0,
+            mensaje:datos.length === 0 ? "Sin registros API" : faltantes.length ? `Columnas incompletas: ${faltantes.join(", ")}` : "Estructura HOMENAJES válida",
+            registros:datos.length,
+            columnas,
+            faltantes
+        };
+    };
+
+    window.agruparParque = function(rows){
+        const obj = {
+            "DESTINO FINAL":{nombre:"DESTINO FINAL", cantidad:0, valor:0},
+            "LAPIDA":{nombre:"LAPIDA", cantidad:0, valor:0}
+        };
+
+        (rows || []).forEach(row => {
+            if(!(row.esVentaParque || row.categoriaGerencial === "PARQUE")) return;
+            const nombre = canonizarExcedente(row.tipoExcedente || row.servicio || "DESTINO FINAL") || "DESTINO FINAL";
+            if(!obj[nombre]) obj[nombre] = {nombre, cantidad:0, valor:0};
+            obj[nombre].cantidad += n(row.cantidadAtendida) || 1;
+            obj[nombre].valor += n(row.valorParque || row.valorOriginal);
+        });
+
+        return obj;
+    };
+
+    window.agruparCategorias = function(rows){
+        const obj = {
+            PARTICULAR:{categoria:"PARTICULAR", cantidad:0, valor:0, generaVenta:true},
+            RED:{categoria:"RED", cantidad:0, valor:0, generaVenta:true},
+            EXCEDENTES:{categoria:"EXCEDENTES", cantidad:0, valor:0, generaVenta:true},
+            PLAN:{categoria:"PLAN", cantidad:0, valor:0, generaVenta:false},
+            PARQUE:{categoria:"PARQUE", cantidad:0, valor:0, generaVenta:false}
+        };
+
+        (rows || []).forEach(row => {
+            const cat = row.categoriaGerencial || "SIN CATEGORÍA";
+            if(!obj[cat]) obj[cat] = {categoria:cat, cantidad:0, valor:0, generaVenta:window.categoriaGeneraVenta(cat)};
+            obj[cat].cantidad += n(row.cantidadAtendida) || 1;
+            obj[cat].valor += cat === "PARQUE" ? n(row.valorParque) : (window.categoriaGeneraVenta(cat) ? n(row.valorVenta) : 0);
+        });
+
+        return obj;
+    };
+
+    window.agruparExcedentes = function(rows){
+        const obj = {};
+
+        Object.keys(PARAMETROS?.excedente || {}).forEach(nombre => {
+            const canon = canonizarExcedente(nombre);
+            if(!canon || esVentaParqueServicio(canon) || esServicioBase(canon)) return;
+            if(window.metaExcedenteMensual(canon) <= 0 && !(rows || []).some(r => canonizarExcedente(r.tipoExcedente || r.servicio) === canon)) return;
+            obj[canon] = {nombre:canon, cantidad:0, valor:0};
+        });
+
+        (rows || []).forEach(row => {
+            if(row.categoriaGerencial !== "EXCEDENTES") return;
+            const nombre = canonizarExcedente(row.tipoExcedente || row.servicio) || "EXCEDENTES";
+            if(esVentaParqueServicio(nombre) || esServicioBase(nombre)) return;
+            if(!obj[nombre]) obj[nombre] = {nombre, cantidad:0, valor:0};
+            obj[nombre].cantidad += n(row.cantidadAtendida) || 1;
+            obj[nombre].valor += n(row.valorVenta);
+        });
+
+        return obj;
+    };
+
+    window.calcularResumen = function(rows){
+        const categorias = window.agruparCategorias(rows || []);
+        const particular = categorias.PARTICULAR || {cantidad:0, valor:0};
+        const red = categorias.RED || {cantidad:0, valor:0};
+        const excedentes = categorias.EXCEDENTES || {cantidad:0, valor:0};
+        const plan = categorias.PLAN || {cantidad:0, valor:0};
+        const parque = categorias.PARQUE || {cantidad:0, valor:0};
+
+        return {
+            particular:particular.valor,
+            red:red.valor,
+            excedentes:excedentes.valor,
+            parque:parque.valor,
+            parqueCantidad:parque.cantidad,
+            planCantidad:plan.cantidad,
+            total:particular.valor + red.valor + excedentes.valor
+        };
+    };
+
+    function forzarFuncionesGlobales(){
+        ["getFechaItem","getOrdenServicioItem","getGestorItem","getCategoriaItem","getTipoServicioItem","getServicioItem","getValorServicioItem","getValorExcedenteItem","getValorItem","getCantidadItem","esServicioExcedente","obtenerCategoriaGerencial","categoriaGeneraVenta","normalizarRegistro","parametrosBaseDashboard","esFilaParametro","procesarParametros","metaExcedenteMensual","validarEstructuraApi","agruparParque","agruparCategorias","agruparExcedentes","calcularResumen"].forEach(nombre => {
+            try{ eval(`${nombre} = window.${nombre}`); }catch(error){}
+        });
+    }
+
+    function insertarKpiParque(){
+        const contenedor = document.querySelector(".categoria-kpis");
+        if(!contenedor || q("kpiParqueValor")) return;
+
+        const card = document.createElement("div");
+        card.className = "card card-categoria parque card-parque-dashboard";
+        card.innerHTML = `
+            <h3>🌳 Ventas Parque</h3>
+            <h2 id="kpiParqueValor">$0</h2>
+            <p class="mini-text" id="kpiParqueCantidad">Destino final + lápidas | 0 registros</p>`;
+        contenedor.appendChild(card);
+    }
+
+    function resumenParque(rows){
+        const parque = Object.values(window.agruparParque(rows || []));
+        return {
+            detalle:parque,
+            total:parque.reduce((acc,item) => acc + n(item.valor), 0),
+            cantidad:parque.reduce((acc,item) => acc + n(item.cantidad), 0)
+        };
+    }
+
+    function renderKpiParque(){
+        insertarKpiParque();
+        const info = resumenParque(DATASET_FILTRADO || []);
+        if(q("kpiParqueValor")) q("kpiParqueValor").textContent = money(info.total);
+        if(q("kpiParqueCantidad")) q("kpiParqueCantidad").textContent = `Destino final + lápidas | ${num(info.cantidad)} registros | No suma meta homenajes`;
+    }
+
+    function asegurarPanelParque(){
+        if(q("panelVentasParque")) return q("panelVentasParque");
+        const tablaCategorias = q("tablaCategoriasVista");
+        const contenedorTabla = tablaCategorias?.closest(".tabla-cumplimiento");
+        const vistaCategorias = q("categorias");
+        if(!vistaCategorias) return null;
+
+        const panel = document.createElement("div");
+        panel.id = "panelVentasParque";
+        panel.className = "tabla-cumplimiento parque-panel";
+        panel.innerHTML = `
+            <h2>Ventas realizadas para Parque Jardín Cementerio Los Olivos</h2>
+            <p class="parque-nota">Destino final y lápidas se separan de Excedentes. Se informan como ventas dirigidas a Parque y no tienen meta de homenajes.</p>
+            <table id="tablaVentasParque">
+                <thead>
+                    <tr>
+                        <th>Concepto parque</th>
+                        <th>Cantidad</th>
+                        <th>Venta realizada</th>
+                        <th>Tratamiento gerencial</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>`;
+
+        if(contenedorTabla?.parentNode) contenedorTabla.parentNode.insertBefore(panel, contenedorTabla.nextSibling);
+        else vistaCategorias.appendChild(panel);
+        return panel;
+    }
+
+    function renderTablaParque(){
+        asegurarPanelParque();
+        const tbody = document.querySelector("#tablaVentasParque tbody");
+        if(!tbody) return;
+        const info = resumenParque(DATASET_FILTRADO || []);
+        const filas = info.detalle.filter(item => n(item.valor) > 0 || n(item.cantidad) > 0);
+
+        tbody.innerHTML = filas.length ? filas.map(item => `
+            <tr>
+                <td><strong>${esc(item.nombre)}</strong></td>
+                <td>${num(item.cantidad)}</td>
+                <td>${money(item.valor)}</td>
+                <td><span class="badge badge-info">Venta parque | Sin meta homenaje</span></td>
+            </tr>`).join("") + `
+            <tr>
+                <td><strong>Total ventas Parque</strong></td>
+                <td><strong>${num(info.cantidad)}</strong></td>
+                <td><strong>${money(info.total)}</strong></td>
+                <td><span class="badge badge-info">Informativo</span></td>
+            </tr>` : `<tr><td colspan="4">Sin ventas de Destino Final o Lápidas en el rango seleccionado.</td></tr>`;
+    }
+
+    function actualizarTablaCategoriasParque(){
+        const tbody = document.querySelector("#tablaCategoriasVista tbody");
+        const theadRow = document.querySelector("#tablaCategoriasVista thead tr");
+        if(!tbody || !theadRow) return;
+
+        theadRow.innerHTML = `
+            <th>Categoría</th>
+            <th>Tipo</th>
+            <th>Cantidad atendida</th>
+            <th>Venta real</th>
+            <th>Participación</th>
+            <th>Meta real</th>
+            <th>Cumplimiento</th>
+            <th>Faltante</th>
+            <th>Estado</th>`;
+
+        const categorias = window.agruparCategorias(DATASET_FILTRADO || []);
+        const totalGerencial = (typeof sumar === "function" ? sumar(DATASET_FILTRADO || []) : 0);
+        const totalParque = n(categorias.PARQUE?.valor);
+        const orden = ["PARTICULAR","RED","EXCEDENTES","PLAN","PARQUE"];
+
+        tbody.innerHTML = orden.map(cat => {
+            const data = categorias[cat] || {cantidad:0, valor:0};
+            const esParque = cat === "PARQUE";
+            const generaVenta = window.categoriaGeneraVenta(cat);
+            const meta = generaVenta ? n(metaCategoriaMensual(cat)) * (n(MESES_EQUIVALENTES_ACTUAL) || 1) : 0;
+            const venta = n(data.valor);
+            const baseParticipacion = esParque ? totalParque : totalGerencial;
+            const participacion = baseParticipacion > 0 ? (venta / baseParticipacion) * 100 : 0;
+            const cumplimiento = generaVenta && meta > 0 ? (venta / meta) * 100 : 0;
+            const faltante = Math.max(meta - venta, 0);
+            const tipo = esParque ? '<span class="badge badge-info">Venta Parque</span>' : (generaVenta ? '<span class="badge badge-ok">Genera ventas</span>' : '<span class="badge badge-info">Solo cantidad</span>');
+            const estado = esParque ? '<span class="badge badge-info">Sin meta homenaje</span>' : (generaVenta ? badgeEstado(cumplimiento) : '<span class="badge badge-info">No aplica</span>');
+
+            return `
+                <tr>
+                    <td><strong>${cat === "PARQUE" ? "VENTAS PARQUE" : cat}</strong></td>
+                    <td>${tipo}</td>
+                    <td>${num(data.cantidad)}</td>
+                    <td>${(generaVenta || esParque) ? money(venta) : "-"}</td>
+                    <td>${(generaVenta || esParque) ? participacion.toFixed(1) + "%" : "-"}</td>
+                    <td>${generaVenta ? money(meta) : "-"}</td>
+                    <td>${generaVenta ? cumplimiento.toFixed(1) + "%" : "-"}</td>
+                    <td>${generaVenta ? money(faltante) : "-"}</td>
+                    <td>${estado}</td>
+                </tr>`;
+        }).join("");
+    }
+
+    function actualizarSelectCategoriaParque(){
+        const select = q("filtroCategoria");
+        if(!select || Array.from(select.options).some(opt => opt.value === "PARQUE")) return;
+        const option = document.createElement("option");
+        option.value = "PARQUE";
+        option.textContent = "PARQUE";
+        select.appendChild(option);
+    }
+
+    const renderCategoriasPrev = typeof renderCategorias === "function" ? renderCategorias : null;
+    window.renderCategorias = function(){
+        if(renderCategoriasPrev){
+            try{ renderCategoriasPrev(); }catch(error){ console.error("Error renderCategorias anterior:", error); }
+        }
+        actualizarTablaCategoriasParque();
+        renderTablaParque();
+        renderKpiParque();
+    };
+
+    const renderDatosPrev = typeof renderDatos === "function" ? renderDatos : null;
+    window.renderDatos = function(){
+        if(renderDatosPrev){
+            try{ renderDatosPrev(); }catch(error){ console.error("Error renderDatos anterior:", error); }
+        }
+        const tbody = document.querySelector("#tablaBaseDatos tbody");
+        if(!tbody) return;
+        const muestra = (DATASET_FILTRADO || []).slice(0, 70);
+        tbody.innerHTML = muestra.length ? muestra.map(row => {
+            const valorMostrar = row.categoriaGerencial === "PARQUE" ? n(row.valorParque) : n(row.valorVenta);
+            return `
+                <tr>
+                    <td>${esc(row.origen)}</td>
+                    <td>${esc(row.fechaTexto || "-")}</td>
+                    <td>${esc(row.gestor || "-")}</td>
+                    <td>${esc(row.categoriaGerencial || "-")}</td>
+                    <td>${esc(row.servicio || "-")}</td>
+                    <td>${esc(row.sede || "-")}</td>
+                    <td>${money(valorMostrar)}</td>
+                </tr>`;
+        }).join("") : `<tr><td colspan="7">Sin registros</td></tr>`;
+    };
+
+    const renderTodoPrev = typeof renderTodo === "function" ? renderTodo : null;
+    window.renderTodo = function(resumen, metaInfo){
+        if(renderTodoPrev){
+            try{ renderTodoPrev(resumen, metaInfo); }catch(error){ console.error("Error renderTodo anterior:", error); }
+        }
+        actualizarSelectCategoriaParque();
+        renderKpiParque();
+        renderTablaParque();
+        actualizarTablaCategoriasParque();
+    };
+
+    function aplicarParches(){
+        forzarFuncionesGlobales();
+        try{ renderCategorias = window.renderCategorias; }catch(error){}
+        try{ renderDatos = window.renderDatos; }catch(error){}
+        try{ renderTodo = window.renderTodo; }catch(error){}
+        actualizarSelectCategoriaParque();
+        insertarKpiParque();
+        renderKpiParque();
+        renderTablaParque();
+    }
+
+    aplicarParches();
+    document.addEventListener("DOMContentLoaded", aplicarParches);
+    setTimeout(aplicarParches, 500);
+    setTimeout(aplicarParches, 1600);
+
+    window.diagnosticoMigracionHomenajes20260811 = function(){
+        const rows = DATASET_NORMAL || [];
+        const filtrados = DATASET_FILTRADO || [];
+        const parque = resumenParque(filtrados);
+        const resumen = typeof calcularResumen === "function" ? calcularResumen(filtrados) : {};
+        console.table({
+            registrosNormalizados:rows.length,
+            registrosFiltrados:filtrados.length,
+            ventaParticular:resumen.particular || 0,
+            ventaRed:resumen.red || 0,
+            ventaExcedentes:resumen.excedentes || 0,
+            ventaParque:parque.total,
+            cantidadParque:parque.cantidad
+        });
+        return {rows, filtrados, resumen, parque, parametros:PARAMETROS};
+    };
+
+    console.log("MIGRACIÓN NUEVOS ENCABEZADOS HOMENAJES ACTIVA - VERSION " + VERSION_MIGRACION_HOMENAJES);
 })();
