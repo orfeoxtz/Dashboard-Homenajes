@@ -3043,3 +3043,48 @@ body.dashboard-continuo-compacto #graficoEnergiaCosto{
 body.dashboard-continuo-compacto .menu-item.active{
     box-shadow:inset 4px 0 0 rgba(255,255,255,.95),0 8px 18px rgba(0,0,0,.10) !important;
 }
+
+
+/* =========================================================
+   MIGRACIÓN 20260811 - Nuevos encabezados HOMENAJES
+   Compactación visual y casilla Ventas Parque
+   ========================================================= */
+.card-categoria.parque,
+.card-parque-dashboard{
+    border-top:5px solid #0f766e !important;
+}
+.card-categoria.parque h3,
+.card-parque-dashboard h3{
+    color:#0f766e !important;
+}
+.parque-panel{
+    border-left:5px solid #0f766e !important;
+    background:linear-gradient(180deg,#ffffff 0%,#f0fdfa 100%) !important;
+}
+.parque-panel .parque-nota{
+    color:#475569;
+    font-size:11px;
+    font-weight:700;
+    margin:0 0 10px;
+    line-height:1.45;
+}
+body.dark-mode .parque-panel,
+body.theme-dark .parque-panel,
+body.theme-slate .parque-panel{
+    background:linear-gradient(180deg,#111827 0%,#0f172a 100%) !important;
+}
+body.dark-mode .parque-panel .parque-nota,
+body.theme-dark .parque-panel .parque-nota,
+body.theme-slate .parque-panel .parque-nota{
+    color:#cbd5e1 !important;
+}
+.vista-continua-compacta{
+    margin-bottom:10px !important;
+    padding-bottom:0 !important;
+}
+.dashboard-continuo-compacto .grafico-card,
+.dashboard-continuo-compacto .tabla-cumplimiento,
+.dashboard-continuo-compacto .resumen-ejecutivo,
+.dashboard-continuo-compacto .card-big{
+    margin-bottom:10px !important;
+}
